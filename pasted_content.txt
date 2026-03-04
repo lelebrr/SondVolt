@@ -1,0 +1,146 @@
+Você é um engenheiro especialista em Arduino Uno R3 com mais de 15 anos de experiência em projetos otimizados para memória limitada (máximo 32 KB Flash útil e 2 KB RAM). Crie do zero o projeto completo chamado **"Component Tester PRO v2.0"** usando **PlatformIO no VS Code**.
+
+### 1. OBJETIVO FINAL DO PROJETO
+Um component tester multifuncional profissional com tela colorida, navegação por 6 botões físicos, apenas 2 saídas para ponteiras (o usuário troca manualmente entre ponta de agulha e garra jacaré), 2 LEDs de status (verde e vermelho), sonda térmica portátil DS18B20 (para encostar manualmente nos componentes e detectar aquecimento), desenhos pixel art realistas low-res dos componentes (não símbolos esquemáticos), julgamento automático Good/Average/Bad, logging completo no SD Card, buzzer para continuidade e alertas, banco de componentes compatíveis, e todas as 39 funcionalidades leves acumuladas.
+
+### 2. HARDWARE EXATO – PINAGEM OBRIGATÓRIA (sem bateria, sem touch)
+
+Arduino Uno R3
+- A0 → Probe 1 (+) – saída única para ponteira (agulha ou jacaré vermelha)
+- A1 → Probe 2 (-) – saída única para ponteira (agulha ou jacaré preta)
+- GND → terra comum (conectado à garra preta ou diretamente no componente)
+- D2 → Botão Cima (Up)
+- D3 → Botão Baixo (Down)
+- D5 → Botão Esquerda (Left)
+- D6 → Botão Direita (Right)
+- D7 → Botão Selecionar (OK/Enter)
+- D8 → Botão Voltar (Back/Esc)
+- D9 → Buzzer piezoativo ativo 5V
+- D10 → LED Verde (status Good/Ready – HIGH = ligado)
+- D11 → LED Vermelho (status Bad/Overload/Short – HIGH = ligado)
+- D12 → TFT CS
+- D13 → TFT DC
+- A2 → TFT RST (ou software reset)
+- D4 → SD Card CS
+- D11 → MOSI (SPI compartilhado TFT + SD – já usado acima)
+- D12 → MISO
+- D13 → SCK
+- D4 → Sonda Térmica DS18B20 (pino de dados) + resistor pull-up 4.7kΩ entre D4 e 5V
+- 5V e GND compartilhados para TFT, SD, buzzer, LEDs, botões e sonda térmica
+- Todos os 6 botões usam INPUT_PULLUP (fecham para GND quando pressionados)
+
+Componentes extras obrigatórios:
+- TFT 2.8" ILI9341 SPI (sem touch)
+- Módulo Micro SD SPI
+- 6 botões push táteis coloridos (um de cada função)
+- Buzzer piezo 5V ativo
+- 2 LEDs (1 verde + 1 vermelho) com resistor 220Ω cada
+- 3× 680 Ω 1% + 3× 470 kΩ 1% (triângulo entre A0-A1-GND para medições)
+- DS18B20 waterproof com cabo longo (1m) para sonda térmica portátil
+- Ponta de prova agulha + garra jacaré (o usuário troca manualmente nas 2 saídas A0/A1)
+
+### 3. BIBLIOTECAS OBRIGATÓRIAS (platformio.ini)
+lib_deps = 
+    bodmer/TFT_eSPI@^2.5.43
+    arduino-libraries/SD
+    mathieucarbou/Encoder@^1.0.0   ; opcional para debounce avançado
+    paulstoffregen/OneWire
+    milesburton/DallasTemperature
+    Bounce2
+
+### 4. ESTRUTURA DE ARQUIVOS EXATA (crie exatamente assim)
+
+Component-Tester-PRO/
+├── platformio.ini
+├── src/
+│   ├── main.cpp
+│   ├── config.h                  // todos os defines de pinos, constantes, limiares de temperatura
+│   ├── globals.h                 // variáveis globais, flags, contadores
+│   ├── buttons.h / buttons.cpp   // leitura + debounce dos 6 botões
+│   ├── leds.h / leds.cpp         // funções dos LEDs verde/vermelho
+│   ├── menu.h / menu.cpp         // sistema completo de menus
+│   ├── measurements.h / measurements.cpp  // todas medições (C, R, L, diodo, transistor, etc.)
+│   ├── thermal.h / thermal.cpp   // sonda DS18B20 + alertas de temperatura
+│   ├── drawings.h / drawings.cpp // funções de desenho + arrays de ícones pixel art
+│   ├── icons/
+│   │   ├── icon_resistor.h
+│   │   ├── icon_cap_ceramic.h
+│   │   ├── icon_cap_electrolytic.h
+│   │   ├── icon_diode.h
+│   │   ├── icon_led.h
+│   │   ├── icon_transistor_to92.h
+│   │   ├── icon_inductor.h
+│   │   └── icon_unknown.h
+│   ├── database.h                // banco PROGMEM de componentes compatíveis (40+ itens)
+│   ├── logger.h / logger.cpp     // logging completo no SD
+│   ├── buzzer.h / buzzer.cpp     // todos sons e continuidade
+│   └── utils.h / utils.cpp       // calibração, offsets, timeout, millis helpers
+├── include/
+│   └── TFT_eSPI/
+│       └── User_Setup.h          // configuração completa para Uno + ILI9341
+└── data/                         // pasta para arquivos SD
+
+### 5. FUNCIONALIDADES OBRIGATÓRIAS (todas 39 + novas)
+
+Navegação: 6 botões físicos – Up/Down = scroll, Left/Right = ajuste/abas, Select = entra/confirma, Back = sai/cancela. Rodapé sempre mostra legenda dos botões. Debounce obrigatório.
+
+Desenhos dos componentes:
+- Estilo pixel art low-res REALISTA (não símbolos esquemáticos)
+- Tamanho máximo 32x32 pixels (RGB565, PROGMEM)
+- Cores reais: resistor bege + faixas EIA coloridas exatas, capacitor cerâmico laranja/bege, eletrolítico azul escuro com listra branca e símbolo +, diodo cinza com faixa prateada, LED transparente vermelho/verde, transistor TO-92 preto com 3 pernas, indutor marrom com bobina visível, etc.
+- Mostrar ícone grande ao lado do valor + julgamento (verde Good, amarelo Average, vermelho Bad)
+
+LEDs Verde e Vermelho – funções obrigatórias:
+- Verde: acende fixo = medição OK / componente Good / pronto para uso
+- Vermelho: acende fixo = componente Bad / sobrecarga / curto / perigo térmico
+- Ambos piscando rápido = medição em andamento
+- Verde piscando lento = Hold ativo
+- Vermelho piscando rápido + buzzer = temperatura >80°C ou overload
+
+Sonda Térmica DS18B20:
+- Modo dedicado “Sonda Térmica” no menu
+- Leitura contínua a cada 500 ms
+- Usuário encosta a sonda manualmente em qualquer componente
+- Mostra “Temp: 67°C – Normal” (verde) / “Temp: 92°C – Quente! Cuidado” (amarelo) / “Temp: 115°C – Perigo!” (vermelho + LED vermelho + beep longo)
+- Limites configuráveis em config.h
+
+Medições (com apenas 2 probes):
+- Capacitor + ESR + leakage + julgamento
+- Resistor
+- Diodo / LED / Zener
+- Transistor (NPN/PNP/MOSFET) – pinout manual (usuário conecta de forma específica)
+- Indutor
+- Voltímetro DC
+- Frequency Counter
+- PWM Generator
+- Teste de optoacoplador
+- Cable Tester / continuidade estendida
+- Ponte retificadora
+- Auto Detect
+- Modo Continuidade com buzzer
+
+Todas as 39 funcionalidades leves (modo repetida, beep progressivo, hold, comparador, contador medições/defeituosos, modo escuro, silent mode, timeout, versão firmware, etc.)
+
+Logging SD: todo resultado salvo automaticamente em LOG.TXT com data aproximada (millis), tipo, valor, temp, julgamento.
+
+### 6. REQUISITOS DE CÓDIGO (otimização máxima)
+- Todas strings com F() macro
+- Ícones em arquivos separados na pasta icons/
+- Código 100% comentado em português
+- Otimização -Os, evitar String class, usar char arrays
+- Tratamento completo de erros (sobrecarga, curto, timeout)
+- Splash screen com versão “Component Tester PRO v2.0 – Leandro”
+
+### 7. ORDEM DE GERAÇÃO OBRIGATÓRIA
+1. platformio.ini completo
+2. User_Setup.h da TFT_eSPI (ILI9341, SPI correto, rotação landscape)
+3. config.h e globals.h
+4. main.cpp (setup + loop com máquina de estados)
+5. buttons.cpp + leds.cpp + thermal.cpp
+6. menu.cpp
+7. measurements.cpp
+8. drawings.cpp + todos os arquivos icons/*.h (com arrays RGB565 de exemplo reais)
+9. database.h + logger.cpp + buzzer.cpp + utils.cpp
+10. README.md com instruções completas
+
+Comece agora gerando o platformio.ini e continue sequencialmente arquivo por arquivo. Forneça código completo, funcional e comentado. Não resuma nada.
