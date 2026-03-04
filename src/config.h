@@ -21,7 +21,8 @@
 #define TFT_RST_PIN A2
 
 #define SD_CS_PIN 4
-#define ONEWIRE_BUS_PIN 4
+#define ONEWIRE_BUS_PIN                                                        \
+  4 // Mesmo pino que SD_CS - compartilhado com resistor pull-up 4.7kΩ
 
 // Limites de temperatura para a sonda térmica (em graus Celsius)
 #define TEMP_NORMAL_THRESHOLD 70.0
