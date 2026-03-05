@@ -4,7 +4,14 @@
 #include <Arduino.h>
 
 // Variáveis globais para estado da máquina
-extern enum AppState { STATE_SPLASH, STATE_MENU, STATE_MEASURING, STATE_THERMAL_PROBE, STATE_SETTINGS, STATE_ABOUT } currentAppState;
+extern enum AppState {
+  STATE_SPLASH,
+  STATE_MENU,
+  STATE_MEASURING,
+  STATE_THERMAL_PROBE,
+  STATE_SETTINGS,
+  STATE_ABOUT
+} currentAppState;
 
 // Variáveis globais para controle de tempo
 extern unsigned long previousMillis;
@@ -15,14 +22,14 @@ extern bool flashingBothLeds;
 extern bool flashingGreenLedSlow;
 extern bool flashingRedLedFast;
 extern unsigned long ledFlashTimer;
-extern int ledFlashInterval;
+extern unsigned long ledFlashInterval;
 
 extern bool greenLedState;
 extern bool redLedState;
 
 // Variáveis globais para controle do buzzer
 extern unsigned long buzzerStartTime;
-extern int buzzerDuration;
+extern unsigned long buzzerDuration;
 extern bool buzzerActive;
 
 // Variáveis globais para a sonda térmica

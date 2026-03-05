@@ -2,10 +2,10 @@
 #include "buzzer.h"
 #include "globals.h"
 #include "leds.h"
-#include <TFT_eSPI.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
 
-
-extern TFT_eSPI tft;
+extern Adafruit_ILI9341 tft;
 
 // Definição dos objetos OneWire e DallasTemperature
 OneWire oneWireBus(ONEWIRE_BUS_PIN);
@@ -26,8 +26,9 @@ void thermal_handle() {
     check_temperature_alerts(currentTemperature);
 
     // Exibe a temperatura na tela
-    tft.fillRect(0, 0, tft.width(), tft.height(), TFT_BLACK); // Limpa a tela
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.fillRect(0, 0, tft.width(), tft.height(),
+                 ILI9341_BLACK); // Limpa a tela
+    tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
     tft.setTextSize(2);
     tft.setCursor(10, 10);
     tft.print(F("Temp: "));
@@ -37,16 +38,16 @@ void thermal_handle() {
     tft.setTextSize(1);
     tft.setCursor(10, 40);
     if (currentTemperature < TEMP_NORMAL_THRESHOLD) {
-      tft.setTextColor(TFT_GREEN, TFT_BLACK);
+      tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
       tft.println(F("Normal"));
     } else if (currentTemperature < TEMP_HOT_THRESHOLD) {
-      tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+      tft.setTextColor(ILI9341_YELLOW, ILI9341_BLACK);
       tft.println(F("Quente! Cuidado"));
     } else if (currentTemperature < TEMP_DANGER_THRESHOLD) {
-      tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+      tft.setTextColor(ILI9341_ORANGE, ILI9341_BLACK);
       tft.println(F("Muito Quente! Perigo"));
     } else {
-      tft.setTextColor(TFT_RED, TFT_BLACK);
+      tft.setTextColor(ILI9341_RED, ILI9341_BLACK);
       tft.println(F("PERIGO! DESLIGUE!"));
     }
   }

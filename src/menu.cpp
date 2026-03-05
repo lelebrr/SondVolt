@@ -1,12 +1,13 @@
 #include "menu.h"
 #include "buttons.h"
 #include "leds.h"
+#include "measurements.h"
 
 // Definição dos itens do menu
-MenuItem menuItems[] = {{F("Medir Componente"), STATE_MEASURING},
-                        {F("Sonda Termica"), STATE_THERMAL_PROBE},
-                        {F("Configuracoes"), STATE_SETTINGS},
-                        {F("Sobre"), STATE_ABOUT}};
+MenuItem menuItems[] = {{"Medir Componente", STATE_MEASURING},
+                        {"Sonda Termica", STATE_THERMAL_PROBE},
+                        {"Configuracoes", STATE_SETTINGS},
+                        {"Sobre", STATE_ABOUT}};
 
 const int NUM_MENU_ITEMS = sizeof(menuItems) / sizeof(menuItems[0]);
 
@@ -38,7 +39,7 @@ void menu_handle() {
   if (isOkPressed()) {
     // Transita para o estado selecionado
     currentAppState = menuItems[currentMenuItem].targetState;
-    tft.fillScreen(TFT_BLACK); // Limpa a tela ao mudar de estado
+    tft.fillScreen(ILI9341_BLACK); // Limpa a tela ao mudar de estado
     // Dependendo do estado, pode ser necessário chamar uma função de
     // inicialização específica
     if (currentAppState == STATE_THERMAL_PROBE) {
@@ -59,15 +60,15 @@ void menu_handle() {
 
 // Desenha o menu na tela TFT
 void draw_menu() {
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(ILI9341_BLACK);
   tft.setTextSize(2);
-  tft.setTextDatum(TL_DATUM); // Top-Left datum
 
   for (int i = 0; i < NUM_MENU_ITEMS; i++) {
     if (i == currentMenuItem) {
-      tft.setTextColor(TFT_BLACK, TFT_WHITE); // Item selecionado em destaque
+      tft.setTextColor(ILI9341_BLACK,
+                       ILI9341_WHITE); // Item selecionado em destaque
     } else {
-      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
     }
     tft.setCursor(10, 10 + i * 20);
     tft.println(menuItems[i].text);
@@ -78,16 +79,16 @@ void draw_menu() {
 // Desenha o rodapé com a legenda dos botões
 void draw_footer() {
   tft.setTextSize(1);
-  tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.fillRect(0, tft.height() - 20, tft.width(), 20, TFT_DARKGREY);
+  tft.setTextColor(ILI9341_CYAN, ILI9341_BLACK);
+  tft.fillRect(0, tft.height() - 20, tft.width(), 20, ILI9341_DARKGREY);
   tft.setCursor(5, tft.height() - 15);
   tft.print(F("UP/DW: Scroll | OK: Select | BCK: Exit"));
 }
 
 // Desenha o menu de configurações
 void draw_settings_menu() {
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
   tft.setTextSize(2);
   tft.setCursor(10, 10);
   tft.println(F("Configuracoes"));
@@ -125,14 +126,14 @@ void handle_settings_menu() {
   }
   if (isBackPressed()) {
     currentAppState = STATE_MENU;
-    tft.fillScreen(TFT_BLACK);
+    tft.fillScreen(ILI9341_BLACK);
   }
 }
 
 // Desenha a tela sobre/informações
 void draw_about_screen() {
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
   tft.setTextSize(2);
   tft.setCursor(10, 10);
   tft.println(F("Component Tester"));

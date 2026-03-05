@@ -1,37 +1,13 @@
 #include "utils.h"
+#include "buttons.h"
+#include "buzzer.h"
+#include "config.h"
 #include "globals.h"
-#include <TFT_eSPI.h>
+#include "leds.h"
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
 
-extern TFT_eSPI tft;
-
-// Função para calibração das ponteiras
-void calibrate_probes() {
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextSize(2);
-  tft.setCursor(10, 10);
-  tft.println(F("Calibracao de Probes"));
-  tft.setTextSize(1);
-  tft.setCursor(10, 40);
-  tft.println(F("Em Desenvolvimento..."));
-  tft.setCursor(10, 60);
-  tft.println(F("Pressione BACK para voltar."));
-}
-
-// Função para definir offsets
-void set_offsets() {
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextSize(2);
-  tft.setCursor(10, 10);
-  tft.println(F("Definir Offsets"));
-  tft.setTextSize(1);
-  tft.setCursor(10, 40);
-  tft.println(F("Em Desenvolvimento..."));
-  tft.setCursor(10, 60);
-  tft.println(F("Pressione BACK para voltar."));
-}
-
+extern Adafruit_ILI9341 tft;
 // Variáveis globais para utils
 unsigned long timeoutStartMillis = 0;
 unsigned long timeoutDuration = 30000; // 30 segundos
@@ -44,8 +20,8 @@ unsigned long faultyCount = 0;
 
 // Função para calibração das ponteiras
 void calibrate_probes() {
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
   tft.setTextSize(2);
   tft.setCursor(10, 10);
   tft.println(F("Calibracao de Probes"));
@@ -67,7 +43,7 @@ void calibrate_probes() {
       float offset2 = analogRead(PROBE2_PIN) * 0.0048876;
 
       // Armazena offsets (em um projeto real, salvaria na EEPROM)
-      tft.fillScreen(TFT_BLACK);
+      tft.fillScreen(ILI9341_BLACK);
       tft.setCursor(10, 10);
       tft.println(F("Calibracao concluida!"));
       tft.setCursor(10, 40);
@@ -91,8 +67,8 @@ void calibrate_probes() {
 
 // Função para definir offsets
 void set_offsets() {
-  tft.fillScreen(TFT_BLACK);
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
   tft.setTextSize(2);
   tft.setCursor(10, 10);
   tft.println(F("Offsets Atuais:"));
@@ -118,7 +94,7 @@ void handle_timeout() {
     timeoutActive = false;
     // Retorna ao menu principal
     currentAppState = STATE_MENU;
-    tft.fillScreen(TFT_BLACK);
+    tft.fillScreen(ILI9341_BLACK);
     flash_both_leds(500);
   }
 }
@@ -130,11 +106,11 @@ unsigned long safe_millis() { return currentMillis; }
 void toggle_dark_mode() {
   darkMode = !darkMode;
   if (darkMode) {
-    tft.fillScreen(TFT_BLACK);
-    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.fillScreen(ILI9341_BLACK);
+    tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
   } else {
-    tft.fillScreen(TFT_WHITE);
-    tft.setTextColor(TFT_BLACK, TFT_WHITE);
+    tft.fillScreen(ILI9341_WHITE);
+    tft.setTextColor(ILI9341_BLACK, ILI9341_WHITE);
   }
 }
 

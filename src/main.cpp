@@ -8,11 +8,13 @@
 #include "menu.h"
 #include "thermal.h"
 #include "utils.h"
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
 #include <Arduino.h>
-#include <TFT_eSPI.h>
+#include <SPI.h>
 
 // Instância do display TFT
-TFT_eSPI tft = TFT_eSPI();
+Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS_PIN, TFT_DC_PIN, TFT_RST_PIN);
 
 // Variáveis globais (declaradas em globals.h, definidas aqui)
 enum AppState currentAppState = STATE_SPLASH;
@@ -24,17 +26,25 @@ float currentTemperature = 0.0;
 int currentMenuItem = 0;
 int totalMenuItems = 0;
 
+// Configuração do Display
+#define TFT_ROTATION                                                           \
+  1 // Ajuste para a orientação desejada do menu (1 = Paisagem)
+
+// Declarando as funções definidas em outros módulos ou usadas no loop para que
+// o compilador encontre
+#include "measurements.h"
+
 void setup() {
   Serial.begin(115200);
   Serial.println(F("Iniciando Component Tester PRO v2.0..."));
 
   // Inicializa TFT
-  tft.init();
+  tft.begin();
   tft.setRotation(TFT_ROTATION);
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(ILI9341_BLACK);
 
   // Splash Screen
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
   tft.setTextSize(2);
   tft.setCursor(10, 10);
   tft.println(F("Component Tester PRO v2.0"));
@@ -42,7 +52,7 @@ void setup() {
   tft.setCursor(10, 30);
   tft.println(F("- Leandro -"));
   delay(2000);
-  tft.fillScreen(TFT_BLACK);
+  tft.fillScreen(ILI9341_BLACK);
 
   // Inicializa LEDs
   pinMode(LED_GREEN_PIN, OUTPUT);
@@ -60,7 +70,7 @@ void setup() {
   // Inicializa SD Card
   if (!SD.begin(SD_CS_PIN)) {
     Serial.println(F("Falha na inicialização do SD Card!"));
-    tft.setTextColor(TFT_RED, TFT_BLACK);
+    tft.setTextColor(ILI9341_RED, ILI9341_BLACK);
     tft.setCursor(10, 50);
     tft.println(F("SD Card Error!"));
     while (true)

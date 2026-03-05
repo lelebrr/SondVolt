@@ -1,17 +1,17 @@
 #ifndef BUTTONS_H
 #define BUTTONS_H
 
+#include "config.h"
 #include <Arduino.h>
 #include <Bounce2.h>
-#include "config.h"
 
 // Declaração dos objetos Bounce para cada botão
-extern Bounce2 btnUp;
-extern Bounce2 btnDown;
-extern Bounce2 btnLeft;
-extern Bounce2 btnRight;
-extern Bounce2 btnOk;
-extern Bounce2 btnBack;
+extern Bounce btnUp;
+extern Bounce btnDown;
+extern Bounce btnLeft;
+extern Bounce btnRight;
+extern Bounce btnOk;
+extern Bounce btnBack;
 
 // Funções para manipulação dos botões
 void buttons_init();

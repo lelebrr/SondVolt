@@ -1,20 +1,19 @@
-#ifndef DATABASE_H
-#define DATABASE_H
+#ifndef DATABASE_MIN_H
+#define DATABASE_MIN_H
 
 #include <Arduino.h>
-#include <SD.h>
 #include <stdint.h>
 
 struct ComponentDB {
-  char name[20];
+  const char *name;
   uint8_t category;
   uint16_t value1;
   uint16_t min1;
   uint16_t max1;
   uint16_t value2;
   uint8_t pinout[3];
-  char description[50];
-  char common_use[50];
+  const char *description;
+  const char *common_use;
   uint8_t typical_esr;
 };
 
@@ -42,11 +41,7 @@ struct ComponentDB {
 #define CAT_SENSOR 22
 #define CAT_OTHER 23
 
-// Protótipos das funções
-ComponentDB findBestMatch(uint8_t category, uint16_t measured_value1,
-                          uint16_t measured_value2, uint16_t measured_esr);
-void printComponentInfo(const ComponentDB &comp, uint16_t measured,
-                        uint16_t esr);
-const char *getCategoryName(uint8_t category);
+extern const ComponentDB PROGMEM bjt_npn_db[];
+extern const uint16_t bjt_npn_count;
 
 #endif

@@ -2,11 +2,12 @@
 #define MENU_H
 
 #include "globals.h"
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
 #include <Arduino.h>
-#include <TFT_eSPI.h>
 
-// Declaração da instância do TFT_eSPI (definida em main.cpp)
-extern TFT_eSPI tft;
+// Declaração da instância (definida em main.cpp)
+extern Adafruit_ILI9341 tft;
 
 // Estrutura para um item de menu
 typedef struct {

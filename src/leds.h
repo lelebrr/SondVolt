@@ -4,13 +4,12 @@
 #include "config.h"
 #include <Arduino.h>
 
-
 // Variáveis globais para controle dos LEDs
 extern bool flashingBothLeds;
 extern bool flashingGreenLedSlow;
 extern bool flashingRedLedFast;
 extern unsigned long ledFlashTimer;
-extern int ledFlashInterval;
+extern unsigned long ledFlashInterval;
 
 extern bool greenLedState;
 extern bool redLedState;

@@ -1,12 +1,13 @@
 #include "buttons.h"
+#include "globals.h"
 
 // Definição dos objetos Bounce para cada botão
-Bounce2 btnUp = Bounce2();
-Bounce2 btnDown = Bounce2();
-Bounce2 btnLeft = Bounce2();
-Bounce2 btnRight = Bounce2();
-Bounce2 btnOk = Bounce2();
-Bounce2 btnBack = Bounce2();
+Bounce btnUp = Bounce();
+Bounce btnDown = Bounce();
+Bounce btnLeft = Bounce();
+Bounce btnRight = Bounce();
+Bounce btnOk = Bounce();
+Bounce btnBack = Bounce();
 
 // Inicializa os botões
 void buttons_init() {
@@ -101,20 +102,5 @@ void buttons_update() {
   btnBack.update();
 }
 
-// Verifica se o botão Cima foi pressionado
-bool isUpPressed() { return btnUp.fell(); }
-
-// Verifica se o botão Baixo foi pressionado
-bool isDownPressed() { return btnDown.fell(); }
-
-// Verifica se o botão Esquerda foi pressionado
-bool isLeftPressed() { return btnLeft.fell(); }
-
-// Verifica se o botão Direita foi pressionado
-bool isRightPressed() { return btnRight.fell(); }
-
-// Verifica se o botão OK foi pressionado
-bool isOkPressed() { return btnOk.fell(); }
-
 // Verifica se o botão Voltar foi pressionado
-bool isBackPressed() { return btnBack.fell(); }
+// Retiradas funções redundantes.

@@ -1,7 +1,14 @@
 #include "leds.h"
 #include "globals.h"
 
+bool flashingBothLeds = false;
+bool flashingGreenLedSlow = false;
+bool flashingRedLedFast = false;
+unsigned long ledFlashTimer = 0;
+unsigned long ledFlashInterval = 0;
+
 // Atualiza o estado dos LEDs com base nas variáveis globais
+
 void update_leds() {
   if (flashingBothLeds || flashingGreenLedSlow || flashingRedLedFast) {
     if (currentMillis - ledFlashTimer >= ledFlashInterval) {
