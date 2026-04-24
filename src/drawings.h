@@ -22,6 +22,11 @@ void draw_led_icon(int x, int y, uint16_t color);
 void draw_transistor_icon(int x, int y);
 void draw_inductor_icon(int x, int y);
 
+// Novas Funções de Ícones Dinâmicos
+#define CAT_CAP_ELECTRO 100 // Tipo extra para visual
+void drawComponentIcon(uint8_t componentType, int x, int y, uint16_t color);
+void drawComponentWithLabel(uint8_t componentType, int x, int y, uint16_t color, const char* label);
+
 // Funções de Ícones do Menu
 void draw_menu_icon(int x, int y, int iconId, uint16_t color);
 

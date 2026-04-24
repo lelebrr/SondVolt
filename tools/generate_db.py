@@ -43,21 +43,55 @@ const ComponentDB bjt_npn_db[] PROGMEM = {
     # Adicionar todos os componentes
     cpp_code += "\n".join(components) + "\n};\n\n"
     
-    cpp_code += """const uint16_t bjt_npn_count = 100;
+    cpp_code += """const uint16_t bjt_npn_count = sizeof(bjt_npn_db) / sizeof(bjt_npn_db[0]);
 
-// Funções de exemplo (implementação completa necessária)
 ComponentDB findBestMatch(uint8_t category, uint16_t measured_value1, uint16_t measured_value2, uint16_t measured_esr) {
-    ComponentDB empty = {"", 0, 0, 0, 0, 0, {0xFF, 0xFF, 0xFF}, "", "", 0};
-    return empty;
+    ComponentDB bestMatch = {"", 0, 0, 0, 0, 0, {0xFF, 0xFF, 0xFF}, "", "", 0};
+    uint16_t smallest_diff = 0xFFFF;
+
+    for (uint16_t i = 0; i < bjt_npn_count; i++) {
+        ComponentDB current;
+        memcpy_P(&current, &bjt_npn_db[i], sizeof(ComponentDB));
+        
+        if (current.category == category) {
+            bool val1_match = (measured_value1 >= current.min1 && measured_value1 <= current.max1);
+            bool val2_match = true;
+            
+            if (current.value2 > 0 && measured_value2 > 0) {
+                uint16_t margin = current.value2 / 5;
+                if (measured_value2 < (current.value2 - margin) || measured_value2 > (current.value2 + margin)) {
+                    val2_match = false;
+                }
+            }
+
+            if (val1_match && val2_match) {
+                uint16_t diff = abs((int)measured_value1 - (int)current.value1);
+                if (diff < smallest_diff) {
+                    smallest_diff = diff;
+                    bestMatch = current;
+                }
+            }
+        }
+    }
+    return bestMatch;
 }
 
 void printComponentInfo(const ComponentDB &comp, uint16_t measured, uint16_t esr) {
-    // Implementação necessária
+    Serial.print(F("Nome: ")); Serial.println(comp.name);
+    Serial.print(F("Desc: ")); Serial.println(comp.description);
+    Serial.print(F("Uso: ")); Serial.println(comp.common_use);
 }
 
 const char* getCategoryName(uint8_t category) {
-    // Implementação necessária
-    return "";
+    switch (category) {
+        case 1: return "BJT NPN"; case 2: return "BJT PNP";
+        case 3: return "MOSFET N"; case 4: return "MOSFET P";
+        case 5: return "Diodo"; case 6: return "Zener";
+        case 7: return "Schottky"; case 8: return "LED";
+        case 9: return "Capacitor"; case 10: return "Resistor";
+        case 11: return "Indutor"; case 12: return "Opto";
+        default: return "Outro";
+    }
 }
 """
     

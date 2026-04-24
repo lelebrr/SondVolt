@@ -332,7 +332,10 @@ Durante a navegação, ícones são desenhados na tela:
 │   Trans: 100 [🟢]                       │
 │   Res: OPEN  [🔴]                       │
 │   Ind: 1000  [🟢]                       │
-│   ...                                     │
+│   Volt: 5.0V [🟢]                       │
+│   Freq: 1kHz [🟢]                       │
+│   PWM: 50%   [🟢]                       │
+│   Opto: OK   [🟢]                       │
 │                                             │
 └─────────────────────────────────────────────┘
        BCK = Voltar

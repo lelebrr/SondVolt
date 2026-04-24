@@ -28,6 +28,7 @@ Nossa interface foi redesenhada do zero para oferecer a melhor experiência poss
 ### Navegação Dinâmica
 - **Grid 2x3:** Acesso rápido às funções principais com ícones coloridos.
 - **Barra de Status:** Informações persistentes sobre o estado do dispositivo.
+- **Ícones de Componentes:** Representação visual vetorial colorida de cada componente medido (Resistor, Capacitor, Diodo, etc).
 - **Modo Escuro:** Conforto visual em qualquer ambiente de iluminação.
 
 ---

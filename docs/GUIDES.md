@@ -71,7 +71,15 @@ Estes guias mostram passo a passo como usar cada função de medição.
 │     Res                             │
 │     Diod                            │
 │     Trans                           │
-│     ...                            │
+│     Ind                             │
+│     Volt                            │
+│     Freq                            │
+│     PWM                             │
+│     Opto                            │
+│     Cable                           │
+│     Bridge                          │
+│     Auto                            │
+│     Conti                           │
 │                                         │
 │   Use UP/DW para selecionar "Cap"       │
 │   e pressione OK                     │
@@ -150,7 +158,15 @@ Estes guias mostram passo a passo como usar cada função de medição.
 │   ► Res                             │
 │     Diod                            │
 │     Trans                           │
-│     ...                            │
+│     Ind                             │
+│     Volt                            │
+│     Freq                            │
+│     PWM                             │
+│     Opto                            │
+│     Cable                           │
+│     Bridge                          │
+│     Auto                            │
+│     Conti                           │
 │                                         │
 │   Use UP/DW para selecionar "Res"    │
 │   e pressione OK                     │
@@ -242,8 +258,16 @@ Se você precisar verificar o valor manualmente:
 │     Cap                              │
 │     Res                              │
 │   ► Diod                             │
-│     Trans                           │
-│     ...                            │
+│     Trans                            │
+│     Ind                              │
+│     Volt                             │
+│     Freq                             │
+│     PWM                              │
+│     Opto                             │
+│     Cable                            │
+│     Bridge                           │
+│     Auto                             │
+│     Conti                            │
 │                                         │
 │   Use UP/DW para selecionar "Diod"        │
 │   e pressione OK                     │
@@ -425,9 +449,15 @@ Para transistores TO-92 (mais comuns):
 │   No menu Medir:                        │
 │                                         │
 │     Trans                           │
-│     Ind                              │
+│   ► Ind                             │
 │     Volt                            │
-│     ...                            │
+│     Freq                            │
+│     PWM                             │
+│     Opto                            │
+│     Cable                           │
+│     Bridge                          │
+│     Auto                            │
+│     Conti                           │
 │                                         │
 │   Use UP/DW para selecionar "Ind"      │
 │   e pressione OK                     │
@@ -498,7 +528,12 @@ Para transistores TO-92 (mais comuns):
 │     Ind                              │
 │   ► Volt                             │
 │     Freq                             │
-│     ...                            │
+│     PWM                              │
+│     Opto                             │
+│     Cable                            │
+│     Bridge                           │
+│     Auto                             │
+│     Conti                            │
 │                                         │
 │   Use UP/DW para selecionar "Volt"     │
 │   e pressione OK                     │
@@ -563,7 +598,11 @@ Para transistores TO-92 (mais comuns):
 │     Volt                             │
 │   ► Freq                             │
 │     PWM                              │
-│     ...                            │
+│     Opto                             │
+│     Cable                            │
+│     Bridge                           │
+│     Auto                             │
+│     Conti                            │
 │                                         │
 │   Use UP/DW para selecionar "Freq"     │
 │   e pressione OK                     │
@@ -629,7 +668,10 @@ Para transistores TO-92 (mais comuns):
 │     Freq                             │
 │   ► PWM                              │
 │     Opto                             │
-│     ...                            │
+│     Cable                            │
+│     Bridge                           │
+│     Auto                             │
+│     Conti                            │
 │                                         │
 │   Use UP/DW para selecionar "PWM"      │
 │   e pressione OK                     │
@@ -689,8 +731,10 @@ Para transistores TO-92 (mais comuns):
 │                                         │
 │     PWM                              │
 │   ► Opto                             │
-│     Cable                           │
-│     ...                            │
+│     Cable                            │
+│     Bridge                           │
+│     Auto                             │
+│     Conti                            │
 │                                         │
 │   Use UP/DW para selecionar "Opto"       │
 │   e pressione OK                     │
@@ -752,7 +796,8 @@ Para transistores TO-92 (mais comuns):
 │     Opto                             │
 │   ► Cable                           │
 │     Bridge                          │
-│     ...                            │
+│     Auto                            │
+│     Conti                           │
 │                                         │
 │   Use UP/DW para selecionar "Cable"      │
 │   e pressione OK                     │
@@ -816,8 +861,8 @@ Para transistores TO-92 (mais comuns):
 │                                         │
 │     Cable                           │
 │   ► Bridge                          │
-│     Auto                             │
-│     ...                            │
+│     Auto                            │
+│     Conti                           │
 │                                         │
 │   Use UP/DW para selecionar "Bridge"      │
 │   e pressione OK                     │
@@ -980,11 +1025,13 @@ Para transistores TO-92 (mais comuns):
 │                                         │
 │   No menu principal:                   │
 │                                         │
-│   ► Medir                             │
+│     Medir                             │
 │     Termica                            │
 │     Scanner                            │
 │     Historico                          │
-│     ...                                │
+│     Estatist                           │
+│     Config                             │
+│     Sobre                              │
 │                                         │
 │   Selecione "Termica" e pressione OK   │
 └─────────────────────────────────────────┘
@@ -1039,7 +1086,9 @@ Para transistores TO-92 (mais comuns):
 │     Termica                            │
 │   ► Scanner                            │
 │     Historico                          │
-│     ...                                │
+│     Estatist                           │
+│     Config                             │
+│     Sobre                              │
 │                                         │
 │   Selecione "Scanner" e pressione OK   │
 └─────────────────────────────────────────┘
