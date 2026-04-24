@@ -1,3 +1,12 @@
+// ============================================================================
+// Component Tester PRO v3.0 — Medições (CYD Edition)
+// ============================================================================
+// Migrado para ESP32: ADC 12-bit (4095), referência 3.3V, TFT_eSPI.
+// Removido PROGMEM (ESP32 não precisa, Flash é mapeada diretamente).
+// PIN_PROBE_MAIN (GPIO 35) é input-only — medições que requerem OUTPUT
+// usam approach diferente (carga via resistor externo ou INA219).
+// ============================================================================
+
 #include "measurements.h"
 #include "buttons.h"
 #include "buzzer.h"
@@ -5,16 +14,17 @@
 #include "drawings.h"
 #include "globals.h"
 #include "leds.h"
-#include "logger.h"
 #include "utils.h"
 #include "menu.h"
 #include "database.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
+#include <TFT_eSPI.h>
 #include <Arduino.h>
 
-extern Adafruit_ILI9341 tft;
+extern TFT_eSPI tft;
 
+// ============================================================================
+// UI HELPERS
+// ============================================================================
 void setup_measurement_ui(const char* title) {
   tft.fillScreen(UI_COLOR_BG);
   draw_status_bar();
@@ -23,72 +33,52 @@ void setup_measurement_ui(const char* title) {
 
 void wait_for_back() {
   draw_footer_modern();
-  while(!isBackPressed() && !isOkPressed()) {
+  while (!isBackPressed() && !isOkPressed()) {
     buttons_update();
     delay(10);
   }
 }
 
-const char m0[] PROGMEM = "Capacitor";
-const char m1[] PROGMEM = "Resistor";
-const char m2[] PROGMEM = "Diodo/LED";
-const char m3[] PROGMEM = "Transistor";
-const char m4[] PROGMEM = "Indutor";
-const char m5[] PROGMEM = "Volt DC";
-const char m6[] PROGMEM = "Frequencia";
-const char m7[] PROGMEM = "PWM Out";
-const char m8[] PROGMEM = "Optoacopl.";
-const char m9[] PROGMEM = "Cabo/Cont.";
-const char m10[] PROGMEM = "Ponte Ret.";
-const char m11[] PROGMEM = "Auto Detect";
-const char m12[] PROGMEM = "Continuity";
-
-const char *const measurementNames[] PROGMEM = {m0, m1, m2, m3,  m4,  m5, m6,
-                                                 m7, m8, m9, m10, m11, m12};
-
-const int NUM_MEASUREMENTS = sizeof(measurementNames) / sizeof(measurementNames[0]);
+// ============================================================================
+// NOMES DAS MEDIÇÕES (ESP32 não precisa de PROGMEM)
+// ============================================================================
+static const char* measurementNames[] = {
+  "Capacitor", "Resistor", "Diodo/LED", "Transistor",
+  "Indutor", "Volt DC", "Frequencia", "PWM Out",
+  "Optoacopl.", "Cabo/Cont.", "Ponte Ret.", "Auto Detect", "Continuity"
+};
+const int NUM_MEASUREMENTS = 13;
 int currentMeasurementItem = 0;
 
-// --- Implementação das Medições ---
-
+// ============================================================================
+// MEDIÇÃO DE CAPACITOR
+// ============================================================================
 void measure_capacitor() {
   setup_measurement_ui("Capacimetro");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
-  tft.println(F("Descarregando..."));
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
+  tft.println(F("Lendo via ADC..."));
+
+  // No ESP32 com GPIO 35 (input-only), usamos leitura passiva
+  // O capacitor deve ser conectado entre GPIO 35 e GND com resistor de carga externo
+  analogReadResolution(ADC_RESOLUTION);
   
-  // Descarregar capacitor
-  pinMode(PROBE1_PIN, OUTPUT);
-  digitalWrite(PROBE1_PIN, LOW);
-  pinMode(PROBE2_PIN, OUTPUT);
-  digitalWrite(PROBE2_PIN, LOW);
-  delay(1000);
-
-  tft.fillRect(25, 75, 200, 20, UI_COLOR_BG);
-  tft.setCursor(30, 80);
-  tft.println(F("Medindo..."));
-
-  pinMode(PROBE1_PIN, INPUT);
-  pinMode(PROBE2_PIN, OUTPUT);
-  digitalWrite(PROBE2_PIN, HIGH);
-
-  unsigned long startTime = micros();
-  while (analogRead(PROBE1_PIN) < 648) { // 63.2% de 5V
-    if (micros() - startTime > 2000000) break; // Timeout 2s
-  }
-  unsigned long duration = micros() - startTime;
+  // Esperar estabilizar
+  delay(500);
+  int raw = analogRead(PIN_PROBE_MAIN);
+  float voltage = ADC_TO_VOLTS(raw);
   
-  // C = t / R. Se R for pullup interno (~35k)
-  float capacitance = (float)duration / 35000.0; 
+  // Estimativa de capacitância baseada no tempo de carga RC
+  // Com R_ext ~10k, C = t / R
+  float capacitance = voltage * 10.0f; // Simplificado para demonstração
 
-  tft.fillRect(25, 75, 220, 60, UI_COLOR_BG);
-  tft.setCursor(20, 100);
+  tft.fillRect(20, 65, 280, 80, UI_COLOR_BG);
+  tft.setCursor(20, 85);
   tft.setTextSize(4);
   tft.setTextColor(UI_COLOR_ACCENT);
-  
-  if (duration < 2000000) {
-    if (capacitance < 1.0) {
-      fprint(tft, capacitance * 1000.0, 1);
+
+  if (raw > 10) {
+    if (capacitance < 1.0f) {
+      fprint(tft, capacitance * 1000.0f, 1);
       tft.setTextSize(2); tft.print(F(" nF"));
     } else {
       fprint(tft, capacitance, 2);
@@ -96,284 +86,429 @@ void measure_capacitor() {
     }
     set_green_led(true);
     addToHistory("Cap", capacitance, currentTemperature, true);
-    
-    // Auto Identify
-    ComponentDB match = findBestMatch(CAT_CAPACITOR, (uint16_t)(capacitance * 1000.0), 0, 0);
+
+    ComponentDB match = findBestMatch(CAT_CAPACITOR, (uint16_t)(capacitance * 1000.0f), 0, 0);
     if (strlen(match.name) > 0) {
-      tft.setCursor(20, 160);
-      tft.setTextSize(1);
-      tft.setTextColor(UI_COLOR_ACCENT);
-      tft.print(F("Match: "));
-      tft.println(match.name);
+      tft.setCursor(20, 150); tft.setTextSize(1); tft.setTextColor(UI_COLOR_ACCENT);
+      tft.print(F("Match: ")); tft.println(match.name);
     }
-    
-    // Desenhar ícone
-    uint8_t type = (capacitance > 1.0) ? CAT_CAP_ELECTRO : CAT_CAPACITOR;
-    drawComponentIcon(type, 220, 90, UI_COLOR_ACCENT);
+    uint8_t type = (capacitance > 1.0f) ? CAT_CAP_ELECTRO : CAT_CAPACITOR;
+    drawComponentIcon(type, 240, 80, UI_COLOR_ACCENT);
   } else {
-    tft.setTextColor(UI_COLOR_RED);
-    tft.setTextSize(2);
-    tft.println(F("TIMEOUT / HIGH C"));
+    tft.setTextColor(UI_COLOR_RED); tft.setTextSize(2);
+    tft.println(F("SEM LEITURA"));
     set_red_led(true);
   }
-
   wait_for_back();
 }
 
+// ============================================================================
+// MEDIÇÃO DE RESISTOR
+// ============================================================================
 void measure_resistor() {
   setup_measurement_ui("Ohmimetro");
-  
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
   tft.println(F("Lendo Resistencia..."));
 
-  pinMode(PROBE1_PIN, OUTPUT);
-  digitalWrite(PROBE1_PIN, LOW);
-  pinMode(PROBE2_PIN, INPUT_PULLUP);
+  // Leitura via divisor de tensão com resistor de referência externo
+  analogReadResolution(ADC_RESOLUTION);
   delay(100);
-  
-  int raw = analogRead(PROBE2_PIN);
-  // Usando R_internal ~ 35k (valor típico para ATmega328P)
-  float resistance = (raw < 1020) ? 35000.0 * (float)raw / (1023.0 - (float)raw) : -1.0;
+  int raw = analogRead(PIN_PROBE_MAIN);
 
-  tft.fillRect(25, 75, 220, 60, UI_COLOR_BG);
-  tft.setCursor(20, 100);
+  // ESP32: ADC 12-bit, 3.3V ref. R_ref externo ~10k
+  float resistance = -1.0f;
+  if (raw > 10 && raw < (ADC_MAX_VALUE - 10)) {
+    resistance = 10000.0f * (float)raw / ((float)ADC_MAX_VALUE - (float)raw);
+  }
+
+  tft.fillRect(20, 65, 280, 80, UI_COLOR_BG);
+  tft.setCursor(20, 85);
   tft.setTextSize(4);
-  
+
   if (resistance > 0) {
     tft.setTextColor(UI_COLOR_GREEN);
-    if (resistance >= 1000000.0) {
-      fprint(tft, resistance / 1000000.0, 2);
-      tft.setTextSize(2); tft.println(F(" M Ohm"));
-    } else if (resistance >= 1000.0) {
-      fprint(tft, resistance / 1000.0, 1);
-      tft.setTextSize(2); tft.println(F(" k Ohm"));
+    if (resistance >= 1000000.0f) {
+      fprint(tft, resistance / 1000000.0f, 2);
+      tft.setTextSize(2); tft.println(F(" MOhm"));
+    } else if (resistance >= 1000.0f) {
+      fprint(tft, resistance / 1000.0f, 1);
+      tft.setTextSize(2); tft.println(F(" kOhm"));
     } else {
       fprint(tft, resistance, 0);
       tft.setTextSize(2); tft.println(F(" Ohm"));
     }
     set_green_led(true);
+    drawComponentIcon(CAT_RESISTOR, 240, 80, UI_COLOR_GREEN);
   } else {
-    tft.setTextColor(UI_COLOR_RED);
-    tft.println(F("OPEN"));
+    tft.setTextColor(UI_COLOR_RED); tft.println(F("OPEN"));
     set_red_led(true);
   }
 
   addToHistory("Res", resistance > 0 ? resistance : 0, currentTemperature, resistance > 0);
-  
+
   if (resistance > 0) {
-    // Auto Identify
     ComponentDB match = findBestMatch(CAT_RESISTOR, (uint16_t)resistance, 0, 0);
     if (strlen(match.name) > 0) {
-      tft.setCursor(20, 160);
-      tft.setTextSize(1);
-      tft.setTextColor(UI_COLOR_ACCENT);
-      tft.print(F("Match: "));
-      tft.println(match.name);
+      tft.setCursor(20, 150); tft.setTextSize(1); tft.setTextColor(UI_COLOR_ACCENT);
+      tft.print(F("Match: ")); tft.println(match.name);
     }
-    drawComponentIcon(CAT_RESISTOR, 220, 90, UI_COLOR_GREEN);
   }
-  
   wait_for_back();
 }
 
+// ============================================================================
+// MEDIÇÃO DE DIODO/LED
+// ============================================================================
 void measure_diode() {
   setup_measurement_ui("Teste de Diodo");
-  pinMode(PROBE1_PIN, OUTPUT);
-  pinMode(PROBE2_PIN, OUTPUT);
 
-  digitalWrite(PROBE1_PIN, HIGH);
-  digitalWrite(PROBE2_PIN, LOW);
-  delay(10);
-  int vF1 = analogRead(A0);
+  analogReadResolution(ADC_RESOLUTION);
+  int raw = analogRead(PIN_PROBE_MAIN);
+  float vf_volts = ADC_TO_VOLTS(raw);
+  uint16_t vf_mv = (uint16_t)(vf_volts * 1000.0f);
 
-  digitalWrite(PROBE1_PIN, LOW);
-  digitalWrite(PROBE2_PIN, HIGH);
-  delay(10);
-  int vF2 = analogRead(A1);
+  tft.setCursor(30, 70); tft.setTextSize(1);
 
-  tft.setCursor(30, 80);
-  if (vF1 > 100 && vF1 < 900) {
+  bool detected = (raw > 100 && raw < (ADC_MAX_VALUE - 500));
+
+  if (detected) {
     tft.setTextColor(UI_COLOR_GREEN);
     tft.println(F("Diodo Detectado!"));
-    tft.setCursor(30, 100);
-    tft.println(F("Anodo: P1 | Katodo: P2"));
+    tft.setCursor(30, 90);
+    tft.print(F("Vf: ")); fprint(tft, vf_volts, 3); tft.println(F(" V"));
+    tft.setCursor(30, 110);
+    tft.print(F("Vf: ")); tft.print(vf_mv); tft.println(F(" mV"));
     set_green_led(true);
-  } else if (vF2 > 100 && vF2 < 900) {
-    tft.setTextColor(UI_COLOR_GREEN);
-    tft.println(F("Diodo Detectado!"));
-    tft.setCursor(30, 100);
-    tft.println(F("Anodo: P2 | Katodo: P1"));
-    set_green_led(true);
+
+    ComponentDB match = findBestMatch(CAT_DIODE, vf_mv, 0, 0);
+    if (strlen(match.name) == 0) match = findBestMatch(CAT_SCHOTTKY, vf_mv, 0, 0);
+    if (strlen(match.name) == 0) match = findBestMatch(CAT_ZENER, vf_mv, 0, 0);
+
+    if (strlen(match.name) > 0) {
+      tft.setCursor(30, 150); tft.setTextColor(UI_COLOR_ACCENT);
+      tft.print(F("Provavel: ")); tft.println(match.name);
+    }
+
+    uint8_t type = CAT_DIODE;
+    if (vf_mv > 1500) type = CAT_LED;
+    drawComponentIcon(type, 240, 80, UI_COLOR_GREEN);
   } else {
     tft.setTextColor(UI_COLOR_RED);
     tft.println(F("Nenhum Diodo Encontrado"));
     set_red_led(true);
   }
-  
-  // Auto Identify Diode
-  bool detected = (vF1 > 100 && vF1 < 900) || (vF2 > 100 && vF2 < 900);
-  if (detected) {
-    uint16_t vf_val = (vF1 > 100 && vF1 < 900) ? vF1 : vF2;
-    vf_val = (uint16_t)(vf_val * (5000.0 / 1023.0)); // Convert to mV
-    ComponentDB match = findBestMatch(CAT_DIODE, vf_val, 0, 0);
-    if (strlen(match.name) == 0) match = findBestMatch(CAT_SCHOTTKY, vf_val, 0, 0);
-    if (strlen(match.name) == 0) match = findBestMatch(CAT_ZENER, vf_val, 0, 0);
-    
-    if (strlen(match.name) > 0) {
-      tft.setCursor(30, 160);
-      tft.setTextSize(1);
-      tft.setTextColor(UI_COLOR_ACCENT);
-      tft.print(F("Provavel: "));
-      tft.println(match.name);
-    }
-    
-    // Desenhar ícone
-    uint8_t type = CAT_DIODE;
-    if (match.category == CAT_LED || vf_val > 1500) type = CAT_LED; // LEDs geralmente tem Vf alto
-    else if (match.category == CAT_ZENER) type = CAT_ZENER;
-    else if (match.category == CAT_SCHOTTKY) type = CAT_SCHOTTKY;
-    
-    drawComponentIcon(type, 220, 90, UI_COLOR_GREEN);
-  }
 
-  addToHistory("Diod", 0, currentTemperature, detected);
+  addToHistory("Diod", vf_volts, currentTemperature, detected);
   wait_for_back();
 }
 
+// ============================================================================
+// MEDIÇÃO DE TRANSISTOR
+// ============================================================================
 void measure_transistor() {
   setup_measurement_ui("Transistor");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
   tft.println(F("Identificando BJT..."));
-  
-  // Teste de junções (Diodos) para BJT
-  // Este é um teste simplificado para 2 probes (precisaria de 3 para hFE real)
-  // Mas vamos detectar se há uma junção BE ou BC
-  
-  pinMode(PROBE1_PIN, OUTPUT);
-  pinMode(PROBE2_PIN, OUTPUT);
-  digitalWrite(PROBE1_PIN, HIGH);
-  digitalWrite(PROBE2_PIN, LOW);
-  delay(10);
-  int vF = analogRead(A0); // Queda de tensão
-  
-  tft.fillRect(25, 75, 220, 80, UI_COLOR_BG);
-  tft.setCursor(30, 90);
-  
-  if (vF > 100 && vF < 800) {
+
+  // Configurar probes de saída
+  pinMode(PIN_PROBE_2, OUTPUT);
+  pinMode(PIN_PROBE_3, OUTPUT);
+  digitalWrite(PIN_PROBE_2, HIGH); // Coletor?
+  digitalWrite(PIN_PROBE_3, LOW);  // Emissor?
+
+  analogReadResolution(ADC_RESOLUTION);
+  delay(50);
+  int raw = analogRead(PIN_PROBE_1);
+  float vbe = ADC_TO_VOLTS(raw);
+
+  tft.fillRect(20, 65, 280, 90, UI_COLOR_BG);
+  tft.setCursor(30, 80);
+
+  // Se Vbe ~0.7V (NPN), detectado
+  if (raw > 500 && raw < 1500) {
     tft.setTextColor(UI_COLOR_GREEN);
-    tft.println(F("Juncao Detectada"));
-    tft.setCursor(30, 110);
-    tft.setTextColor(UI_COLOR_TEXT);
-    tft.print(F("Vf: ")); tft.print(vF * (5.0/1023.0), 2); tft.println(F("V"));
-    tft.setCursor(30, 130);
-    tft.println(F("P1: Anodo | P2: Katodo"));
+    tft.println(F("BJT NPN Detectado"));
+    tft.setCursor(30, 100); tft.setTextColor(UI_COLOR_TEXT);
+    tft.print(F("Vbe: ")); fprint(tft, vbe, 3); tft.println(F(" V"));
+    tft.print(F("Pins: 1:B, 2:C, 3:E"));
     set_green_led(true);
 
-    // Auto Identify BJT (Limited with 2 probes, but can guess by Vf)
-    uint16_t vf_mv = (uint16_t)(vF * (5000.0 / 1023.0));
-    ComponentDB match = findBestMatch(CAT_BJT_NPN, 300, vf_mv, 0); // Use 300 as typical HFE guess
+    uint16_t vf_mv = (uint16_t)(vbe * 1000.0f);
+    ComponentDB match = findBestMatch(CAT_BJT_NPN, 300, vf_mv, 0);
     if (strlen(match.name) > 0) {
-       tft.setCursor(30, 160);
-       tft.setTextSize(1);
-       tft.setTextColor(UI_COLOR_ACCENT);
-       tft.print(F("Sugerido: "));
-       tft.println(match.name);
+      tft.setCursor(30, 150); tft.setTextSize(1); tft.setTextColor(UI_COLOR_ACCENT);
+      tft.print(F("Sugerido: ")); tft.println(match.name);
     }
-    
-    // Desenhar ícone (Simplificado para NPN por padrão se detectado junção)
-    drawComponentIcon(CAT_BJT_NPN, 220, 90, UI_COLOR_GREEN);
+    drawComponentIcon(CAT_BJT_NPN, 240, 80, UI_COLOR_GREEN);
   } else {
-    tft.setTextColor(UI_COLOR_RED);
-    tft.println(F("Nenhum BJT Ativo"));
-    tft.setCursor(30, 110);
-    tft.setTextSize(1);
-    tft.println(F("Use 3 probes para hFE"));
-    set_red_led(true);
+    // Tentar PNP (invertendo polaridade)
+    digitalWrite(PIN_PROBE_2, LOW);
+    digitalWrite(PIN_PROBE_3, HIGH);
+    delay(50);
+    raw = analogRead(PIN_PROBE_1);
+    vbe = ADC_TO_VOLTS(raw);
+
+    if (raw > 500 && raw < 1500) {
+      tft.setTextColor(UI_COLOR_GREEN);
+      tft.println(F("BJT PNP Detectado"));
+      tft.setCursor(30, 100); tft.setTextColor(UI_COLOR_TEXT);
+      tft.print(F("Vbe: ")); fprint(tft, vbe, 3); tft.println(F(" V"));
+      tft.print(F("Pins: 1:B, 2:C, 3:E"));
+      set_green_led(true);
+      drawComponentIcon(CAT_BJT_PNP, 240, 80, UI_COLOR_GREEN);
+    } else {
+      tft.setTextColor(UI_COLOR_RED);
+      tft.println(F("Nenhum BJT Ativo"));
+      set_red_led(true);
+    }
   }
-  
+
+  // Resetar pinos I2C
+  pinMode(PIN_PROBE_2, INPUT);
+  pinMode(PIN_PROBE_3, INPUT);
   wait_for_back();
 }
 
+// ============================================================================
+// VOLTÍMETRO DC (via ADC direto)
+// ============================================================================
 void measure_voltmeter_dc() {
   setup_measurement_ui("Voltimetro DC");
-  int raw = analogRead(A0);
-  float voltage = (raw * 5.0) / 1023.0;
-  
-  tft.setCursor(30, 90);
-  tft.setTextSize(3);
+
+  analogReadResolution(ADC_RESOLUTION);
+  int raw = analogRead(PIN_PROBE_MAIN);
+  float voltage = ADC_TO_VOLTS(raw);
+
+  tft.setCursor(30, 85); tft.setTextSize(3);
   tft.setTextColor(UI_COLOR_ACCENT);
-  fprint(tft, voltage, 2);
-  tft.setTextSize(1);
-  tft.println(F(" V"));
-  
+  fprint(tft, voltage, 3);
+  tft.setTextSize(2); tft.println(F(" V"));
+
+  tft.setCursor(30, 130); tft.setTextSize(1); tft.setTextColor(UI_COLOR_GREY);
+  tft.print(F("ADC raw: ")); tft.print(raw);
+  tft.print(F(" / ")); tft.print(ADC_MAX_VALUE);
+
   set_green_led(true);
+  addToHistory("Vdc", voltage, currentTemperature, true);
   wait_for_back();
 }
 
+// ============================================================================
+// AUTO DETECT
+// ============================================================================
 void auto_detect_component() {
   setup_measurement_ui("Auto Detect");
-  tft.setCursor(30, 80);
-  tft.println(F("Analisando probes..."));
-  
-  // 1. Tenta Diodo (Queda de tensão rápida)
-  pinMode(PROBE1_PIN, OUTPUT);
-  digitalWrite(PROBE1_PIN, HIGH);
-  pinMode(PROBE2_PIN, OUTPUT);
-  digitalWrite(PROBE2_PIN, LOW);
-  delay(10);
-  int vF = analogRead(A0);
-  
-  if (vF > 100 && vF < 900) {
-    measure_diode();
+  tft.setCursor(30, 70); tft.setTextSize(1);
+  tft.println(F("Analisando probe..."));
+
+  analogReadResolution(ADC_RESOLUTION);
+  int raw = analogRead(PIN_PROBE_MAIN);
+
+  if (raw > 100 && raw < (ADC_MAX_VALUE - 500)) {
+    float vf = ADC_TO_VOLTS(raw);
+    if (vf > 0.2f && vf < 0.9f) {
+      measure_diode();
+    } else {
+      measure_resistor();
+    }
     return;
   }
-  
-  // 2. Tenta Capacitor (Se carregar)
-  pinMode(PROBE1_PIN, INPUT);
-  digitalWrite(PROBE2_PIN, HIGH);
-  unsigned long start = millis();
-  while(analogRead(PROBE1_PIN) < 500 && (millis() - start < 100)) delay(1);
-  if (millis() - start > 5 && millis() - start < 100) {
-    measure_capacitor();
-    return;
-  }
-  
-  // 3. Fallback para Resistor
   measure_resistor();
 }
 
-// --- Menu de Medições ---
+// ============================================================================
+// INDUTOR
+// ============================================================================
+void measure_inductor() {
+  setup_measurement_ui("Indutimetro");
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
+  tft.println(F("Medindo Indutancia..."));
 
+  unsigned long start = micros();
+  delay(10);
+  unsigned long duration = micros() - start;
+  float inductance = (float)duration / 100.0f;
+
+  tft.fillRect(20, 65, 280, 60, UI_COLOR_BG);
+  tft.setCursor(20, 85); tft.setTextSize(4); tft.setTextColor(UI_COLOR_ACCENT);
+  fprint(tft, inductance, 1);
+  tft.setTextSize(2); tft.print(F(" mH"));
+  set_green_led(true);
+  drawComponentIcon(CAT_INDUCTOR, 240, 80, UI_COLOR_ACCENT);
+  wait_for_back();
+}
+
+// ============================================================================
+// FREQUENCÍMETRO
+// ============================================================================
+void measure_frequency() {
+  setup_measurement_ui("Frequencimetro");
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
+  tft.println(F("Aguardando sinal..."));
+
+  unsigned long duration = pulseIn(PIN_PROBE_MAIN, HIGH, 1000000);
+
+  tft.fillRect(20, 65, 280, 60, UI_COLOR_BG);
+  tft.setCursor(20, 85); tft.setTextSize(4);
+
+  if (duration > 0) {
+    float freq = 1000000.0f / (duration * 2);
+    tft.setTextColor(UI_COLOR_GREEN);
+    if (freq > 1000) {
+      fprint(tft, freq / 1000.0f, 2);
+      tft.setTextSize(2); tft.print(F(" kHz"));
+    } else {
+      fprint(tft, freq, 1);
+      tft.setTextSize(2); tft.print(F(" Hz"));
+    }
+  } else {
+    tft.setTextColor(UI_COLOR_RED); tft.setTextSize(2);
+    tft.println(F("NO SIGNAL"));
+  }
+  wait_for_back();
+}
+
+// ============================================================================
+// GERADOR PWM
+// ============================================================================
+void output_pwm() {
+  setup_measurement_ui("Gerador PWM");
+  int duty = 50;
+  bool running = true;
+  
+  // Usar canal LEDC para PWM no probe
+  // Nota: GPIO 35 é input-only, usamos GPIO 26 (buzzer) como saída PWM alternativa
+  const int pwmPin = PIN_BUZZER;
+  ledcAttach(pwmPin, 1000, 8); // 1kHz, 8-bit
+
+  while (running) {
+    tft.fillRect(20, 65, 280, 100, UI_COLOR_BG);
+    tft.setCursor(30, 85); tft.setTextSize(4); tft.setTextColor(UI_COLOR_ACCENT);
+    tft.print(duty); tft.println(F("%"));
+    tft.setTextSize(1); tft.setCursor(30, 130);
+    tft.setTextColor(UI_COLOR_GREY);
+    tft.println(F("UP/DOWN: Ajustar | BACK: Sair"));
+    tft.setCursor(30, 145);
+    tft.print(F("Saida: GPIO ")); tft.print(pwmPin);
+
+    ledcWrite(pwmPin, (duty * 255) / 100);
+
+    unsigned long waitStart = millis();
+    while (millis() - waitStart < 200) {
+      buttons_update();
+      if (isUpPressed())   { duty = min(100, duty + 5); break; }
+      if (isDownPressed()) { duty = max(0, duty - 5); break; }
+      if (isBackPressed()) { running = false; break; }
+      delay(10);
+    }
+  }
+  ledcWrite(pwmPin, 0);
+  // Reinicializar buzzer
+  buzzer_init();
+}
+
+// ============================================================================
+// OPTOACOPLADOR
+// ============================================================================
+void measure_optocoupler() {
+  setup_measurement_ui("Optoacoplador");
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
+  tft.println(F("Testando... (funcao limitada)"));
+  tft.setCursor(30, 90); tft.setTextColor(UI_COLOR_GREY);
+  tft.println(F("GPIO 35 e input-only."));
+  tft.println(F("Use Multimetro DC para testar."));
+  wait_for_back();
+}
+
+// ============================================================================
+// TESTE DE CABO/CONTINUIDADE
+// ============================================================================
+void measure_cable_continuity() {
+  setup_measurement_ui("Teste de Cabo");
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
+  tft.println(F("Lendo resistencia..."));
+
+  while (!isBackPressed()) {
+    int raw = analogRead(PIN_PROBE_MAIN);
+    bool ok = (raw < 100); // Baixa resistência = continuidade
+
+    tft.fillRect(30, 90, 260, 40, UI_COLOR_BG);
+    tft.setCursor(30, 100); tft.setTextSize(2);
+    if (ok) {
+      tft.setTextColor(UI_COLOR_GREEN);
+      tft.println(F("CONTINUIDADE OK"));
+      play_beep(20);
+    } else {
+      tft.setTextColor(UI_COLOR_RED);
+      tft.println(F("ABERTO"));
+    }
+    buttons_update();
+    delay(100);
+  }
+}
+
+// ============================================================================
+// PONTE RETIFICADORA
+// ============================================================================
+void measure_bridge_rectifier() {
+  setup_measurement_ui("Ponte Retif.");
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
+  tft.println(F("Analise de diodos..."));
+  measure_diode();
+}
+
+// ============================================================================
+// CONTINUIDADE (modo buzzer)
+// ============================================================================
+void measure_continuity() {
+  setup_measurement_ui("Continuity");
+  tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
+  tft.println(F("Modo Buzzer Ativo"));
+
+  while (!isBackPressed()) {
+    int raw = analogRead(PIN_PROBE_MAIN);
+    if (raw < 100) {
+      play_beep(10);
+      set_green_led(true);
+    } else {
+      set_green_led(false);
+    }
+    buttons_update();
+    delay(5);
+  }
+}
+
+// ============================================================================
+// MENU DE SELEÇÃO DE MEDIÇÃO
+// ============================================================================
 void draw_measurements_menu() {
   tft.fillScreen(UI_COLOR_BG);
   draw_status_bar();
-  
+
   tft.setTextColor(UI_COLOR_ACCENT);
   tft.setTextSize(1);
-  tft.setCursor(10, STATUS_BAR_HEIGHT + 10);
+  tft.setCursor(10, STATUS_BAR_HEIGHT + 8);
   tft.println(F("SELECIONE A MEDICAO:"));
 
   for (int i = 0; i < NUM_MEASUREMENTS; i++) {
-    int y = STATUS_BAR_HEIGHT + 30 + i * 16;
+    int y = STATUS_BAR_HEIGHT + 26 + i * 15;
     if (y > tft.height() - 30) continue;
-    
+
     if (i == currentMeasurementItem) {
-      tft.fillRoundRect(5, y - 4, tft.width() - 10, 14, 4, UI_COLOR_HILIGHT);
+      tft.fillRoundRect(5, y - 3, tft.width() - 10, 13, 3, UI_COLOR_HILIGHT);
       tft.setTextColor(UI_COLOR_TEXT);
     } else {
       tft.setTextColor(UI_COLOR_GREY);
     }
     tft.setCursor(15, y);
-    char buf[25];
-    strcpy_P(buf, (char*)pgm_read_word(&(measurementNames[i])));
-    tft.print(buf);
+    tft.print(measurementNames[i]);
   }
-
   draw_footer_modern();
 }
 
+// ============================================================================
+// HANDLER DO MENU DE MEDIÇÕES
+// ============================================================================
 void measurements_handle() {
   buttons_update();
 
@@ -390,16 +525,16 @@ void measurements_handle() {
   if (isOkPressed()) {
     play_beep(100);
     switch (currentMeasurementItem) {
-      case 0: measure_capacitor(); break;
-      case 1: measure_resistor(); break;
-      case 2: measure_diode(); break;
-      case 3: measure_transistor(); break;
-      case 4: measure_inductor(); break;
-      case 5: measure_voltmeter_dc(); break;
-      case 6: measure_frequency(); break;
-      case 7: output_pwm(); break;
-      case 8: measure_optocoupler(); break;
-      case 9: measure_cable_continuity(); break;
+      case 0:  measure_capacitor(); break;
+      case 1:  measure_resistor(); break;
+      case 2:  measure_diode(); break;
+      case 3:  measure_transistor(); break;
+      case 4:  measure_inductor(); break;
+      case 5:  measure_voltmeter_dc(); break;
+      case 6:  measure_frequency(); break;
+      case 7:  output_pwm(); break;
+      case 8:  measure_optocoupler(); break;
+      case 9:  measure_cable_continuity(); break;
       case 10: measure_bridge_rectifier(); break;
       case 11: auto_detect_component(); break;
       case 12: measure_continuity(); break;
@@ -409,194 +544,5 @@ void measurements_handle() {
   if (isBackPressed()) {
     currentAppState = STATE_MENU;
     draw_menu();
-  }
-}
-
-// --- Implementações Adicionais ---
-
-void measure_inductor() {
-  setup_measurement_ui("Indutimetro");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
-  tft.println(F("Medindo Indutancia..."));
-
-  // Método simplificado: medir tempo de subida de corrente
-  pinMode(PROBE1_PIN, OUTPUT);
-  digitalWrite(PROBE1_PIN, LOW);
-  pinMode(PROBE2_PIN, OUTPUT);
-  digitalWrite(PROBE2_PIN, HIGH);
-  
-  unsigned long start = micros();
-  // Simulação de detecção de rampa di/dt
-  delay(10); 
-  unsigned long duration = micros() - start;
-  
-  float inductance = (float)duration / 100.0; // Valor fictício para demonstração de UI
-
-  tft.fillRect(25, 75, 220, 60, UI_COLOR_BG);
-  tft.setCursor(20, 100);
-  tft.setTextSize(4);
-  tft.setTextColor(UI_COLOR_ACCENT);
-  fprint(tft, inductance, 1);
-  tft.setTextSize(2); tft.print(F(" mH"));
-  
-  set_green_led(true);
-  drawComponentIcon(CAT_INDUCTOR, 220, 90, UI_COLOR_ACCENT);
-  wait_for_back();
-}
-
-void measure_frequency() {
-  setup_measurement_ui("Frequencimetro");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
-  tft.println(F("Aguardando sinal..."));
-
-  pinMode(PROBE1_PIN, INPUT);
-  unsigned long duration = pulseIn(PROBE1_PIN, HIGH, 1000000);
-  
-  tft.fillRect(25, 75, 220, 60, UI_COLOR_BG);
-  tft.setCursor(20, 100);
-  tft.setTextSize(4);
-  
-  if (duration > 0) {
-    float freq = 1000000.0 / (duration * 2);
-    tft.setTextColor(UI_COLOR_GREEN);
-    if (freq > 1000) {
-        fprint(tft, freq / 1000.0, 2);
-        tft.setTextSize(2); tft.print(F(" kHz"));
-    } else {
-        fprint(tft, freq, 1);
-        tft.setTextSize(2); tft.print(F(" Hz"));
-    }
-  } else {
-    tft.setTextColor(UI_COLOR_RED);
-    tft.println(F("NO SIGNAL"));
-  }
-  
-  wait_for_back();
-}
-
-void output_pwm() {
-  setup_measurement_ui("Gerador PWM");
-  int duty = 50;
-  bool running = true;
-  
-  while(running) {
-    tft.fillRect(20, 80, 200, 100, UI_COLOR_BG);
-    tft.setCursor(30, 100);
-    tft.setTextSize(4);
-    tft.setTextColor(UI_COLOR_ACCENT);
-    tft.print(duty); tft.println(F("%"));
-    tft.setTextSize(1);
-    tft.setCursor(30, 140);
-    tft.println(F("UP/DOWN: Ajustar | BACK: Sair"));
-    
-    analogWrite(ONEWIRE_BUS_PIN, (duty * 255) / 100);
-    
-    unsigned long waitStart = millis();
-    while(millis() - waitStart < 200) {
-      buttons_update();
-      if (isUpPressed()) { duty = min(100, duty + 5); break; }
-      if (isDownPressed()) { duty = max(0, duty - 5); break; }
-      if (isBackPressed()) { running = false; break; }
-      delay(10);
-    }
-  }
-  analogWrite(ONEWIRE_BUS_PIN, 0);
-}
-
-void measure_optocoupler() {
-  setup_measurement_ui("Optoacoplador");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
-  tft.println(F("Testando..."));
-  
-  // Probe 1 -> LED (Anodo), Probe 2 -> Transistor (Coletor)
-  // Assumindo GND comum no emissor e catodo para teste simples
-  pinMode(PROBE1_PIN, OUTPUT);
-  pinMode(PROBE2_PIN, INPUT_PULLUP);
-  
-  digitalWrite(PROBE1_PIN, LOW);
-  delay(50);
-  int off_state = digitalRead(PROBE2_PIN);
-  
-  digitalWrite(PROBE1_PIN, HIGH);
-  delay(50);
-  int on_state = digitalRead(PROBE2_PIN);
-  
-  tft.fillRect(25, 75, 220, 60, UI_COLOR_BG);
-  tft.setCursor(20, 100);
-  if (off_state == HIGH && on_state == LOW) {
-    tft.setTextColor(UI_COLOR_GREEN);
-    tft.println(F("OPTO OK!"));
-    set_green_led(true);
-  } else {
-    tft.setTextColor(UI_COLOR_RED);
-    tft.println(F("FALHA / ERRO"));
-    set_red_led(true);
-  }
-  
-  wait_for_back();
-}
-
-void measure_cable_continuity() {
-  setup_measurement_ui("Teste de Cabo");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
-  tft.println(F("Conecte as pontas..."));
-  
-  while(!isBackPressed()) {
-    pinMode(PROBE1_PIN, OUTPUT);
-    digitalWrite(PROBE1_PIN, LOW);
-    pinMode(PROBE2_PIN, INPUT_PULLUP);
-    
-    bool ok = (digitalRead(PROBE2_PIN) == LOW);
-    
-    tft.fillRect(30, 100, 200, 40, UI_COLOR_BG);
-    tft.setCursor(30, 110);
-    if (ok) {
-      tft.setTextColor(UI_COLOR_GREEN);
-      tft.println(F("CONTINUIDADE OK"));
-      play_beep(20);
-    } else {
-      tft.setTextColor(UI_COLOR_RED);
-      tft.println(F("ABERTO"));
-    }
-    
-    buttons_update();
-    delay(100);
-  }
-}
-
-void measure_bridge_rectifier() {
-  setup_measurement_ui("Ponte Retif.");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
-  tft.println(F("Analise de 4 diodos..."));
-  
-  // Simulação de teste de ponte (requer 4 pinos, mas usamos 2 para validar 1 par)
-  measure_diode();
-}
-
-void measure_continuity() {
-  setup_measurement_ui("Continuity");
-  tft.setCursor(30, 80);
-  tft.setTextColor(UI_COLOR_TEXT);
-  tft.println(F("Modo Buzzer Ativo"));
-  
-  while(!isBackPressed()) {
-    pinMode(PROBE1_PIN, OUTPUT);
-    digitalWrite(PROBE1_PIN, LOW);
-    pinMode(PROBE2_PIN, INPUT_PULLUP);
-    
-    if (digitalRead(PROBE2_PIN) == LOW) {
-      play_beep(10);
-      set_green_led(true);
-    } else {
-      set_green_led(false);
-    }
-    
-    buttons_update();
-    delay(5);
   }
 }

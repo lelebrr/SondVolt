@@ -1,18 +1,26 @@
+// ============================================================================
+// Component Tester PRO v3.0 — Menu Principal (CYD Edition)
+// ============================================================================
 #ifndef MENU_H
 #define MENU_H
 
 #include "globals.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
+#include <TFT_eSPI.h>
 #include <Arduino.h>
 
-extern Adafruit_ILI9341 tft;
+extern TFT_eSPI tft;
 
+// ============================================================================
+// ESTRUTURA DE ITEM DO MENU
+// ============================================================================
 typedef struct {
-  const char *text;
-  AppState targetState;
+  const char *text;         // Texto do item
+  AppState targetState;     // Estado alvo ao selecionar
 } MenuItem;
 
+// ============================================================================
+// PROTÓTIPOS
+// ============================================================================
 void menu_init();
 void menu_handle();
 void draw_menu();
@@ -28,4 +36,4 @@ void handle_scanner();
 void draw_stats();
 void handle_stats();
 
-#endif
+#endif // MENU_H

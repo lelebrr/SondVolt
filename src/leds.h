@@ -1,3 +1,6 @@
+// ============================================================================
+// Component Tester PRO v3.0 — LEDs Indicadores (CYD Edition)
+// ============================================================================
 #ifndef LEDS_H
 #define LEDS_H
 
@@ -14,7 +17,7 @@ extern unsigned long ledFlashInterval;
 extern bool greenLedState;
 extern bool redLedState;
 
-// Funções para controle dos LEDs
+// Funções para controle dos LEDs (RGB integrado da CYD)
 void update_leds();
 void set_green_led(bool state);
 void set_red_led(bool state);

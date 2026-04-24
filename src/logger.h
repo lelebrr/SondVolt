@@ -1,8 +1,10 @@
+// ============================================================================
+// Component Tester PRO v3.0 — Logger (CYD Edition)
+// ============================================================================
 #ifndef LOGGER_H
 #define LOGGER_H
 
 #include <Arduino.h>
-#include <SD.h>
 #include "config.h"
 
 // Funções para logging no SD Card

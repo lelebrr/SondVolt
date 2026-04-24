@@ -1,3 +1,6 @@
+// ============================================================================
+// Component Tester PRO v3.0 — Sonda Térmica DS18B20 (CYD Edition)
+// ============================================================================
 #ifndef THERMAL_H
 #define THERMAL_H
 
@@ -5,7 +8,7 @@
 #include <Arduino.h>
 #include <OneWire.h>
 
-// Declaração do objeto OneWire
+// Objeto OneWire (GPIO 4 na CYD)
 extern OneWire oneWireBus;
 
 // Funções para manipulação da sonda térmica

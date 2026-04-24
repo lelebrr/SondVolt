@@ -75,7 +75,7 @@ def main():
         name = f"Zener {z}V"
         components.append([name, 6, v, int(v*0.95), int(v*1.05), 0, 1, 2, 0, f"Zener Diode {z}V", "Voltage Reg", 0])
 
-    with open('D:/Projetos/Component_Tester/sd_files/COMPBD_FINAL.CSV', 'w', newline='') as f:
+    with open('sd_files/COMPBD.CSV', 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerows(components)
     

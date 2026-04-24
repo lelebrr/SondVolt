@@ -1,15 +1,28 @@
+// ============================================================================
+// Component Tester PRO v3.0 — LEDs Indicadores (CYD Edition)
+// ============================================================================
+// A CYD tem um LED RGB integrado. Usamos:
+//   - GPIO 16 → Canal Verde
+//   - GPIO 17 → Canal Vermelho
+// Nota: O LED RGB da CYD é ativo LOW em algumas versões.
+// Ajuste a lógica se necessário (HIGH=ON vs LOW=ON).
+// ============================================================================
+
 #include "leds.h"
 #include "globals.h"
 
+// Variáveis de controle
 bool flashingBothLeds = false;
 bool flashingGreenLedSlow = false;
 bool flashingRedLedFast = false;
 unsigned long ledFlashTimer = 0;
 unsigned long ledFlashInterval = 0;
 
-// Atualiza o estado dos LEDs com base nas variáveis globais
-
+// ============================================================================
+// ATUALIZAÇÃO DOS LEDS (não-bloqueante)
+// ============================================================================
 void update_leds() {
+  // Gerenciar animações de flash
   if (flashingBothLeds || flashingGreenLedSlow || flashingRedLedFast) {
     if (currentMillis - ledFlashTimer >= ledFlashInterval) {
       ledFlashTimer = currentMillis;
@@ -23,11 +36,17 @@ void update_leds() {
       }
     }
   }
-  digitalWrite(LED_GREEN_PIN, greenLedState);
-  digitalWrite(LED_RED_PIN, redLedState);
+
+  // Aplicar estado aos pinos
+  // Nota: Alguns modelos da CYD têm LED ativo LOW (invertido).
+  // Se os LEDs funcionam ao contrário, troque HIGH/LOW abaixo.
+  digitalWrite(PIN_LED_GREEN, greenLedState ? HIGH : LOW);
+  digitalWrite(PIN_LED_RED, redLedState ? HIGH : LOW);
 }
 
-// Define o estado do LED verde (ligado/desligado)
+// ============================================================================
+// CONTROLE DIRETO DOS LEDS
+// ============================================================================
 void set_green_led(bool state) {
   greenLedState = state;
   flashingBothLeds = false;
@@ -35,7 +54,6 @@ void set_green_led(bool state) {
   flashingRedLedFast = false;
 }
 
-// Define o estado do LED vermelho (ligado/desligado)
 void set_red_led(bool state) {
   redLedState = state;
   flashingBothLeds = false;
@@ -43,7 +61,9 @@ void set_red_led(bool state) {
   flashingRedLedFast = false;
 }
 
-// Faz ambos os LEDs piscarem rapidamente
+// ============================================================================
+// ANIMAÇÕES DE FLASH
+// ============================================================================
 void flash_both_leds(int delay_ms) {
   flashingBothLeds = true;
   flashingGreenLedSlow = false;
@@ -52,20 +72,18 @@ void flash_both_leds(int delay_ms) {
   ledFlashTimer = currentMillis;
 }
 
-// Faz o LED verde piscar lentamente
 void flash_green_led_slow() {
   flashingBothLeds = false;
   flashingGreenLedSlow = true;
   flashingRedLedFast = false;
-  ledFlashInterval = 500; // 500ms para piscar lento
+  ledFlashInterval = 500;
   ledFlashTimer = currentMillis;
 }
 
-// Faz o LED vermelho piscar rapidamente
 void flash_red_led_fast() {
   flashingBothLeds = false;
   flashingGreenLedSlow = false;
   flashingRedLedFast = true;
-  ledFlashInterval = 100; // 100ms para piscar rápido
+  ledFlashInterval = 100;
   ledFlashTimer = currentMillis;
 }
