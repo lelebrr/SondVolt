@@ -1,0 +1,47 @@
+{
+    "C_Cpp.default.configurationProvider": "",
+    "C_Cpp.intelliSenseEngine": "disabled",
+    "C_Cpp.errorSquiggles": "disabled",
+    "C_Cpp.warningSquiggles": "disabled",
+    "C_Cpp.intelliSenseEngineFallback": "disabled",
+    "C_Cpp.configurationWarnings": "disabled",
+    "C_Cpp.autocomplete": "disabled",
+    "C_Cpp.dimInactiveRegions": false,
+    "C_Cpp.loggingLevel": "off",
+    "C_Cpp.experimental": {
+        "autocompleteAddMethodTrailingSemicolon": false
+    },
+    "C_Cpp.prefab": 0,
+    "clangd.disableLanguages": ["*"],
+    "clangd.enable": false,
+    "clangd.run": "never",
+    "clangd.slow": true,
+    "python.analysis.autoImportCompletions": false,
+    "python.analysis.diagnosticMode": "openFilesOnly",
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.useLibraryCodeForTypes": false,
+    "python.analysis.autoSearchPaths": false,
+    "python.analysis.diagnostics": false,
+    "pyrefly.enable": false,
+    "pyright.disableLanguageServices": true,
+    "pyright.disablePlugin": true,
+    "pylance.enable": false,
+    "files.associations": {},
+    "editor.codeActionsOnSave": {},
+    "editor.formatOnSave": false,
+    "editor.inlineSuggest.enabled": false,
+    "editor.quickSuggestions": false,
+    "editor.suggestOnTriggerCharacters": false,
+    "[c]": {
+        "editor.inlineSuggest.enabled": false,
+        "editor.quickSuggestions": false
+    },
+    "[cpp]": {
+        "editor.inlineSuggest.enabled": false,
+        "editor.quickSuggestions": false
+    },
+    "[python]": {
+        "editor.inlineSuggest.enabled": false,
+        "editor.quickSuggestions": false
+    }
+}

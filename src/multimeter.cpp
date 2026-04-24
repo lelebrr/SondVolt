@@ -8,6 +8,7 @@
 //   4. Potência DC (INA219) — Cálculo P = V × I
 // ============================================================================
 
+#include <Arduino.h>
 #include "multimeter.h"
 #include "buttons.h"
 #include "buzzer.h"
@@ -20,7 +21,7 @@
 #include <TFT_eSPI.h>
 #include <Wire.h>
 #include <Adafruit_INA219.h>
-#include <Arduino.h>
+#include <math.h>
 
 extern TFT_eSPI tft;
 

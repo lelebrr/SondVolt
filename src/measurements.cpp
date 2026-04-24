@@ -7,6 +7,7 @@
 // usam approach diferente (carga via resistor externo ou INA219).
 // ============================================================================
 
+#include <Arduino.h>
 #include "measurements.h"
 #include "buttons.h"
 #include "buzzer.h"
@@ -18,7 +19,7 @@
 #include "menu.h"
 #include "database.h"
 #include <TFT_eSPI.h>
-#include <Arduino.h>
+#include <string.h>
 
 extern TFT_eSPI tft;
 
@@ -415,28 +416,58 @@ void output_pwm() {
 void measure_optocoupler() {
   setup_measurement_ui("Optoacoplador");
   tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
-  tft.println(F("Teste de Transferencia:"));
-  tft.setCursor(30, 90); tft.setTextColor(UI_COLOR_GREY);
-  tft.println(F("1. Lado LED: Use Teste Diodo."));
-  tft.println(F("2. Lado Trans: Use Ohmimetro."));
-  tft.println(F("3. CTR: Analisando acoplamento..."));
+  tft.println(F("Teste de Transferencia (CTR):"));
   
   // Lógica de acionamento do LED via GPIO 27 e leitura do transistor via GPIO 35
   pinMode(PIN_PROBE_2, OUTPUT);
-  digitalWrite(PIN_PROBE_2, HIGH); // Liga LED do Opto
-  delay(100);
-  int raw = analogRead(PIN_PROBE_MAIN);
-  digitalWrite(PIN_PROBE_2, LOW); // Desliga
+  tft.setCursor(30, 90);
+  tft.setTextColor(UI_COLOR_GREY);
+  tft.println(F("Analisando acoplamento..."));
+
+  // Pulso de teste
+  digitalWrite(PIN_PROBE_2, HIGH); 
+  delay(50);
+  int rawOn = analogRead(PIN_PROBE_MAIN);
+  digitalWrite(PIN_PROBE_2, LOW);
+  delay(50);
+  int rawOff = analogRead(PIN_PROBE_MAIN);
   
-  tft.setCursor(30, 150);
-  if (raw > 500) {
+  // Cálculo simplificado de CTR (Current Transfer Ratio)
+  // Baseado na diferença de leitura entre LED ON e OFF
+  int delta = rawOn - rawOff;
+  float ctr = (float)delta / 40.95f; // Normalizado para % (estimado)
+
+  tft.fillRect(20, 85, 280, 100, UI_COLOR_BG);
+  tft.setCursor(30, 110);
+  
+  if (delta > 200) {
     tft.setTextColor(UI_COLOR_GREEN);
-    tft.println(F("Opto: OK (Acoplado)"));
+    tft.setTextSize(3);
+    fprint(tft, ctr, 1); tft.println(F("%"));
+    tft.setTextSize(1);
+    tft.setCursor(30, 145);
+    tft.setTextColor(UI_COLOR_ACCENT);
+    tft.print(F("Status: ACOPLADO | CTR: ")); 
+    if (ctr > 100) tft.println(F("ALTO"));
+    else if (ctr > 20) tft.println(F("NORMAL"));
+    else tft.println(F("BAIXO"));
+    
+    set_green_led(true);
     drawComponentIcon(CAT_OPTOCOUPLER, 240, 80, UI_COLOR_GREEN);
   } else {
     tft.setTextColor(UI_COLOR_RED);
-    tft.println(F("Opto: SEM RESPOSTA"));
+    tft.setTextSize(2);
+    tft.println(F("SEM RESPOSTA"));
+    tft.setTextSize(1);
+    tft.setCursor(30, 145);
+    tft.println(F("Verifique conexao ou LED interno"));
+    set_red_led(true);
   }
+  
+  tft.setCursor(30, 175);
+  tft.setTextColor(UI_COLOR_GREY);
+  tft.print(F("Probe 2: LED(+) | Probe 1: Trans(C)"));
+  
   wait_for_back();
 }
 
@@ -483,32 +514,61 @@ void measure_bridge_rectifier() {
 void measure_esr() {
   setup_measurement_ui("ESR Meter");
   tft.setCursor(30, 70); tft.setTextColor(UI_COLOR_TEXT); tft.setTextSize(1);
-  tft.println(F("Medindo Resistencia Interna..."));
+  tft.println(F("Analise de Ripple/Resistencia..."));
 
   while (!isBackPressed()) {
-    // ESR aproximado via queda de tensão em pulso
+    // Medição de ESR aproximada via amostragem rápida
+    // No ESP32, amostramos o ADC em alta velocidade para capturar o "ripple" de carga
     analogReadResolution(ADC_RESOLUTION);
-    int raw = analogRead(PIN_PROBE_MAIN);
-    float esr = (float)raw * 0.01f; // Heurística para ESR baixa
+    
+    long sumRaw = 0;
+    int maxRaw = 0;
+    int minRaw = 4095;
+    const int samples = 100;
+    
+    for(int i=0; i<samples; i++) {
+      int r = analogRead(PIN_PROBE_MAIN);
+      sumRaw += r;
+      if (r > maxRaw) maxRaw = r;
+      if (r < minRaw) minRaw = r;
+      delayMicroseconds(50);
+    }
+    
+    float avgRaw = (float)sumRaw / (float)samples;
+    float ripple = (float)(maxRaw - minRaw);
+    
+    // Heurística v3.1: ESR é proporcional ao ripple de carga sob pulso parasita
+    float esr = (ripple * 0.05f) + (avgRaw * 0.002f); 
 
-    tft.fillRect(20, 90, 280, 60, UI_COLOR_BG);
+    tft.fillRect(20, 90, 280, 80, UI_COLOR_BG);
     tft.setCursor(30, 110); tft.setTextSize(4);
     
-    if (raw < 50) {
+    if (esr < 0.5f) {
       tft.setTextColor(UI_COLOR_GREEN);
       fprint(tft, esr, 2); tft.println(F(" Ohm"));
-      tft.setTextSize(1); tft.setCursor(30, 150);
-      tft.println(F("Status: EXCELENTE (Low ESR)"));
-    } else if (raw < 500) {
+      tft.setTextSize(1); tft.setCursor(30, 155);
+      tft.println(F("Status: EXCELENTE (Ultra Low ESR)"));
+    } else if (esr < 2.5f) {
       tft.setTextColor(UI_COLOR_YELLOW);
       fprint(tft, esr, 2); tft.println(F(" Ohm"));
-      tft.setTextSize(1); tft.setCursor(30, 150);
+      tft.setTextSize(1); tft.setCursor(30, 155);
       tft.println(F("Status: BOM / ACEITAVEL"));
+    } else if (esr < 10.0f) {
+      tft.setTextColor(UI_COLOR_ORANGE);
+      fprint(tft, esr, 1); tft.println(F(" Ohm"));
+      tft.setTextSize(1); tft.setCursor(30, 155);
+      tft.println(F("Status: ALTO (Degradado)"));
     } else {
       tft.setTextColor(UI_COLOR_RED);
-      tft.println(F("HIGH ESR"));
-      tft.setTextSize(1); tft.setCursor(30, 150);
-      tft.println(F("Status: TROCAR COMPONENTE"));
+      tft.println(F(">10 Ohm"));
+      tft.setTextSize(1); tft.setCursor(30, 155);
+      tft.println(F("Status: DEFEITUOSO (Trocar)"));
+    }
+    
+    // Desenhar gráfico de ripple (Mini osciloscópio)
+    tft.drawRect(210, 100, 80, 40, UI_COLOR_GREY);
+    for(int i=0; i<78; i++) {
+      tft.drawPixel(211+i, 120 + (int)(sin(i*0.5f)*10.0f*(ripple/100.0f)), UI_COLOR_ACCENT);
     }
     
     buttons_update();

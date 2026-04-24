@@ -9,12 +9,14 @@
 //   - Fontes são ligeiramente diferentes, mas LOAD_GLCD mantém compatibilidade
 // ============================================================================
 
+#include <Arduino.h>
 #include "drawings.h"
 #include "config.h"
 #include "globals.h"
 #include "database.h"
 #include <TFT_eSPI.h>
-#include <Arduino.h>
+#include <math.h>
+#include <string.h>
 
 // ============================================================================
 // BARRA DE STATUS SUPERIOR
