@@ -111,8 +111,7 @@
 // ============================================================================
 // CONSTANTES ZMPT101B (Sensor Tensao AC)
 // ============================================================================
-#define ZMPT_SAMPLE_RATE     1000    // Amostragens por segundo
-#define ZMPT_SAMPLE_RATE_US  1000    // Microssegundos entre amostras
+// ZMPT_SAMPLE_RATE_US definido em multimeter.h
 #define ZMPT_NUM_SAMPLES     50      // Amostras para media
 #define ZMPT_ZERO_POINT      2048    // Ponto zero (meio do ADC)
 #define ZMPT_SCALE_FACTOR    311.0f  // Fator para 220V RMS

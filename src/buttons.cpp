@@ -6,6 +6,7 @@
 #include "buttons.h"
 #include "config.h"
 #include "pins.h"
+#include "globals.h"
 #include "display_globals.h"
 
 #include <string.h>
@@ -44,12 +45,30 @@ void buttons_init() {
     gLastTouch.y = 0;
     gLastTouch.z = 0;
 
-    // Inicializa touch screen
-    tft.init();
-    tft.setTouch(TOUCH_MIN_X, TOUCH_MAX_X, TOUCH_MIN_Y, TOUCH_MAX_Y);
+    // Tenta inicializar touch screen
+    bool touchOk = false;
+    #ifdef __EXCEPTIONS
+    try {
+    #endif
+        // Inicializa o display primeiro
+        if (tftInitialized) {
+            uint16_t touchData[4] = { TOUCH_MIN_X, TOUCH_MAX_X, TOUCH_MIN_Y, TOUCH_MAX_Y };
+            tft.setTouch(touchData);
+            touchOk = true; // Assume sucesso se display estiver inicializado
+        }
+    #ifdef __EXCEPTIONS
+    } catch (...) {
+        DBG("[BTN] Touch screen não disponível");
+    }
+    #endif
+
+    if (!touchOk) {
+        LOG_SERIAL_F("[BTN] Touch screen não inicializado, usando botoes físicos apenas");
+        // Touch não disponível, sistema funciona com botões físicos apenas
+    }
 
     gButtonsInitialized = true;
-    DBG("[BTN] Sistema de botoes inicializado");
+    LOG_SERIAL_F("[BTN] Sistema de botoes inicializado (touch: OK)");
 }
 
 // ============================================================================

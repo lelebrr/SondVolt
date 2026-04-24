@@ -11,6 +11,10 @@
 
 // Variavel global do display externa
 #include "display_globals.h"
+#include "display_mutex.h"
+
+SemaphoreHandle_t g_tft_mutex = NULL;
+
 
 // ============================================================================
 // UTILITARIOS DE COR
@@ -33,13 +37,60 @@ uint16_t rgb565(uint8_t r, uint8_t g, uint8_t b) {
 // INICIALIZACAO
 // ============================================================================
 void graphics_init() {
+    if (g_tft_mutex == NULL) {
+        g_tft_mutex = xSemaphoreCreateRecursiveMutex();
+    }
+
+    LOCK_TFT();
     tft.init();
-    tft.setRotation(1); // Paisagem (Landscape)
+    tft.setRotation(1); // Landscape (Horizontal) - 320x240
     tft.fillScreen(C_BACKGROUND);
+    UNLOCK_TFT();
     
-    // Configura PWM do Backlight se necessário
+    // Configura PWM do Backlight
     pinMode(PIN_TFT_BL, OUTPUT);
     digitalWrite(PIN_TFT_BL, HIGH);
+    
+    tftInitialized = true;
+}
+
+bool graphics_init_safe() {
+    if (g_tft_mutex == NULL) {
+        g_tft_mutex = xSemaphoreCreateRecursiveMutex();
+    }
+
+    #ifdef __EXCEPTIONS
+    try {
+    #endif
+        LOCK_TFT();
+        graphics_init(); // Verifica se a inicialização foi bem sucedida
+        bool initOk = tftInitialized;
+        if (initOk) {
+            tft.setRotation(1); // Landscape (Horizontal) - 320x240
+            tft.fillScreen(C_BACKGROUND);
+            UNLOCK_TFT();
+            
+            // Configura PWM do Backlight
+            pinMode(PIN_TFT_BL, OUTPUT);
+            digitalWrite(PIN_TFT_BL, HIGH);
+            
+            tftInitialized = true;
+            return true;
+        }
+        UNLOCK_TFT();
+        return false;
+    #ifdef __EXCEPTIONS
+    } catch (...) {
+        // Em caso de exceção, libera o mutex
+        if (g_tft_mutex) {
+            xSemaphoreGiveRecursive(g_tft_mutex);
+        }
+    }
+    #endif
+    
+    // Fallback: inicialização mínima sem display
+    tftInitialized = false;
+    return false;
 }
 
 // ============================================================================
@@ -326,10 +377,13 @@ void draw_component_icon(IconType icon, int16_t x, int16_t y, uint16_t color) {
 }
 
 void clear_screen() {
+    LOCK_TFT();
     tft.fillScreen(C_BACKGROUND);
+    UNLOCK_TFT();
 }
 
 void draw_status_bar(const char* title, const char* subtitle) {
+    LOCK_TFT();
     tft.fillRect(0, 0, SCREEN_W, STATUS_BAR_H, C_SURFACE);
     tft.setTextColor(C_TEXT);
     tft.setFreeFont(FONT_NORMAL);
@@ -343,9 +397,11 @@ void draw_status_bar(const char* title, const char* subtitle) {
     }
     
     tft.drawLine(0, STATUS_BAR_H, SCREEN_W, STATUS_BAR_H, C_PRIMARY);
+    UNLOCK_TFT();
 }
 
 void draw_footer(const char* left, const char* right) {
+    LOCK_TFT();
     tft.fillRect(0, SCREEN_H - FOOTER_H, SCREEN_W, FOOTER_H, C_SURFACE);
     tft.setTextColor(C_TEXT_SECONDARY);
     tft.setFreeFont(FONT_SMALL);
@@ -359,14 +415,17 @@ void draw_footer(const char* left, const char* right) {
         tft.setTextDatum(MR_DATUM);
         tft.drawString(right, SCREEN_W - 10, SCREEN_H - FOOTER_H/2);
     }
+    UNLOCK_TFT();
 }
 
 void draw_progress_bar(int16_t x, int16_t y, uint16_t w, uint16_t h, float percent, uint16_t color) {
+    LOCK_TFT();
     tft.drawRect(x, y, w, h, C_BORDER);
     int16_t fillW = (int16_t)((w - 2) * percent / 100.0f);
     if(fillW > 0) {
         tft.fillRect(x + 1, y + 1, fillW, h - 2, color);
     }
+    UNLOCK_TFT();
 }
 
 void draw_status_indicator(MeasurementStatus status, int16_t x, int16_t y, uint16_t size) {
@@ -377,11 +436,14 @@ void draw_status_indicator(MeasurementStatus status, int16_t x, int16_t y, uint1
     else if(status == STATUS_SHORT) color = C_ORANGE;
     else if(status == STATUS_OPEN) color = C_BLUE;
     
+    LOCK_TFT();
     tft.fillCircle(x, y, size/2, color);
     tft.drawCircle(x, y, size/2 + 2, C_WHITE);
+    UNLOCK_TFT();
 }
 
 void draw_splash_screen() {
+    LOCK_TFT();
     tft.fillScreen(C_BACKGROUND);
     tft.setFreeFont(FM12);
     tft.setTextColor(C_PRIMARY);
@@ -394,4 +456,5 @@ void draw_splash_screen() {
     
     tft.setTextColor(C_TEXT_SECONDARY);
     tft.drawString("v3.0.0", SCREEN_W/2, SCREEN_H/2 + 50);
+    UNLOCK_TFT();
 }

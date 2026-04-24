@@ -231,7 +231,7 @@ void format_value(float value, const char* unit, char* out, uint8_t maxLen) {
 // ATUALIZAÇÃO DE ESTADO
 // ============================================================================
 
-void measurement_update() {
+ComponentResult measurement_update() {
     lastActivityMs = millis();
     
     float value = 0.0f;
@@ -276,11 +276,13 @@ void measurement_update() {
     result.value = value;
     result.unit = unit;
     result.type = type;
-    result.status = db_judge(value, type);
+    result.status = db_judge((ComponentType)type, value);
     
     format_value(value, unit, result.valueStr, sizeof(result.valueStr));
     result.name = name;
     result.temp = thermal_read();
+    
+    return result;
 }
 
 // ============================================================================

@@ -6,8 +6,7 @@
 #define DATABASE_H
 
 #include <stdint.h>
-
-// Enums moved to globals.h
+#include "types.h"
 
 // ============================================================================
 // ITEM DO BANCO DE DADOS

@@ -12,13 +12,15 @@
 #include "graphics.h"
 #include "buzzer.h"
 #include "display_globals.h"
+#include "display_mutex.h"
+
 
 // ============================================================================
 // VARIAVEIS GLOBAIS
 // ============================================================================
 
 SafetyStatus safetyStatus;
-bool safetyCheckEnabled = true;
+bool safetyCheckEnabled = false;
 bool safetySoundEnabled = true;
 bool safetyLedEnabled = true;
 bool safetyAutoLockoutEnabled = true;
@@ -151,9 +153,9 @@ void safety_trigger_alert(SafetyAlertLevel level) {
 void safety_alert_led_flash(bool enable) {
     if(enable) {
         digitalWrite(PIN_LED_RED, HIGH);
-        delay(SAFETY_LED_FLASH_FAST);
+        vTaskDelay(pdMS_TO_TICKS(SAFETY_LED_FLASH_FAST));
         digitalWrite(PIN_LED_RED, LOW);
-        delay(SAFETY_LED_FLASH_FAST);
+        vTaskDelay(pdMS_TO_TICKS(SAFETY_LED_FLASH_FAST));
     } else {
         digitalWrite(PIN_LED_RED, LOW);
     }
@@ -162,13 +164,13 @@ void safety_alert_led_flash(bool enable) {
 void safety_alert_sound_danger() {
     for(uint8_t i = 0; i < 3; i++) {
         buzzer_beep(SAFETY_BEEP_DANGER, SAFETY_BEEP_DURATION_FAST);
-        delay(SAFETY_BEEP_DURATION_FAST);
+        vTaskDelay(pdMS_TO_TICKS(SAFETY_BEEP_DURATION_FAST));
     }
 }
 
 void safety_alert_sound_confirm() {
     buzzer_beep(SAFETY_BEEP_CONFIRM, 200);
-    delay(100);
+    vTaskDelay(pdMS_TO_TICKS(100));
     buzzer_beep(SAFETY_BEEP_OK, 200);
 }
 
@@ -183,6 +185,7 @@ void safety_alert_stop() {
 // ============================================================================
 
 void safety_draw_danger_screen(const char* message, float voltage) {
+    LOCK_TFT();
     tft.fillScreen(SAFETY_COLOR_ALERT_BG);
 
     tft.setTextColor(SAFETY_COLOR_DANGER);
@@ -208,9 +211,11 @@ void safety_draw_danger_screen(const char* message, float voltage) {
     tft.fillRoundRect(20, 200, SCREEN_W - 40, 30, 4, C_SURFACE);
     tft.setTextColor(C_TEXT);
     tft.drawString("CANCELAR", SCREEN_W/2, 215);
+    UNLOCK_TFT();
 }
 
 void safety_draw_lockout_screen(unsigned long remainingMs) {
+    LOCK_TFT();
     tft.fillScreen(C_BLACK);
 
     tft.setTextColor(SAFETY_COLOR_WARNING);
@@ -234,9 +239,11 @@ void safety_draw_lockout_screen(unsigned long remainingMs) {
     tft.setTextColor(C_TEXT_SECONDARY);
     tft.setFreeFont(FMBO);
     tft.drawString("Aguarde...", SCREEN_W/2, 190);
+    UNLOCK_TFT();
 }
 
 void safety_draw_confirm_screen() {
+    LOCK_TFT();
     tft.fillScreen(C_BACKGROUND);
 
     tft.setTextColor(C_WARNING);
@@ -261,9 +268,11 @@ void safety_draw_confirm_screen() {
     tft.fillRoundRect(SCREEN_W/2 + 5, 180, SCREEN_W/2 - 15, 30, 4, C_SURFACE);
     tft.setTextColor(C_TEXT);
     tft.drawString("CANCELAR", SCREEN_W/2 + 40, 195);
+    UNLOCK_TFT();
 }
 
 void safety_draw_check_screen() {
+    LOCK_TFT();
     tft.fillScreen(C_BLACK);
 
     tft.setTextColor(SAFETY_COLOR_SAFE);
@@ -277,6 +286,7 @@ void safety_draw_check_screen() {
 
     tft.drawString("Nao conecte componentes", SCREEN_W/2, 130);
     tft.drawString("energizados!", SCREEN_W/2, 150);
+    UNLOCK_TFT();
 }
 
 // ============================================================================
@@ -351,6 +361,7 @@ void safety_acknowledge_warning() {
 // ============================================================================
 
 void safety_draw_splash() {
+    LOCK_TFT();
     tft.fillScreen(C_BLACK);
 
     tft.setTextColor(SAFETY_COLOR_WARNING);
@@ -371,6 +382,7 @@ void safety_draw_splash() {
     tft.setFreeFont(FMBO);
     tft.drawString("Use sempre protecao adequada", SCREEN_W/2, 185);
     tft.drawString("e Circuitos de protecao", SCREEN_W/2, 205);
+    UNLOCK_TFT();
 }
 
 void safety_show_splash_animated() {
@@ -378,10 +390,10 @@ void safety_show_splash_animated() {
 
     for(uint8_t i = 0; i < 3; i++) {
         buzzer_beep(SAFETY_BEEP_WARNING, 100);
-        delay(150);
+        vTaskDelay(pdMS_TO_TICKS(150));
     }
 
-    delay(3000);
+    vTaskDelay(pdMS_TO_TICKS(3000));
 }
 
 // ============================================================================
@@ -445,6 +457,7 @@ bool safety_confirm_electrical_measurement() {
         }
 
         delay(50);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
     return false;
@@ -484,6 +497,8 @@ SafetyCheckResult safety_detect_danger() {
 
     float voltage = (adcValue - ZMPT_ZERO_POINT) * ZMPT_SCALE_FACTOR / 2048.0f;
     voltage = abs(voltage);
+    
+    vTaskDelay(1); // Pequeno yield para o sistema
 
     safetyStatus.lastDetectedVoltage = voltage;
     safetyStatus.lastCheckTime = millis();

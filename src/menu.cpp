@@ -477,40 +477,6 @@ void multimeter_menu_draw() {
     clear_screen();
     draw_status_bar("Multimetro AC/DC", "");
     
-    // Desenha modo atual
-    const char* modeLabel;
-    uint16_t modeColor;
-    
-    switch (multimeter_get_mode()) {
-        case MMODE_DC_VOLTAGE:
-            modeLabel = "VDC";
-            modeColor = C_CYAN;
-            break;
-        case MMODE_AC_VOLTAGE:
-            modeLabel = "VAC";
-            modeColor = C_YELLOW;
-            break;
-        case MMODE_DC_CURRENT:
-            modeLabel = "A";
-            modeColor = C_GREEN;
-            break;
-        case MMODE_RESISTANCE:
-            modeLabel = "Ohm";
-            modeColor = C_ORANGE;
-            break;
-        case MMODE_CONTINUITY:
-            modeLabel = "CURTO";
-            modeColor = C_RED;
-            break;
-        case MMODE_POWER:
-            modeLabel = "W";
-            modeColor = C_PURPLE;
-            break;
-        default:
-            modeLabel = "---";
-            modeColor = C_GREY;
-    }
-    
     // Botões de modo (grid 2x3)
     int16_t btnW = 70;
     int16_t btnH = 35;

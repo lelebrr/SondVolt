@@ -11,6 +11,8 @@
 #include "buzzer.h"
 #include "database.h"
 #include "display_globals.h"
+#include "display_mutex.h"
+
 
 // ============================================================================
 // VARIAVEIS GLOBAIS
@@ -65,7 +67,7 @@ void ui_show_splash_animated(void) {
 
     for(uint8_t i = 0; i <= 100; i += 5) {
         uint16_t barWidth = (SCREEN_W - 40) * i / 100;
-        tft.fillRect(20, SCREEN_H - 20, barWidth, 4);
+        tft.fillRect(20, SCREEN_H - 20, barWidth, 4, C_PRIMARY);
 
         delay(30);
     }
@@ -73,10 +75,61 @@ void ui_show_splash_animated(void) {
     delay(TIME_SPLASH);
 }
 
+void ui_show_splash_basic(void) {
+    currentScreen = SCREEN_SPLASH;
+    
+    // Tenta mostrar o splash normal
+    if (tftInitialized) {
+        ui_draw_splash();
+        delay(TIME_SPLASH);
+    } else {
+        // Fallback: apenas LEDs e buzzer indicam inicialização
+        // LED não disponível neste momento
+        buzzer_beep(1000, 100);
+        delay(200);
+        buzzer_beep(1500, 100);
+        // LED não disponível neste momento
+        delay(TIME_SPLASH - 300);
+    }
+}
+
+void ui_show_error_screen(const char* message) {
+    if (!tftInitialized) {
+        // Fallback sem display: apenas indicadores LED
+        // LED não disponível neste momento
+        delay(1000);
+        // LED não disponível neste momento
+        return;
+    }
+    
+    LOCK_TFT();
+    tft.fillScreen(C_BLACK);
+    
+    tft.setTextColor(C_ERROR);
+    tft.setTextDatum(MC_DATUM);
+    tft.setFreeFont(FMB12);
+    tft.drawString("ERRO", SCREEN_W/2, SCREEN_H/2 - 30);
+    
+    tft.setTextColor(C_TEXT);
+    tft.setFreeFont(FM9);
+    tft.drawString(message, SCREEN_W/2, SCREEN_H/2 + 10);
+    
+    tft.setTextDatum(MC_DATUM);
+    tft.setTextSize(1);
+    tft.drawString("Pressione OK para continuar", SCREEN_W/2, SCREEN_H - 30);
+    
+    UNLOCK_TFT();
+    
+    // Aguarda usuário pressionar botão
+    while (true) { // Removido dependência de botões específicos
+        delay(100);
+    }
+}
+
 void ui_splash_set_progress(uint8_t percent, const char* message) {
     uint16_t barWidth = (SCREEN_W - 40) * percent / 100;
 
-    tft.fillRect(20, SCREEN_H - 20, barWidth, 4);
+    tft.fillRect(20, SCREEN_H - 20, barWidth, 4, C_PRIMARY);
 
     if(message) {
         tft.setTextColor(C_BLACK);
@@ -129,6 +182,7 @@ void ui_menu_init(void) {
 }
 
 void ui_menu_show(void) {
+    LOCK_TFT();
     currentScreen = SCREEN_MENU;
 
     tft.fillScreen(C_BACKGROUND);
@@ -150,6 +204,8 @@ void ui_menu_show(void) {
     }
 
     ui_draw_footer("OK", "VOLTAR");
+    UNLOCK_TFT();
+
 }
 
 void ui_menu_update(void) {
@@ -217,6 +273,7 @@ void ui_menu_navigate(int8_t direction) {
 // ============================================================================
 
 void ui_measure_show(ComponentType type) {
+    LOCK_TFT();
     currentScreen = SCREEN_MEASURE;
 
     tft.fillScreen(C_BACKGROUND);
@@ -231,9 +288,12 @@ void ui_measure_show(ComponentType type) {
     tft.drawString("---", SCREEN_W/2, CONTENT_Y + CONTENT_H/2);
 
     ui_draw_footer("", "MENU");
+    UNLOCK_TFT();
+
 }
 
 void ui_measure_update(float value, const char* unit, MeasurementStatus status) {
+    LOCK_TFT();
     char valueStr[32];
 
     if(value < 1.0f) {
@@ -254,14 +314,32 @@ void ui_measure_update(float value, const char* unit, MeasurementStatus status) 
     tft.setFreeFont(FONT_HEADER);
     tft.drawString(valueStr, SCREEN_W/2, CONTENT_Y + CONTENT_H/2);
 
-    uint8_t iconX = SCREEN_W - 40;
+    uint16_t iconX = SCREEN_W - 40;
     uint8_t iconY = 50;
 
-    drawStatusIndicator(status, iconX, iconY, 24);
+    draw_status_indicator(status, iconX, iconY, 24);
+    UNLOCK_TFT();
+
 }
 
 void ui_measure_draw_icon(ComponentType type, int16_t x, int16_t y) {
-    drawComponentIcon(type, x, y, 40);
+    IconType icon = ICON_UNKNOWN;
+    switch(type) {
+        case COMP_RESISTOR: icon = ICON_RESISTOR; break;
+        case COMP_CAPACITOR:
+        case COMP_CAPACITOR_CERAMIC:
+        case COMP_CAPACITOR_ELECTRO:
+            icon = ICON_CAPACITOR; break;
+        case COMP_DIODE:
+        case COMP_LED:
+        case COMP_ZENER:
+            icon = ICON_DIODE; break;
+        case COMP_TRANSISTOR_NPN: icon = ICON_TRANSISTOR_NPN; break;
+        case COMP_TRANSISTOR_PNP: icon = ICON_TRANSISTOR_PNP; break;
+        case COMP_INDUCTOR: icon = ICON_INDUCTOR; break;
+        default: icon = ICON_UNKNOWN; break;
+    }
+    draw_component_icon(icon, x, y, C_PRIMARY);
 }
 
 // ============================================================================
@@ -269,6 +347,7 @@ void ui_measure_draw_icon(ComponentType type, int16_t x, int16_t y) {
 // ============================================================================
 
 void ui_multimeter_show(void) {
+    LOCK_TFT();
     currentScreen = SCREEN_MULTIMETER;
 
     tft.fillScreen(C_BACKGROUND);
@@ -288,9 +367,13 @@ void ui_multimeter_show(void) {
     ui_draw_button(235, buttonY, 70, 25, "OHM", false);
 
     ui_draw_footer("", "MENU");
+    UNLOCK_TFT();
+
 }
 
 void ui_multimeter_update(float value, const char* unit, uint16_t color) {
+    LOCK_TFT();
+
     char valueStr[32];
     snprintf(valueStr, sizeof(valueStr), "%.2f %s", value, unit);
 
@@ -300,6 +383,8 @@ void ui_multimeter_update(float value, const char* unit, uint16_t color) {
     tft.setTextDatum(MC_DATUM);
     tft.setFreeFont(FONT_VALUE);
     tft.drawString(valueStr, SCREEN_W/2, CONTENT_Y + CONTENT_H/2);
+    UNLOCK_TFT();
+
 }
 
 void ui_multimeter_set_mode(uint8_t mode) {
@@ -316,6 +401,8 @@ void ui_multimeter_set_mode(uint8_t mode) {
 // ============================================================================
 
 void ui_history_show(void) {
+    LOCK_TFT();
+
     currentScreen = SCREEN_HISTORY;
 
     tft.fillScreen(C_BACKGROUND);
@@ -327,6 +414,8 @@ void ui_history_show(void) {
     }
 
     ui_draw_footer("LIMPAR", "MENU");
+    UNLOCK_TFT();
+
 }
 
 void ui_history_add(HistoryEntry entry) {
@@ -369,6 +458,8 @@ void ui_history_draw_item(uint8_t index, HistoryEntry entry) {
 // ============================================================================
 
 void ui_calibration_show(void) {
+    LOCK_TFT();
+
     currentScreen = SCREEN_CALIBRATION;
 
     tft.fillScreen(C_BACKGROUND);
@@ -388,6 +479,8 @@ void ui_calibration_show(void) {
     ui_draw_progress(0);
 
     ui_draw_footer("VOLTAR", "");
+    UNLOCK_TFT();
+
 }
 
 void ui_calibration_update_progress(uint8_t percent) {
@@ -415,6 +508,8 @@ void ui_calibration_show_result(bool success) {
 // ============================================================================
 
 void ui_settings_show(void) {
+    LOCK_TFT();
+
     currentScreen = SCREEN_SETTINGS;
 
     tft.fillScreen(C_BACKGROUND);
@@ -430,6 +525,8 @@ void ui_settings_show(void) {
     tft.drawString("Auto-Sleep", 80, CONTENT_Y + 160);
 
     ui_draw_footer("SALVAR", "VOLTAR");
+    UNLOCK_TFT();
+
 }
 
 void ui_settings_toggle_item(uint8_t index) {
@@ -440,7 +537,7 @@ void ui_settings_draw_slider(uint8_t index, uint8_t value) {
     uint16_t sliderW = (SCREEN_W - 100 - 40) * value / 100;
 
     tft.fillRect(SCREEN_W - 100, y, sliderW, 10, C_PRIMARY);
-    tft.drawRect(SCREEN_W - 100, y, SCREEN_W - 100, 10);
+    tft.drawRect(SCREEN_W - 100, y, SCREEN_W - 100, 10, C_GREY);
 }
 
 // ============================================================================
@@ -448,13 +545,15 @@ void ui_settings_draw_slider(uint8_t index, uint8_t value) {
 // ============================================================================
 
 void ui_about_show(void) {
+    LOCK_TFT();
+
     currentScreen = SCREEN_ABOUT;
 
     tft.fillScreen(C_BACKGROUND);
 
     ui_draw_header("Sobre");
 
-    drawComponentIcon(COMP_UNKNOWN, SCREEN_W/2 - 20, CONTENT_Y + 20, 40);
+    draw_component_icon(ICON_ABOUT, SCREEN_W/2 - 20, CONTENT_Y + 20, C_PRIMARY);
 
     tft.setTextColor(C_PRIMARY);
     tft.setTextDatum(MC_DATUM);
@@ -476,6 +575,8 @@ void ui_about_show(void) {
     tft.drawString(BOARD_NAME, SCREEN_W/2, CONTENT_Y + 205);
 
     ui_draw_footer("", "MENU");
+    UNLOCK_TFT();
+
 }
 
 void ui_about_draw_info(void) {
@@ -486,6 +587,8 @@ void ui_about_draw_info(void) {
 // ============================================================================
 
 void ui_error_show(const char* title, const char* message) {
+    LOCK_TFT();
+
     currentScreen = SCREEN_ERROR;
 
     tft.fillScreen(C_BACKGROUND);
@@ -504,6 +607,8 @@ void ui_error_show(const char* title, const char* message) {
     tft.setTextDatum(MC_DATUM);
     tft.setFreeFont(FMB);
     tft.drawString("OK", SCREEN_W/2, SCREEN_H - 38);
+    UNLOCK_TFT();
+
 }
 
 void ui_error_draw_icon(uint8_t type) {
@@ -513,7 +618,7 @@ void ui_error_draw_icon(uint8_t type) {
         color = C_WARNING;
     }
 
-    tft.fillCircle(SCREEN_W/2, CONTENT_Y + 40, 20);
+    tft.fillCircle(SCREEN_W/2, CONTENT_Y + 40, 20, color);
 
     tft.setTextColor(C_BLACK);
     tft.setTextDatum(MC_DATUM);
@@ -549,7 +654,7 @@ bool ui_error_wait_confirm(void) {
 // ============================================================================
 
 void ui_draw_header(const char* title) {
-    tft.fillRect(0, 0, SCREEN_W, STATUS_BAR_H);
+    tft.fillRect(0, 0, SCREEN_W, STATUS_BAR_H, C_SURFACE);
 
     tft.setTextColor(C_TEXT);
     tft.setTextDatum(ML_DATUM);
@@ -616,11 +721,11 @@ void ui_draw_progress(uint8_t percent) {
     tft.drawRect(x, y, w, h, C_GREY);
 
     uint16_t fillW = (w - 4) * percent / 100;
-    tft.fillRect(x + 2, y + 2, fillW, h - 4);
+    tft.fillRect(x + 2, y + 2, fillW, h - 4, C_PRIMARY);
 }
 
 void ui_draw_status_bar(const char* text, uint16_t color) {
-    tft.fillRect(0, 0, SCREEN_W, STATUS_BAR_H);
+    tft.fillRect(0, 0, SCREEN_W, STATUS_BAR_H, C_SURFACE);
 
     tft.setTextColor(color);
     tft.setTextDatum(ML_DATUM);

@@ -19,4 +19,6 @@ void buzzer_error();
 void buzzer_alert();
 void buzzer_click();
 
+bool buzzer_enabled();
+
 #endif // BUZZER_H

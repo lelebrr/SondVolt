@@ -27,10 +27,21 @@ bool sd_init() {
     }
 
     // Inicializa barramento SPI para SD
+    // Sem tratamento de exceções devido a restrições de compilação
     sdSPI = new SPIClass(HSPI);
     sdSPI->begin(PIN_SD_SCLK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
+    
+    if (sd_mount()) {
+        return true;
+    }
 
-    return sd_mount();
+    // Fallback: SD card não disponível, mas sistema continua funcionando
+    sdCardPresent = false;
+    sdCardError = false; // Não é erro, apenas não está disponível
+    mounted = false;
+    
+    DBG("[SD] SD card não disponível, usando modo offline");
+    return false;
 }
 
 bool sd_mount() {

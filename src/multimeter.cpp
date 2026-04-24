@@ -52,8 +52,16 @@ void multimeter_init(bool calibrate) {
     memset(&lastReading, 0, sizeof(MultimeterReading));
     memset(&history, 0, sizeof(MeasurementHistory));
 
+    // Inicialização ADC básica (sempre funciona)
     multimeter_adc_init();
 
+    // Tenta inicializar INA219 (opcional)
+    bool ina219Ok = multimeter_ina219_init();
+    if (!ina219Ok) {
+        DBG("[MULTI] INA219 não detectado, usando modo ADC apenas");
+    }
+
+    // Carrega ou calibra
     if(calibrate) {
         multimeter_reset_calibration();
     } else {

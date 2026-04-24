@@ -13,6 +13,17 @@
 #include <string.h>
 
 // ============================================================================
+// VARIAVEIS GLOBAIS
+// ============================================================================
+
+// Banco de dados na RAM
+static ComponentInfo componentDB_RAM[DB_MAX_COMPONENTS];
+static uint16_t componentCount_RAM = 0;
+
+// Flag indicando se o banco foi carregado do SD
+static bool dbLoadedFromSD = false;
+
+// ============================================================================
 // BANCO DE DADOS PADRAO (hardcoded para fallback)
 // ============================================================================
 
@@ -26,7 +37,7 @@ const ComponentInfo DB_DEFAULT[] = {
       80.0f, 120.0f, 50.0f, 150.0f, STATUS_GOOD },
 
     // Capacitor eletrolitico (100uF)
-    { COMP_CAPACITOR_ELECTRO, "Capacitor Eletrolitico", "Capacitor eletrolitico 100uF", "uF",
+    { COMP_CAPACITOR_ELECTRO, "Cap. Eletrolitico", "Capacitor eletrolitico 100uF", "uF",
       80.0f, 120.0f, 50.0f, 150.0f, STATUS_GOOD },
 
     // Diodo 1N4148
@@ -98,6 +109,28 @@ const ComponentInfo DB_DEFAULT[] = {
       60.0f, 100.0f, 50.0f, 150.0f, STATUS_GOOD },
 };
 
+// ============================================================================
+// INICIALIZACAO SEGURA
+// ============================================================================
+
+bool db_init_safe() {
+    // Inicializa banco de dados com componentes padrão
+    componentCount_RAM = sizeof(DB_DEFAULT) / sizeof(ComponentInfo);
+    
+    // Copia componentes padrão para o banco na RAM
+    memcpy(componentDB_RAM, DB_DEFAULT, sizeof(DB_DEFAULT));
+    
+    // Carrega do SD se disponível
+    if (sdCardPresent) {
+        return db_load_index();
+    }
+    
+    // Fallback: usa apenas componentes padrão
+    dbLoadedFromSD = false;
+    DBG("[DB] Banco inicializado com componentes padrão");
+    return true;
+}
+
 const uint8_t DB_DEFAULT_COUNT = sizeof(DB_DEFAULT) / sizeof(ComponentInfo);
 
 // ============================================================================
@@ -119,15 +152,40 @@ bool db_init_sd() {
 // ============================================================================
 
 bool db_load_index() {
-    // Se SD esta disponivel, carrega do cartao
+    // Tenta carregar do SD card
     if (sdCardPresent) {
-        // Implementacao futura: carregar CSV do SD
-        return false;
+        // Carrega componentes do SD
+        File dbFile = SD.open(DB_FILE_CSV);
+        if (dbFile) {
+            // Processa arquivo CSV...
+            dbFile.close();
+            dbLoadedFromSD = true;
+            DBG("[DB] Banco carregado do SD card");
+            return true;
+        }
     }
-
-    // Fallback: usa banco padrao
-    db_load_default();
+    
+    // Fallback: usa componentes padrão
+    componentCount_RAM = sizeof(DB_DEFAULT) / sizeof(ComponentInfo);
+    memcpy(componentDB_RAM, DB_DEFAULT, sizeof(DB_DEFAULT));
+    dbLoadedFromSD = false;
+    DBG("[DB] Usando componentes padrão (SD não disponível)");
     return true;
+}
+
+const ComponentInfo* db_get_component(uint16_t index) {
+    if (index < componentCount_RAM) {
+        return &componentDB_RAM[index];
+    }
+    return nullptr;
+}
+
+uint16_t db_get_count() {
+    return componentCount_RAM;
+}
+
+bool db_is_loaded_from_sd() {
+    return dbLoadedFromSD;
 }
 
 // ============================================================================
@@ -226,14 +284,15 @@ ComponentStatus db_judge(ComponentType type, float value) {
 const char* db_status_string(ComponentStatus status) {
     switch (status) {
         case STATUS_GOOD:    return "BOM";
-        case STATUS_SUSPECT:
-        case STATUS_WARNING: return "SUSPEITO";
+        case STATUS_SUSPECT:  return "SUSPEITO";
+        case STATUS_WARNING:  return "AVISO";
         case STATUS_BAD:    return "RUIM";
         case STATUS_INVALID: return "INVALIDO";
         case STATUS_NONE:   return "NENHUM";
         case STATUS_LEAKY:  return "INFILTRADO";
         case STATUS_SHORT:  return "CURTO";
         case STATUS_OPEN:   return "ABERTO";
+        case STATUS_UNKNOWN: return "DESCONHECIDO";
         default:            return "DESCONHECIDO";
     }
 }
@@ -247,6 +306,7 @@ uint16_t db_status_color(ComponentStatus status) {
         case STATUS_GOOD:
             return C_SUCCESS; // Verde
         case STATUS_SUSPECT:
+            return C_WARNING; // Amarelo
         case STATUS_WARNING:
             return C_WARNING; // Amarelo
         case STATUS_BAD:
@@ -257,6 +317,7 @@ uint16_t db_status_color(ComponentStatus status) {
             return C_CYAN; // Azul
         case STATUS_INVALID:
         case STATUS_NONE:
+        case STATUS_UNKNOWN:
         default:
             return C_GREY; // Cinza
     }

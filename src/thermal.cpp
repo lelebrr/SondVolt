@@ -9,6 +9,9 @@
 #include "globals.h"
 #include "buzzer.h"
 #include "leds.h"
+#include "ui.h"
+#include "graphics.h"
+#include "display_globals.h"
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -51,7 +54,8 @@ void thermal_init() {
         gThermalInitialized = true;
         DBG("[TEMP] Sonda termica inicializada");
     } else {
-        DBG("[TEMP] Nenhum sensor encontrado");
+        DBG("[TEMP] Nenhum sensor encontrado, usando temperatura padrão");
+        gThermalInitialized = false; // Indica que não tem sensor
     }
 }
 

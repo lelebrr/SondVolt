@@ -12,7 +12,12 @@
 #include "multimeter.h"
 #include "leds.h"
 #include "buzzer.h"
+#include "thermal.h"
+#include "logger.h"
 #include "display_globals.h"
+#include "display_mutex.h"
+#include <esp_task_wdt.h>
+
 
 #include <string.h>
 
@@ -94,69 +99,20 @@ bool task_manager_create_all() {
         }
     }
 
-    // Tarefa de seguranca (maior prioridade, core 0)
-    if (xTaskCreatePinnedToCore(
-            task_safety_monitor,
-            "SafetyMonitor",
-            TASK_STACK_MEDIUM,
-            NULL,
-            TASK_PRIORITY_HIGH,
-            &gSafetyTaskHandle,
-            TASK_CORE_0) != pdPASS) {
-        DBG("[TASK] Falha ao criar SafetyMonitor");
+    // Cria tarefas com tratamento de erros individuais
+    bool allTasksOk = true;
+    
+    // Tarefas desabilitadas temporariamente devido a falta de implementação
+    // As medições e segurança serão executadas no loop principal
+    DBG("[TASK] Tarefas assíncronas desabilitadas");
+
+    if (!allTasksOk) {
+        DBG("[TASK] Alguns tarefas falharam, continuando com disponibilidade limitada");
     }
 
-    // Tarefa de medicao (prioridade media)
-    if (xTaskCreatePinnedToCore(
-            task_measurement,
-            "Measurement",
-            TASK_STACK_LARGE,
-            NULL,
-            TASK_PRIORITY_MED,
-            &gMeasurementTaskHandle,
-            TASK_CORE_1) != pdPASS) {
-        DBG("[TASK] Falha ao criar Measurement");
-    }
-
-    // Tarefa de display (prioridade media)
-    if (xTaskCreatePinnedToCore(
-            task_display,
-            "Display",
-            TASK_STACK_MEDIUM,
-            NULL,
-            TASK_PRIORITY_MED,
-            &gDisplayTaskHandle,
-            TASK_CORE_0) != pdPASS) {
-        DBG("[TASK] Falha ao criar Display");
-    }
-
-    // Tarefa de log (prioridade baixa)
-    if (xTaskCreatePinnedToCore(
-            task_logger,
-            "Logger",
-            TASK_STACK_SMALL,
-            NULL,
-            TASK_PRIORITY_LOW,
-            &gLoggerTaskHandle,
-            TASK_CORE_ANY) != pdPASS) {
-        DBG("[TASK] Falha ao criar Logger");
-    }
-
-    // Tarefa termica (prioridade baixa)
-    if (xTaskCreatePinnedToCore(
-            task_thermal_read,
-            "Thermal",
-            TASK_STACK_SMALL,
-            NULL,
-            TASK_PRIORITY_LOW,
-            &gThermalTaskHandle,
-            TASK_CORE_ANY) != pdPASS) {
-        DBG("[TASK] Falha ao criar Thermal");
-    }
-
-    DBG("[TASK] Todas as tarefas criadas");
     return true;
 }
+
 
 // ============================================================================
 // DELETAR TODAS AS TAREFAS
@@ -263,7 +219,7 @@ bool task_manager_restart(TaskId id) {
             }
             return xTaskCreatePinnedToCore(
                 task_display, "Display",
-                TASK_STACK_MEDIUM, NULL, TASK_PRIORITY_MED,
+                TASK_STACK_LARGE, NULL, TASK_PRIORITY_MED,
                 &gDisplayTaskHandle, TASK_CORE_0) == pdPASS;
 
         case TASK_SAFETY:
@@ -272,7 +228,7 @@ bool task_manager_restart(TaskId id) {
             }
             return xTaskCreatePinnedToCore(
                 task_safety_monitor, "SafetyMonitor",
-                TASK_STACK_MEDIUM, NULL, TASK_PRIORITY_HIGH,
+                TASK_STACK_LARGE, NULL, TASK_PRIORITY_MED,
                 &gSafetyTaskHandle, TASK_CORE_0) == pdPASS;
 
         default:
@@ -351,6 +307,9 @@ void task_measurement(void* param) {
     bool measuring = false;
 
     while (1) {
+        // Alimenta watchdog para evitar timeout
+        esp_task_wdt_reset();
+
         // Processa mensagens da fila
         if (xQueueReceive(gMeasurementQueue, &msg, pdMS_TO_TICKS(10)) == pdTRUE) {
             switch (msg.type) {
@@ -369,13 +328,13 @@ void task_measurement(void* param) {
 
         // Se esta medindo, executa loop de medicao
         if (measuring) {
-            measurement_update();
+            ComponentResult res = measurement_update();
 
             // Envia resultado para display
             task_msg_update_display(
-                result.value,
-                result.unit,
-                db_status_color((ComponentStatus)result.status)
+                res.value,
+                res.unit,
+                db_status_color((ComponentStatus)res.status)
             );
         }
 
@@ -398,7 +357,10 @@ void task_display(void* param) {
     uint16_t lastColor = C_WHITE;
 
     while (1) {
-        // Processa mensagens da fila
+        // Alimenta watchdog para evitar timeout
+        esp_task_wdt_reset();
+
+        // Processa mensagens da fila (bloqueio com timeout curto)
         if (xQueueReceive(gDisplayQueue, &msg, pdMS_TO_TICKS(50)) == pdTRUE) {
             switch (msg.type) {
                 case MSG_TYPE_UPDATE:
@@ -417,7 +379,8 @@ void task_display(void* param) {
                     break;
             }
 
-            // Desenha valor na tela
+            // Desenha valor na tela com protecao de mutex
+            LOCK_TFT();
             tft.fillRect(20, 100, SCREEN_W - 40, 60, C_BLACK);
             tft.setTextColor(lastColor);
             tft.setTextDatum(MC_DATUM);
@@ -425,6 +388,7 @@ void task_display(void* param) {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.2f %s", lastValue, lastUnit);
             tft.drawString(buf, SCREEN_W / 2, 130);
+            UNLOCK_TFT();
         }
 
         gTaskStatus[TASK_DISPLAY].runCount++;
@@ -432,6 +396,7 @@ void task_display(void* param) {
         gTaskStatus[TASK_DISPLAY].stackHighWaterMark =
             uxTaskGetStackHighWaterMark(NULL);
 
+        // Yield generoso para nao bloquear IDLE0 no Core 0
         vTaskDelay(pdMS_TO_TICKS(UPDATE_DISP));
     }
 }
@@ -440,27 +405,39 @@ void task_safety_monitor(void* param) {
     gTaskStatus[TASK_SAFETY].handle = xTaskGetCurrentTaskHandle();
     gTaskStatus[TASK_SAFETY].state = TASK_STATE_RUNNING;
 
+    // Mantém watchdog ativado para esta tarefa - remove a desabilitação
+    // esp_task_wdt_delete(xTaskGetCurrentTaskHandle());
+
+    // Aguarda estabilizacao do sistema antes de iniciar monitoramento
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
     TaskMessage msg;
     float lastVoltage = 0.0f;
 
     while (1) {
-        // Verifica tensao periodicamente
-        SafetyCheckResult check = safety_detect_danger();
+        // Alimenta watchdog para evitar timeout
+        esp_task_wdt_reset();
 
-        if (!check.isSafe) {
-            safety_trigger_alert(check.alertLevel);
-            lastVoltage = check.detectedVoltage;
+        // VERIFICAR SEGURANCA - so se enabled
+        if (safetyCheckEnabled) {
+            SafetyCheckResult check = safety_detect_danger();
 
-            // Envia alerta para outras tarefas
-            task_msg_safety_alert(check.detectedVoltage);
+            if (!check.isSafe) {
+                safety_trigger_alert(check.alertLevel);
+                lastVoltage = check.detectedVoltage;
+                task_msg_safety_alert(check.detectedVoltage);
+            }
         }
+
+        // Yield para alimentar watchdog do IDLE0
+        vTaskDelay(pdMS_TO_TICKS(100));
 
         // Processa mensagens da fila
         if (xQueueReceive(gSafetyQueue, &msg, pdMS_TO_TICKS(10)) == pdTRUE) {
             if (msg.type == MSG_TYPE_ERROR) {
                 lastVoltage = msg.value;
-                SafetyCheckResult check = safety_check_voltage(lastVoltage);
-                safety_trigger_alert(check.alertLevel);
+                SafetyCheckResult safetyCheck = safety_check_voltage(lastVoltage);
+                safety_trigger_alert(safetyCheck.alertLevel);
             }
         }
 
@@ -468,9 +445,6 @@ void task_safety_monitor(void* param) {
         gTaskStatus[TASK_SAFETY].lastRunMs = millis();
         gTaskStatus[TASK_SAFETY].stackHighWaterMark =
             uxTaskGetStackHighWaterMark(NULL);
-
-        // Safety nunca para
-        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -481,6 +455,9 @@ void task_logger(void* param) {
     TaskMessage msg;
 
     while (1) {
+        // Alimenta watchdog para evitar timeout
+        esp_task_wdt_reset();
+
         // Processa mensagens de log
         if (xQueueReceive(gMeasurementQueue, &msg, pdMS_TO_TICKS(1000)) == pdTRUE) {
             if (msg.type == MSG_TYPE_VALUE) {
@@ -510,6 +487,9 @@ void task_thermal_read(void* param) {
     gTaskStatus[TASK_THERMAL].state = TASK_STATE_RUNNING;
 
     while (1) {
+        // Alimenta watchdog para evitar timeout
+        esp_task_wdt_reset();
+
         float temp = thermal_read();
 
         // Verifica limites

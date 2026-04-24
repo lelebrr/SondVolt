@@ -9,6 +9,8 @@
 #include <TFT_eSPI.h>
 #include "config.h"
 #include "globals.h"
+#include "types.h"
+#include "database.h"
 
 // ============================================================================
 // CONSTANTES
@@ -93,10 +95,9 @@ void format_value(float value, const char* unit, char* out, uint8_t maxLen);
 void measurement_start(uint8_t mode);
 void measurement_stop();
 void measurement_draw();
-void measurement_update();
+ComponentResult measurement_update();
 void measurements_loop();
 
 // Banco de dados de componentes
-uint8_t db_judge(float value, uint8_t type);
 
 #endif
