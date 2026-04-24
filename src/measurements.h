@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Medições de Componentes (Header)
+// Sondvolt v3.0 — Medições de Componentes (Header)
 // ============================================================================
 #ifndef MEASUREMENTS_H
 #define MEASUREMENTS_H

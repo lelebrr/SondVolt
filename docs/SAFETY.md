@@ -1,6 +1,6 @@
-# ⚡ Guia de Segurança Elétrica (SAFETY)
+# ⚡ Guia de Segurança Elétrica
 
-Este documento estabelece diretrizes críticas de segurança para montagem e operação do **Component Tester PRO v3.0 (CYD Edition)**.
+Este documento estabelece diretrizes críticas de segurança para montagem e operação do **Sondvolt**.
 
 ---
 

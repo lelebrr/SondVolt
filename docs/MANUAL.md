@@ -1,6 +1,6 @@
-# Manual do Usuário — Component Tester PRO v3.1
+# Manual do Usuário — Sondvolt v3.1
 
-## Medivolt CYD Edition
+## Component Tester Pro
 
 **Versão do Firmware:** 3.1.0
 **Placa Base:** ESP32-2432S028R (Cheap Yellow Display)
@@ -8,21 +8,21 @@
 
 ---
 
-Este documento contém todas as instruções necessárias para operar o Component Tester PRO (também conhecido como Medivolt) de forma segura, eficiente e profissional. Leia este manual completamente antes de operar o equipamento.
+Este documento contém todas as instruções necessárias para operar o **Sondvolt** de forma segura, eficiente e profissional. Leia este manual completamente antes de operar o equipamento.
 
 ---
 
 ## 1. Introdução
 
-### 1.1 O que é o MedivoltComponent Tester PRO
+### 1.1 O que é o Sondvolt
 
-O **Medivolt** é um instrumento de medição eletrônica multifuncional de última geração, desenvolvido sobre a plataforma ESP32-2432S028R (Cheap Yellow Display). Este equipamento combina as funcionalidades de um testador de componentes eletrônico e um multímetro digital em um único dispositivo compacto, com interface gráfica colorida touchscreen de 3,2 polegadas.
+O **Sondvolt** é um instrumento de medição eletrônica multifuncional de última geração, desenvolvido sobre a plataforma ESP32-2432S028R (Cheap Yellow Display). Este equipamento combina as funcionalidades de um testador de componentes eletrônico e um multímetro digital em um único dispositivo compacto, com interface gráfica colorida touchscreen de 2,8 polegadas.
 
-O Medivolt foi projetado para atenderengenheiros, técnicos eletrônicos, estudantes de eletrônica e entusiastas de tecnologia que precisam de uma ferramenta versátil para diagnóstico, teste e medição de componentes e circuitos eletrônicos. O dispositivo oferece uma solução tudo-em-um para oficinas de eletrônica, laboratórios de ensino e aplicações de campo.
+O Sondvolt foi projetado para atender engenheiros, técnicos eletrônicos, estudantes de eletrônica e entusiastas de tecnologia que precisam de uma ferramenta versátil para diagnóstico, teste e medição de componentes e circuitos eletrônicos. O dispositivo oferece uma solução tudo-em-um para oficinas de eletrônica, laboratórios de ensino e aplicações de campo.
 
 ### 1.2 Principais Funcionalidades
 
-O Medivolt oferece as seguintes funcionalidades principais:
+O Sondvolt oferece as seguintes funcionalidades principais:
 
 - **Auto-Detecção Inteligente:** Identificação automática de mais de 8 tipos diferentes de componentes eletrônicos, incluindo resistores, capacitores, diodos, transistores, LEDs, MOSFETs, indutores e componentes未知 (desconhecidos). O sistema analisa as características elétricas do componente e determina o tipo automaticamente, sem necessidade de seleção manual de modo.
 
@@ -974,7 +974,7 @@ Para suporte técnico, registre um issue no repositório do projeto com:
 
 <p align="center">
 
-**Component Tester PRO v3.1 — Medivolt CYD Edition**
+**Sondvolt v3.1 — Component Tester Pro**
 
 *Manual do Usuário*
 

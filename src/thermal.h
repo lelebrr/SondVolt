@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Sonda Térmica DS18B20
+// Sondvolt v3.0 — Sonda Térmica DS18B20
 // Descrição: Leitura da sonda de temperatura OneWire
 // ============================================================================
 #ifndef THERMAL_H

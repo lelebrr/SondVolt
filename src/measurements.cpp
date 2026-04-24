@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Medições de Componentes (Otimizado)
+// Sondvolt v3.0 — Medições de Componentes (Otimizado)
 // ============================================================================
 
 #include "measurements.h"

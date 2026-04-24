@@ -1,6 +1,6 @@
-# 📍 Referência Completa de Pinagem (PINOUT)
+# 📍 Referência Completa de Pinagem
 
-Este documento é a referência completa de todos os pinos da placa **ESP32-2432S028R (Cheap Yellow Display)** utilizada no **Component Tester PRO v3.0**.
+Este documento é a referência completa de todos os pinos da placa **ESP32-2432S028R (Cheap Yellow Display)** utilizada no **Sondvolt**.
 
 ---
 

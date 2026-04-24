@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Logger (Sistema de Logging)
+// Sondvolt v3.0 — Logger (Sistema de Logging)
 // Descrição: Logging de medições no MicroSD (arquivo CSV)
 // ============================================================================
 #ifndef LOGGER_H

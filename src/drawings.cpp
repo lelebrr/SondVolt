@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.1 — Component Drawings Implementation
+// Sondvolt v3.1 — Component Drawings Implementation
 // All icons drawn with vector primitives (no bitmaps)
 // ============================================================================
 

@@ -1,6 +1,6 @@
-# Configurações — Component Tester PRO v3.0
+# Configurações — Sondvolt v3.1
 
-Este documento detalha todas as opções de configuração do firmware, incluindo calibração, persistência NVS e ajustes do sistema.
+Este documento detalha todas as opções de configuração do firmware do Sondvolt, incluindo calibração, persistência NVS e ajustes do sistema.
 
 ---
 

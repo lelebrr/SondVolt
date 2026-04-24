@@ -1,6 +1,6 @@
-# Estrutura de Menus — Component Tester PRO v3.0
+# Estrutura de Menus — Sondvolt v3.1
 
-Este documento detalha a estrutura completa de menus e navegação da interface touchscreen do Component Tester PRO v3.0.
+Este documento detalha a estrutura completa de menus e navegação da interface touchscreen do Sondvolt.
 
 ---
 

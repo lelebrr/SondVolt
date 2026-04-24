@@ -1,6 +1,6 @@
-# Perguntas Frequentes — Component Tester PRO v3.0
+# Perguntas Frequentes — Sondvolt v3.1
 
-Aqui você encontra as respostas para as dúvidas mais comuns sobre montagem, operação e manutenção do Component Tester PRO v3.0.
+Aqui você encontra as respostas para as dúvidas mais comuns sobre montagem, operação e manutenção do Sondvolt.
 
 ---
 

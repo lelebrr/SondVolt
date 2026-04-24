@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Buzzer / Speaker PAM8002
+// Sondvolt v3.0 — Buzzer / Speaker PAM8002
 // ============================================================================
 #ifndef BUZZER_H
 #define BUZZER_H

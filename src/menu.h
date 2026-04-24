@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Sistema de Menu e Navegação
+// Sondvolt v3.0 — Sistema de Menu e Navegação
 // Descrição: Menu principal com grid cards e navegação fluida
 // ============================================================================
 #ifndef MENU_H

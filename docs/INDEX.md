@@ -1,6 +1,6 @@
-# Documentação Técnica — Component Tester PRO v3.0
+# Documentação Técnica — Sondvolt v3.1
 
-Bem-vindo ao centro de documentação do **Component Tester PRO v3.0**. Este diretório contém todos os manuais, especificações e guias necessários para montar, operar e expandir o seu dispositivo de teste de componentes eletrônicos.
+Bem-vindo ao centro de documentação do **Sondvolt**. Este diretório contém todos os manuais, especificações e guias necessários para montar, operar e expandir o seu dispositivo de teste de componentes eletrônicos.
 
 ---
 
@@ -98,5 +98,5 @@ Esta seção foi criada para documentar as novas funcionalidades e melhorias int
 ---
 
 <p align="center">
-<i>Última atualização: Abril de 2026 — Component Tester PRO Team</i>
+<i>Última atualização: Abril de 2026 — Sondvolt Team</i>
 </p>

@@ -1,6 +1,6 @@
-# 📦 Guia de Montagem Completa (ASSEMBLY)
+# 📦 Guia de Montagem Completa
 
-Este guia passo-a-passo detalha como montar o **Component Tester PRO v3.0** utilizando a placa **ESP32-2432S028R (Cheap Yellow Display)**.
+Este guia passo-a-passo detalha como montar o **Sondvolt** utilizando a placa **ESP32-2432S028R (Cheap Yellow Display)**.
 
 ---
 

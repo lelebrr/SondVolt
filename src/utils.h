@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Utilitários (Header)
+// Sondvolt v3.0 — Utilitários (Header)
 // ============================================================================
 #ifndef UTILS_H
 #define UTILS_H

@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Banco de Dados de Componentes
+// Sondvolt v3.0 — Banco de Dados de Componentes
 // Descrição: Estrutura do banco de dados na RAM + SD + busca
 // ============================================================================
 #ifndef DATABASE_H

@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Utilitários (Otimize)
+// Sondvolt v3.0 — Utilitários
 // ============================================================================
 #ifndef UTILS_CPP
 #define UTILS_CPP

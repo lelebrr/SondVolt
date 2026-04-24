@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — Botões e Touchscreen
+// Sondvolt v3.0 — Botões e Touchscreen
 // Descrição: Sistema de entrada unificado (touch XPT2046 + botões físicos opcionais)
 // ============================================================================
 #ifndef BUTTONS_H

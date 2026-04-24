@@ -379,11 +379,11 @@ void about_draw() {
     tft.setTextSize(2);
     tft.setTextDatum(TC_DATUM);
     tft.setCursor(SCREEN_W/2, 100);
-    tft.print("Component Tester");
+    tft.print("SONDVOLT");
     tft.setTextSize(1);
     tft.setTextColor(C_GREEN);
     tft.setCursor(SCREEN_W/2, 120);
-    tft.print("PRO v3.1");
+    tft.print("v3.1");
     tft.setTextColor(C_LIGHT_GREY);
     tft.setCursor(SCREEN_W/2, 140);
     tft.print("ESP32-2432S028R");

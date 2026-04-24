@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 - Variaveis Globais
+// Sondvolt v3.0 - Variaveis Globais
 // Descricao: Variaveis globais compartilhadas entre modulos
 // Versao: CYD Edition para ESP32-2432S028R
 // ============================================================================

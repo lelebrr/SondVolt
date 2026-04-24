@@ -1,6 +1,6 @@
-# Resolução de Problemas — Component Tester PRO v3.0
+# Resolução de Problemas — Sondvolt v3.1
 
-Este guia ajuda a diagnosticar e resolver problemas comuns do Component Tester PRO v3.0.
+Este guia ajuda a diagnosticar e resolver problemas comuns do Sondvolt.
 
 ---
 

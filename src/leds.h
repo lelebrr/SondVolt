@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.0 — LEDs e RGB LED
+// Sondvolt v3.0 — LEDs e RGB LED
 // Descrição: Controle dos LEDs indicadores e RGB WS2812B integrado
 // ============================================================================
 #ifndef LEDS_H

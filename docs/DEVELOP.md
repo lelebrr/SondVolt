@@ -1,6 +1,6 @@
-# Guia do Desenvolvedor — Component Tester PRO v3.0
+# Guia do Desenvolvedor — Sondvolt v3.1
 
-Este guia é destinado a desenvolvedores que desejam modificar, estender ou contribuir para o firmware do Component Tester PRO v3.0.
+Este guia é destinado a desenvolvedores que desejam modificar, estender ou contribuir para o firmware do Sondvolt.
 
 ---
 

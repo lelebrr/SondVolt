@@ -1,5 +1,5 @@
 // ============================================================================
-// Component Tester PRO v3.1 — Component Drawings (Dedicated File)
+// Sondvolt v3.1 — Component Drawings (Dedicated File)
 // All component-specific vector icons
 // For ESP32-2432S028R (Cheap Yellow Display)
 // ============================================================================

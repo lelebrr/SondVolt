@@ -1,6 +1,6 @@
-# 📋 Guia Completo de Componentes (COMPONENTS)
+# 📋 Guia Completo de Componentes
 
-Este documento lista todos os componentes suportados pelo **Component Tester PRO v3.0 (CYD Edition)**, com descrições, especificações e ícones de identificação.
+Este documento lista todos os componentes suportados pelo **Sondvolt v3.1**, com descrições, especificações e ícones de identificação.
 
 ---
 
