@@ -142,20 +142,22 @@ void printComponentInfo(const ComponentDB &comp, uint16_t measured,
 
 const char *getCategoryName(uint8_t category) {
   switch (category) {
-    case 1: return "Resistor";
-    case 2: return "Capacitor";
-    case 3: return "Inductor";
-    case 4: return "Diode";
-    case 5: return "LED";
-    case 6: return "Transistor NPN";
-    case 7: return "Transistor PNP";
-    case 8: return "Mosfet N";
-    case 9: return "Mosfet P";
-    case 10: return "Bridge Rect";
-    case 11: return "Optocoupler";
-    case 12: return "Relay";
-    case 13: return "Zener";
-    case 14: return "IC";
+    case CAT_BJT_NPN: return "BJT NPN";
+    case CAT_BJT_PNP: return "BJT PNP";
+    case CAT_MOSFET_N: return "MOSFET N";
+    case CAT_MOSFET_P: return "MOSFET P";
+    case CAT_DIODE: return "Diode";
+    case CAT_ZENER: return "Zener";
+    case CAT_SCHOTTKY: return "Schottky";
+    case CAT_LED: return "LED";
+    case CAT_CAPACITOR: return "Capacitor";
+    case CAT_RESISTOR: return "Resistor";
+    case CAT_INDUCTOR: return "Inductor";
+    case CAT_OPTOCOUPLER: return "Optocoupler";
+    case CAT_CRYSTAL: return "Crystal";
+    case CAT_REGULATOR: return "Regulator";
+    case CAT_RELAY: return "Relay";
+    case CAT_SENSOR: return "Sensor";
     default: return "Unknown";
   }
 }

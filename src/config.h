@@ -28,4 +28,19 @@
 #define TEMP_HOT_THRESHOLD 90.0
 #define TEMP_DANGER_THRESHOLD 110.0
 
+// Cores Modernas (Formato RGB565 para ILI9341)
+#define UI_COLOR_BG       0x000F // Navy Blue
+#define UI_COLOR_ACCENT   0x07FF // Cyan
+#define UI_COLOR_TEXT     0xFFFF // White
+#define UI_COLOR_HILIGHT  0x03EF // Medium Blue
+#define UI_COLOR_RED      0xF800
+#define UI_COLOR_GREEN    0x07E0
+#define UI_COLOR_GREY     0x7BEF
+
+// Layout do Menu
+#define MENU_GRID_COLS    2
+#define MENU_GRID_ROWS    3
+#define MENU_ICON_SIZE    32
+#define STATUS_BAR_HEIGHT 28
+
 #endif // CONFIG_H

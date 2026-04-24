@@ -14,6 +14,8 @@
 
 ---
 
+![UI Showcase](../assets/ui_collage.png)
+
 ## 1. Introdução
 
 ### 1.1 O Que É o Component Tester?

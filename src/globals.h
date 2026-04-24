@@ -72,5 +72,6 @@ extern Settings deviceSettings;
 
 void loadSettings();
 void saveSettings();
+void addToHistory(const char* name, float value, float temp, bool isGood);
 
 #endif

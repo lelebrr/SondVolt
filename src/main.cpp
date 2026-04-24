@@ -45,12 +45,16 @@ void loadSettings() {
     unsigned long storedTimeout;
     EEPROM.get(11, storedTimeout);
     if (storedTimeout > 0) deviceSettings.timeoutDuration = storedTimeout;
+    EEPROM.get(15, deviceSettings.totalMeasurements);
+    EEPROM.get(19, deviceSettings.faultyMeasurements);
   } else {
     deviceSettings.offset1 = 0.0;
     deviceSettings.offset2 = 0.0;
     deviceSettings.darkMode = false;
     deviceSettings.silentMode = false;
     deviceSettings.timeoutDuration = 30000;
+    deviceSettings.totalMeasurements = 0;
+    deviceSettings.faultyMeasurements = 0;
   }
 }
 
@@ -61,6 +65,8 @@ void saveSettings() {
   EEPROM.write(9, deviceSettings.darkMode ? 1 : 0);
   EEPROM.write(10, deviceSettings.silentMode ? 1 : 0);
   EEPROM.put(11, deviceSettings.timeoutDuration);
+  EEPROM.put(15, deviceSettings.totalMeasurements);
+  EEPROM.put(19, deviceSettings.faultyMeasurements);
 }
 
 void addToHistory(const char* name, float value, float temp, bool isGood) {
@@ -71,25 +77,19 @@ void addToHistory(const char* name, float value, float temp, bool isGood) {
   measurementHistory[historyIndex].isGood = isGood;
   historyIndex = (historyIndex + 1) % HISTORY_SIZE;
   if (historyCount < HISTORY_SIZE) historyCount++;
+  
+  deviceSettings.totalMeasurements++;
+  if (!isGood) deviceSettings.faultyMeasurements++;
+  saveSettings();
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial.println(F("CT PRO v2.0"));
+  Serial.println(F("CT PRO v2.1 Starting..."));
 
   tft.begin();
   tft.setRotation(TFT_ROTATION);
-  tft.fillScreen(ILI9341_BLACK);
-
-  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
-  tft.setTextSize(2);
-  tft.setCursor(10, 10);
-  tft.println(F("CT PRO v2.0"));
-  tft.setTextSize(1);
-  tft.setCursor(10, 30);
-  tft.println(F("Leandro"));
-  delay(1000);
-  tft.fillScreen(ILI9341_BLACK);
+  tft.fillScreen(UI_COLOR_BG);
 
   pinMode(LED_GREEN_PIN, OUTPUT);
   pinMode(LED_RED_PIN, OUTPUT);
@@ -101,20 +101,57 @@ void setup() {
 
   buttons_init();
 
-  if (!SD.begin(SD_CS_PIN)) {
-    Serial.println(F("SD Err!"));
-    tft.setTextColor(ILI9341_RED, ILI9341_BLACK);
-    tft.setCursor(10, 50);
-    tft.println(F("SD Err!"));
-    while (true);
+  // Splash Screen v2.1 Animada
+  tft.fillScreen(UI_COLOR_BG);
+  
+  // Desenha logo CT PRO com brilho
+  for (int i = 0; i < 5; i++) {
+    tft.drawRoundRect(80 - i, 60 - i, 160 + i*2, 60 + i*2, 10, 0x0005 + i*0x0100);
+    delay(50);
   }
-  Serial.println(F("SD OK"));
-
-  loadSettings();
-
-  thermal_init();
-
+  
+  tft.setTextColor(UI_COLOR_ACCENT);
+  tft.setTextSize(4);
+  tft.setCursor(95, 75);
+  tft.print(F("CT PRO"));
+  
+  tft.setTextSize(1);
+  tft.setTextColor(UI_COLOR_TEXT);
+  tft.setCursor(105, 115);
+  tft.print(F("Elite Firmware v2.1"));
+  
+  // Barra de Progresso Animada
+  int barW = 200;
+  int barH = 10;
+  int barX = (tft.width() - barW) / 2;
+  int barY = 180;
+  
+  tft.drawRoundRect(barX - 2, barY - 2, barW + 4, barH + 4, 4, UI_COLOR_HILIGHT);
+  
+  for (int i = 0; i <= 100; i += 2) {
+    int currentW = (barW * i) / 100;
+    tft.fillRoundRect(barX, barY, currentW, barH, 2, UI_COLOR_ACCENT);
+    
+    tft.fillRect(barX + barW/2 - 20, barY + 15, 60, 10, UI_COLOR_BG);
+    tft.setCursor(barX + barW/2 - 10, barY + 15);
+    tft.setTextColor(UI_COLOR_TEXT);
+    tft.print(i);
+    tft.print(F("%"));
+    
+    if (i == 20) {
+      if (!SD.begin(SD_CS_PIN)) Serial.println(F("SD Err!"));
+    }
+    if (i == 50) loadSettings();
+    if (i == 80) thermal_init();
+    
+    delay(20);
+  }
+  
+  play_beep(200);
+  delay(500);
+  
   currentAppState = STATE_MENU;
+  menu_init();
 }
 
 void loop() {
@@ -138,6 +175,7 @@ void loop() {
       handle_settings_menu();
       break;
     case STATE_ABOUT:
+      // About handle is inside menu.cpp in this version
       break;
     case STATE_HISTORY:
       handle_history();

@@ -19,6 +19,8 @@
 
 ---
 
+![Hardware Layout](../assets/hardware_layout.png)
+
 ## 1. Componentes de Hardware
 
 ### Visão Geral do Sistema

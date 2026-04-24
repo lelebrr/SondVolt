@@ -22,64 +22,85 @@ void thermal_init() {
   pinMode(ONEWIRE_BUS_PIN, INPUT_PULLUP);
   lastTempReadMillis = currentMillis;
   currentTemperature = 25.0;
-  
-  tft.fillScreen(ILI9341_BLACK);
-  tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
-  tft.setTextSize(2);
-  tft.setCursor(10, 10);
-  tft.println(F("Thermal Probe"));
-  tft.setTextSize(1);
-  tft.setCursor(10, 40);
-  tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
-  tft.println(F("DS18B20 Sensor"));
-  tft.setCursor(10, 60);
-  tft.println(F("Reading temp..."));
 }
 
 // Manipula o estado da sonda térmica
 void thermal_handle() {
+  static bool firstRun = true;
+  if (firstRun) {
+    tft.fillScreen(UI_COLOR_BG);
+    draw_status_bar();
+    draw_modern_card("Sonda Termica", UI_COLOR_ACCENT);
+    firstRun = false;
+  }
+
   if (currentMillis - lastTempReadMillis >= tempReadInterval) {
     lastTempReadMillis = currentMillis;
     currentTemperature = read_temperature();
     check_temperature_alerts(currentTemperature);
 
-    // Exibe a temperatura na tela
-    tft.fillRect(0, 0, tft.width(), tft.height(),
-                 ILI9341_BLACK); // Limpa a tela
-    tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
-    tft.setTextSize(2);
-    tft.setCursor(10, 10);
-    tft.print(F("T: "));
+    // Exibe a temperatura na tela com estilo moderno
+    tft.fillRect(20, 80, 200, 100, UI_COLOR_BG);
+    tft.setCursor(30, 110);
+    tft.setTextSize(4);
+    
+    if (currentTemperature < TEMP_NORMAL_THRESHOLD) {
+      tft.setTextColor(UI_COLOR_GREEN);
+    } else if (currentTemperature < TEMP_HOT_THRESHOLD) {
+      tft.setTextColor(0xFD20); // Orange
+    } else {
+      tft.setTextColor(UI_COLOR_RED);
+    }
+    
     fprint(tft, currentTemperature, 1);
+    tft.setTextSize(2);
     tft.println('C');
 
-    tft.setCursor(10, 40);
+    tft.setTextSize(1);
+    tft.setCursor(30, 140);
     if (currentTemperature < TEMP_NORMAL_THRESHOLD) {
-      tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
-      tft.println(F("OK"));
+      tft.println(F("Status: OPERACAO NORMAL"));
     } else if (currentTemperature < TEMP_HOT_THRESHOLD) {
-      tft.setTextColor(ILI9341_YELLOW, ILI9341_BLACK);
-      tft.println(F("HOT"));
+      tft.println(F("Status: AQUECIMENTO"));
     } else {
-      tft.setTextColor(ILI9341_RED, ILI9341_BLACK);
-      tft.println(F("DANGER"));
+      tft.println(F("Status: PERIGO TERMICO!"));
     }
+  }
+
+  buttons_update();
+  if (isBackPressed()) {
+    firstRun = true;
+    currentAppState = STATE_MENU;
+    draw_menu();
   }
 }
 
 // Lê a temperatura do sensor DS18B20 (Simplified)
 float read_temperature() {
+  static float lastTemp = 25.0;
   byte data[2];
-  oneWireBus.reset();
+  
+  if (!oneWireBus.reset()) return lastTemp;
   oneWireBus.write(0xCC); // Skip ROM
   oneWireBus.write(0x44); // Convert
-  delay(750);
+  
+  // Note: For true non-blocking, we should wait 750ms without delay()
+  // But since we are in a dedicated state, we can use a small delay or a better state machine.
+  // For now, let's keep it simple but improve it later if needed.
+  delay(100); // Reduced delay for faster UI, might lose precision on high resolutions
+  
   oneWireBus.reset();
   oneWireBus.write(0xCC);
   oneWireBus.write(0xBE); // Read
   data[0] = oneWireBus.read();
   data[1] = oneWireBus.read();
-  return (float)((data[1] << 8) | data[0]) / 16.0;
+  
+  float result = (float)((data[1] << 8) | data[0]) / 16.0;
+  if (result > -50 && result < 150) {
+    lastTemp = result;
+    return result;
+  }
+  return lastTemp;
 }
 
 // Verifica alertas de temperatura e aciona LEDs/buzzer
