@@ -1,121 +1,78 @@
-# Pinagem Detalhada - Component Tester PRO v3.0 (CYD Edition)
+# 📍 Referência de Pinagem (CYD Pinout)
 
-## 1. Visão Geral da Placa (ESP32-2432S028R)
-
-A placa **Cheap Yellow Display (CYD)** integra um ESP32-WROOM-32 com display TFT, touchscreen e slot SD em um único PCB. A pinagem é fixa para os componentes integrados.
-
-### Resumo de Barramentos
-- **VSPI:** Usado pelo display TFT.
-- **HSPI:** Usado pelo slot de cartão MicroSD (separado para evitar conflitos).
-- **Soft SPI:** Usado pelo controlador de Touch XPT2046.
-- **I2C:** Usado para sensores externos (INA219).
+Este guia detalha a pinagem da placa **ESP32-2432S028R** e como ela é utilizada no firmware v3.0.
 
 ---
 
-## 2. Conexões Internas (Fixas)
-
-### Display TFT (ST7789/ILI9341)
-| Pino Lógico | Função | GPIO |
-|:---|:---|:---|
-| **TFT_CS** | Chip Select | 15 |
-| **TFT_DC** | Data/Command | 2 |
-| **TFT_SCK** | Serial Clock | 14 |
-| **TFT_MOSI** | Master Out | 13 |
-| **TFT_MISO** | Master In | 12 |
-| **TFT_BL** | Backlight PWM | 21 |
-
-### Cartão MicroSD (HSPI)
-| Pino Lógico | Função | GPIO |
-|:---|:---|:---|
-| **SD_CS** | Chip Select | 5 |
-| **SD_SCK** | Serial Clock | 18 |
-| **SD_MOSI** | Master Out | 23 |
-| **SD_MISO** | Master In | 19 |
-
-### Touchscreen (XPT2046)
-| Pino Lógico | Função | GPIO |
-|:---|:---|:---|
-| **TOUCH_CS** | Chip Select | 33 |
-| **TOUCH_CLK** | Serial Clock | 25 |
-| **TOUCH_MOSI** | Master Out | 32 |
-| **TOUCH_MISO** | Master In | 39 |
-| **TOUCH_IRQ** | Interrupt | 36 |
-
----
-
-## 3. Conexões Externas (Probes e Sensores)
-
-### Probes de Medição
-| Nome | Função | GPIO | Tipo |
-|:---|:---|:---|:---|
-| **PIN_PROBE_MAIN** | Entrada de medição principal | 35 | ADC (Input-Only) |
-
-> [!CAUTION]
-> O GPIO 35 é **apenas entrada**. Para medições ativas (como carga de capacitores), um resistor de pull-up deve ser conectado a um pino de saída ou ao 3.3V constante.
-
-### Multímetro (ZMPT101B & INA219)
-| Módulo | Sinal | GPIO | Nota |
-|:---|:---|:---|:---|
-| **ZMPT101B** | Saída Analógica AC | 34 | ADC (Input-Only) |
-| **INA219** | I2C SDA | 27 | Barramento I2C |
-| **INA219** | I2C SCL | 22 | Barramento I2C |
-
-### Outros Periféricos
-| Componente | Função | GPIO | Nota |
-|:---|:---|:---|:---|
-| **DS18B20** | Sonda Térmica | 4 | Protocolo OneWire |
-### Pinos dos Módulos Externos e Probes
-
-```
-SISTEMA DE PROBES (Garras de Teste):
-  Probe 1 (B)  → GPIO 35 (ADC, input-only)
-  Probe 2 (C)  → GPIO 27 (I/O, compartilhado com SDA)
-  Probe 3 (E)  → GPIO 22 (I/O, compartilhado com SCL)
-
-SENSORES:
-  ZMPT101B (AC)  → GPIO 34 (ADC, input-only)
-  INA219 SDA     → GPIO 27
-  INA219 SCL     → GPIO 22
-  DS18B20 (Temp) → GPIO 4  (Nota: Desativa o LED Azul integrado)
-
-PERIFÉRICOS:
-  Buzzer/Speaker → GPIO 26
-  LED Verde      → GPIO 16
-  LED Vermelho   → GPIO 17
-```
-
-> [!WARNING]
-> **Conflito I2C:** Os Probes 2 e 3 compartilham os pinos do barramento I2C. Se você estiver usando o sensor INA219, certifique-se de não haver curto-circuito nos probes durante a medição DC, ou use conectores removíveis.
-
----
-
-## 4. Diagrama de Conexão Recomendado
+## 🎨 Diagrama da Placa (Vista Traseira)
 
 ```text
-       +-----------------------+
-       |   ESP32 CYD BOARD     |
-       |                       |
-       |  [P3 Connector]       |
-       |   SDA (27) -----------+---> [INA219 SDA]
-       |   SCL (22) -----------+---> [INA219 SCL]
-       |   GND      -----------+---> [GND]
-       |   3.3V     -----------+---> [VCC]
-       |                       |
-       |  [CN1 Connector]      |
-       |   IO 35 --------------+---> [PROBE PRINCIPAL]
-       |   IO 34 --------------+---> [ZMPT101B OUT]
-       |                       |
-       |  [Outros Pinos]       |
-       |   IO 4  --------------+---> [DS18B20 DQ]
-       |   IO 26 --------------+---> [BUZZER/SPEAKER]
-       +-----------------------+
+       _______________________________________
+      |   [ USB ] [ Boot ] [ Reset ] [ SD ]   |
+      |                                       |
+      |   [ CN1 ]             [ LDR ]         |
+      |    (1) (2) (3) (4)                    |
+      |     |   |   |   |                     |
+      |    35  34  GND 5V                     |
+      |                                       |
+      |   [ P3 / J3 ]                         |
+      |    (1) (2) (3) (4)                    |
+      |     |   |   |   |                     |
+      |    GND 27  22  4                      |
+      |                                       |
+      |   [ Speaker ] [ RGB LED ] [ Batt ]    |
+      |_______________________________________|
 ```
 
 ---
 
-## 5. Notas Técnicas
+## 🛠️ Mapeamento de Pinos
 
-1. **ADC 12-bit:** O ESP32 possui resolução de 4096 níveis (0-4095) para 0-3.3V.
-2. **Referência:** A tensão de referência é 3.3V. Não conecte sinais de 5V diretamente aos GPIOs do ESP32!
-3. **Pull-ups:** O sensor DS18B20 requer um resistor de 4.7kΩ entre o VCC (3.3V) e o pino de dados (GPIO 4).
-4. **I2C:** O INA219 deve ser alimentado com 3.3V para manter compatibilidade lógica com o ESP32.
+### 1. Periféricos Integrados (Fixos)
+
+| Periférico | Função | GPIO | Barramento |
+|:---|:---|:---:|:---:|
+| **Display TFT** | CS / DC / SCK / MOSI / MISO | 15 / 2 / 14 / 13 / 12 | VSPI |
+| **Backlight** | Controle de Brilho (PWM) | 21 | - |
+| **SD Card** | CS / SCK / MOSI / MISO | 5 / 18 / 23 / 19 | HSPI |
+| **Touchscreen** | CS / CLK / MOSI / MISO / IRQ | 33 / 25 / 32 / 39 / 36 | SoftSPI |
+| **LED RGB** | Green / Red (Blue em GPIO 4) | 16 / 17 | - |
+| **Buzzer** | Áudio / Alertas | 26 | DAC |
+
+### 2. Sensores e Probes (Expansão)
+
+| Uso no Projeto | Módulo / Componente | GPIO | Conector |
+|:---|:---|:---:|:---:|
+| **Medição AC** | Saída ZMPT101B | **34** | CN1 - Pin 2 |
+| **Probe Principal** | Entrada de Componentes | **35** | CN1 - Pin 1 |
+| **I2C SDA** | INA219 / Outros I2C | **27** | P3 - Pin 2 |
+| **I2C SCL** | INA219 / Outros I2C | **22** | P3 - Pin 3 |
+| **OneWire** | Sonda Térmica DS18B20 | **4** | P3 - Pin 4 |
+
+---
+
+## ⚠️ Observações Importantes
+
+### Pinos de Apenas Entrada (Input-Only)
+Os GPIOs **34, 35, 36 e 39** são entradas puras no ESP32. Eles não possuem resistores de pull-up internos e não podem ser usados como saídas.
+- **GPIO 34/35:** Usados como entradas analógicas (ADC) para os sensores AC e Probe.
+
+### Conflito do LED Azul
+O **LED Azul** integrado da CYD compartilha o **GPIO 4** com o barramento **OneWire**. 
+- Ao conectar a sonda DS18B20, o LED azul pode piscar ou permanecer aceso dependendo do tráfego de dados. Isso é normal.
+
+### Barramento I2C
+O firmware configura o barramento I2C nos pinos **27 (SDA)** e **22 (SCL)**. Estes pinos estão expostos no conector **P3**. Se você conectar outros dispositivos I2C, certifique-se de que eles tenham endereços diferentes do INA219 (0x40).
+
+---
+
+## 🔌 Alimentação
+
+| Pino | Tensão | Recomendação |
+|:---:|:---:|:---|
+| **5V / VIN** | 4.5V - 6V | Use para alimentar módulos que requerem 5V (ZMPT101B). |
+| **3.3V** | 3.3V Estável | Use para a sonda DS18B20 e INA219. |
+| **GND** | 0V | Ponto comum de aterramento para todos os módulos. |
+
+> [!CAUTION]
+> **Nunca** alimente a placa simultaneamente via USB e via pino 5V/VIN a menos que você saiba o que está fazendo (risco de retorno de corrente).

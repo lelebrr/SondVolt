@@ -1,80 +1,73 @@
-# Manual do Usuário - Component Tester PRO v3.0 (CYD Edition)
+# 📖 Manual do Usuário — Component Tester PRO v3.0
 
-## 1. Introdução
-
-Bem-vindo ao **Component Tester PRO v3.0**, a solução definitiva para testes de componentes eletrônicos baseada na plataforma ESP32. Esta versão utiliza a placa **Cheap Yellow Display (CYD)**, oferecendo uma interface touchscreen colorida e processamento de alta velocidade.
+Este manual descreve como operar o seu Component Tester PRO v3.0, desde a navegação básica até medições avançadas.
 
 ---
 
-## 2. Primeiro Uso
+## 📱 Navegação e Interface
 
-### 2.1 Ligando o Dispositivo
-Conecte o dispositivo a uma fonte de alimentação 5V via porta Micro USB. Você será saudado por uma tela de boot (Splash Screen) com progresso de inicialização do sistema, SD Card e sensores.
+A interface foi projetada para ser operada inteiramente via **touchscreen**.
 
-### 2.2 Navegação por Toque
-Não há botões físicos. Utilize as seguintes zonas de toque na tela:
-
-- **TOPO:** Navega para Cima.
-- **BASE:** Navega para Baixo.
-- **ESQUERDA:** Navega para a Esquerda.
-- **DIREITA:** Navega para a Direita.
-- **CENTRO:** Confirma a seleção (OK).
-- **CANTO INF. DIREITO:** Volta ao menu anterior (BACK).
+- **Grid de Menu:** A tela principal exibe ícones em um grid de 2x3. Toque em qualquer ícone para abrir a respectiva ferramenta.
+- **Barra de Status:** No topo da tela, você verá a versão do firmware e a temperatura interna (se a sonda estiver conectada).
+- **Botão Voltar:** Na maioria das telas de medição, toque no ícone de "Seta" ou "X" no canto superior para retornar ao menu.
 
 ---
 
-## 3. Menu Principal (Grid)
+## 🧪 Modos de Medição
 
-O menu principal utiliza ícones modernos em uma grade 2x4:
+### 1. Auto-Detect (Automático)
+O modo mais potente. Insira o componente nas pontas de prova e o sistema tentará identificar automaticamente:
+- **Resistores:** Valor em Ohms (Ω).
+- **Capacitores:** Capacitância (nF/µF) e ESR.
+- **Diodos:** Tensão de condução (Vf).
+- **Transistores:** Tipo (NPN/PNP), Ganho (hFE) e pinagem.
 
-1. **Medir:** Menu com 13 modos clássicos de teste de componentes.
-2. **Multimetro:** Medição de Tensão AC (RMS), DC, Corrente e Potência.
-3. **Termica:** Monitoramento de temperatura via sonda DS18B20.
-4. **Scanner:** Modo de identificação automática contínua.
-5. **Historico:** Visualização dos últimos 50 registros de medição.
-6. **Estatist:** Dados de uso e saúde do hardware.
-7. **Config:** Ajustes de brilho e calibração.
-8. **Sobre:** Versão do firmware e especificações técnicas.
+### 2. Transistor Tester
+Específico para análise detalhada de semicondutores. Exibe o símbolo do componente e identifica os terminais (Emissor, Base, Coletor).
 
----
+### 3. Capacitor ESR
+Mede a Resistência em Série Equivalente de capacitores eletrolíticos. Ideal para identificar capacitores "secos" em fontes de alimentação sem precisar retirá-los da placa (em alguns casos).
 
-## 4. Como Medir Componentes
+### 4. Multímetro AC (ZMPT101B)
+Mede a tensão da rede elétrica em tempo real.
+- **Aviso:** Certifique-se de que o sensor ZMPT está calibrado corretamente.
+- **Display:** Exibe Vrms, Vpeak e a frequência estimada.
 
-1. Acesse o menu **Medir**.
-2. Selecione o tipo de componente (ex: Capacitor).
-3. Conecte o componente ao **Probe Principal (GPIO 35)** e ao GND.
-4. Pressione o centro da tela (OK) para iniciar a leitura.
-5. O resultado aparecerá com o valor medido e um ícone visual do componente.
-6. Se o componente for identificado no banco de dados do SD Card, o nome (Part Number) será exibido.
-
----
-
-## 5. Uso do Multímetro Profissional
-
-O multímetro utiliza sensores externos de alta precisão:
-- **Tensão AC:** Use o módulo ZMPT101B para medir tensões de rede elétrica com isolação galvânica.
-- **Tensão/Corrente DC:** Use o módulo INA219 para monitorar fontes de bancada e circuitos DC (até 26V).
-
-> [!CAUTION]
-> **SEGURANÇA:** Ao medir tensões AC, certifique-se de que não há partes expostas. Use sempre uma caixa isolada para o projeto.
+### 5. Multímetro DC (INA219)
+Exibe simultaneamente:
+- **Tensão (V):** 0 a 26V.
+- **Corrente (A):** Até 3.2A.
+- **Potência (W):** Cálculo instantâneo.
 
 ---
 
-## 6. Configurações e Calibração
+## 📊 Banco de Dados de Componentes
 
-O sistema salva as configurações automaticamente na memória **NVS**.
-
-- **Brilho:** Ajuste para o conforto visual e economia de energia.
-- **Calibração:** Se as leituras estiverem imprecisas, use a função de calibração no menu Config para ajustar os offsets do ADC.
-
----
-
-## 7. Dicas de Manutenção
-
-- **SD Card:** Mantenha o arquivo `COMPBD.CSV` na raiz do cartão. Sem ele, a identificação de componentes não funcionará.
-- **Limpeza:** Use um pano seco para limpar a tela touchscreen. Evite objetos pontiagudos.
+Ao finalizar uma medição, o sistema consulta o arquivo `COMPBD.CSV` no cartão SD.
+- Se houver uma correspondência, o **Part Number** do componente aparecerá em destaque.
+- Exemplo: Ao medir um transistor NPN com hFE de ~200, o sistema pode identificar como "BC547".
 
 ---
 
-## Suporte
-Consulte o arquivo [TROUBLESHOOTING.md](TROUBLESHOOTING.md) caso encontre problemas na inicialização ou medições.
+## ⚙️ Configurações (Settings)
+
+Acesse o ícone de engrenagem para ajustar:
+- **Brilho:** Ajuste o PWM do backlight (0-100%).
+- **Calibração Touch:** Siga os pontos na tela para recalibrar o touchscreen.
+- **Buzzer:** Ative ou desative os bipes de confirmação.
+- **Limpar Log:** Apaga o histórico salvo no cartão SD.
+
+---
+
+## ⚠️ Avisos de Segurança
+
+1. **Capacitores:** Sempre descarregue capacitores de alta tensão antes de conectá-los ao tester.
+2. **Alta Tensão AC:** O módulo ZMPT101B lida com tensões letais. Nunca toque no módulo enquanto ele estiver conectado à rede elétrica.
+3. **Polaridade:** O sensor INA219 possui polaridade (+ e -). Inverter a conexão pode danificar o módulo.
+
+---
+
+<p align="center">
+  <i>Component Tester PRO v3.0 — Precisão e Tecnologia na sua bancada.</i>
+</p>

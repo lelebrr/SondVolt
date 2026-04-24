@@ -1,65 +1,62 @@
-# Frequently Asked Questions (FAQ) - Component Tester PRO v3.0 (CYD Edition)
+# ❓ Perguntas Frequentes (FAQ) — Component Tester PRO
 
-## 1. Geral
-
-### Q: Quais os principais recursos desta versão?
-**R:** O Component Tester PRO v3.0 oferece:
-- Interface Touchscreen intuitiva.
-- Processador Dual Core de 240MHz de alta performance.
-- ADC de 12 bits para máxima precisão.
-- Multímetro Profissional (AC True RMS e DC).
-- Banco de dados de componentes carregado via MicroSD.
-
+Aqui você encontra as respostas para as dúvidas mais comuns sobre montagem, operação e manutenção do seu Component Tester PRO v3.0.
 
 ---
 
-## 2. Hardware
+## 🛠️ Hardware e Montagem
 
-### Q: O que é a placa CYD?
-**R:** É a "Cheap Yellow Display", uma placa de desenvolvimento baseada no ESP32 que já vem com tela TFT de 2.8", touchscreen e slot para cartão SD integrados.
+### 1. O que é necessário para começar?
+Você precisa da placa **ESP32 CYD**, um cartão MicroSD e os sensores opcionais (ZMPT101B para AC, INA219 para DC e DS18B20 para temperatura). Veja a lista completa no [Guia de Hardware](HARDWARE.md).
 
-### Q: Preciso soldar algo?
-**R:** A placa CYD vem pronta. Você precisará apenas conectar os sensores externos (ZMPT101B, INA219, DS18B20) e as pontas de prova (probes) nos conectores laterais ou pinos de expansão.
+### 2. A tela não responde ao toque. O que fazer?
+- **Tipo de Tela:** Lembre-se que a tela é **resistiva**. Use a unha ou uma stylus (caneta de toque).
+- **Calibração:** Se o toque estiver desalinhado, acesse `Settings > Calibrate` no menu do dispositivo.
+- **Hardware:** Verifique se o cabo flat marrom do touchscreen (atrás do LCD) está bem encaixado.
 
-### Q: Posso usar bateria?
-**R:** Sim! Como é um ESP32, você pode usar uma bateria LiPo com um módulo carregador TP4056 e um regulador de tensão para alimentar a placa via 5V ou 3.3V.
-
----
-
-## 3. Medições e Sensores
-
-### Q: O multímetro AC é seguro?
-**R:** O sensor **ZMPT101B** possui um transformador de isolação, o que isola o ESP32 da rede elétrica. No entanto, a manipulação de fios de 110V/220V deve ser feita com **EXTREMO CUIDADO** e proteção adequada.
-
-### Q: Por que a leitura do INA219 não aparece?
-**R:** O sistema tenta detectar o sensor via I2C no boot. Se não encontrar, ele entra em modo "Fallback", usando o ADC interno (GPIO 35) para medir tensão DC básica (0-3.3V).
-
-### Q: Qual a precisão do Ohmímetro?
-**R:** Com o ADC de 12 bits do ESP32, a precisão é excelente. Recomendamos realizar a calibração no menu **Config** para melhores resultados em diferentes faixas de resistência.
+### 3. O cartão SD não é reconhecido.
+- **Formatação:** Deve ser obrigatoriamente **FAT32**.
+- **Arquivo:** O arquivo `COMPBD.CSV` deve estar na **raiz** do cartão, não dentro de pastas.
+- **Hardware:** O slot SD da CYD é sensível; tente inserir e remover o cartão com a placa desligada.
 
 ---
 
-## 4. Software e Customização
+## ⚡ Medições e Sensores
 
-### Q: Como adiciono novos componentes ao banco de dados?
-**R:** Basta editar o arquivo `COMPBD.CSV` no cartão SD usando o Excel ou bloco de notas, seguindo o formato de colunas existente. O ESP32 reconstruirá o índice automaticamente no próximo boot.
+### 4. As leituras do Multímetro AC estão instáveis.
+- **Calibração:** Cada sensor ZMPT101B tem um potenciômetro azul. Você deve ajustá-lo enquanto mede uma tensão conhecida (ex: tomada) até que o valor no display coincida.
+- **Filtro:** O firmware usa RMS por amostragem. Certifique-se de que o sensor está bem alimentado com 5V estáveis.
 
-### Q: Posso mudar as cores da interface?
-**R:** Sim, as cores são definidas em `config.h` através de constantes como `UI_COLOR_BG`, `UI_COLOR_TEXT`, etc.
+### 5. O Probe Principal não detecta nada.
+- **Resistor de Referência:** Verifique se você instalou o resistor de **10kΩ** entre o pino de medição (GPIO 35) e o pino de teste.
+- **Conexão:** Certifique-se de que o componente está fazendo bom contato com as garras.
 
-### Q: Como atualizo o firmware?
-**R:** Utilize o PlatformIO e conecte a placa via USB. O comando `pio run --target upload` fará todo o trabalho.
-
----
-
-## 5. Problemas Comuns
-
-### Q: A tela não responde ao toque.
-**R:** O touchscreen da CYD é **resistivo**. Pressione levemente com a ponta da unha ou uma caneta stylus. Verifique se o cabo flat do touch não está solto.
-
-### Q: O cartão SD não é reconhecido.
-**R:** Formate em **FAT32**. Cartões muito antigos ou de altíssima velocidade (UHS-II) podem ter problemas de compatibilidade. Recomenda-se cartões classe 10 de até 32GB.
+### 6. Como funciona a identificação automática?
+O sistema mede os parâmetros básicos (Vf, Hfe, Capacitância, etc.) e cruza esses dados com o `COMPBD.CSV`. Se os valores forem próximos aos de um componente conhecido, o nome dele (ex: 2N2222) aparecerá no topo da tela.
 
 ---
 
-*Ainda tem dúvidas? Consulte o [MANUAL.md](MANUAL.md) ou o [TROUBLESHOOTING.md](TROUBLESHOOTING.md).*
+## ⚙️ Software e Customização
+
+### 7. Como atualizo o banco de dados de componentes?
+O banco de dados é um arquivo de texto simples (`CSV`). Você pode abrir o `sd_files/COMPBD.CSV` no seu computador, adicionar novas linhas seguindo o padrão e salvar de volta no cartão SD.
+
+### 8. Posso usar este projeto em um ESP32 comum?
+**Sim**, mas você terá que fazer todas as ligações do display ILI9341 e do touch manualmente. O código é otimizado para a pinagem da CYD, então você precisará alterar as definições no arquivo `src/config.h`.
+
+---
+
+## 🚑 Solução de Problemas (Troubleshooting)
+
+| Sintoma | Causa Provável | Solução |
+|:---|:---|:---|
+| **Tela Branca** | Erro de driver ou pinagem | Verifique o `platformio.ini` (User_Setup.h). |
+| **LED Vermelho piscando** | Cartão SD faltando ou corrompido | Insira um cartão com o arquivo `COMPBD.CSV`. |
+| **Bipes constantes** | Alerta de temperatura alta | Afaste a sonda DS18B20 de fontes de calor. |
+| **Reset cíclico** | Alimentação insuficiente | Use um cabo USB de boa qualidade e porta 2.0/3.0. |
+
+---
+
+<p align="center">
+  <i>Ainda tem dúvidas? Abra uma <b>Issue</b> no GitHub ou consulte o <b>Manual do Usuário</b>.</i>
+</p>

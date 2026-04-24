@@ -1,53 +1,48 @@
-# Documentação - Component Tester PRO v3.0 (CYD Edition)
+# 📚 Documentação Técnica — Component Tester PRO v3.0
 
-## 🏗️ Índice Geral
+Bem-vindo ao centro de documentação do **Component Tester PRO**. Este diretório contém todos os manuais e especificações necessários para montar, operar e expandir o seu dispositivo.
 
-| Arquivo | Descrição | Público-Alvo |
+---
+
+## 🏗️ Mapa da Documentação
+
+| Guia | Descrição | Público |
 |:---|:---|:---|
-| [README.md](README.md) | Visão geral, especificações e como compilar | Todos |
-| [MANUAL.md](MANUAL.md) | Guia de uso, navegação e medições | Usuários |
-| [HARDWARE.md](HARDWARE.md) | Detalhes da placa CYD e sensores extras | Eletrônicos |
-| [PINOUT.md](PINOUT.md) | Mapeamento completo de pinos ESP32 | Eletrônicos |
-| [MENUS.md](MENUS.md) | Estrutura da interface 2x4 e zonas de toque | Todos |
-| [CONFIG.md](CONFIG.md) | Ajustes, NVS e calibração de sensores | Usuários |
-| [DEVELOP.md](DEVELOP.md) | Arquitetura do código e guia de contribuição | Desenvolvedores |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Guia de resolução de problemas | Todos |
+| 🏠 **[Página Principal](../README.md)** | Visão geral, recursos de elite e início rápido. | Todos |
+| 📖 **[Manual do Usuário](MANUAL.md)** | Instruções de operação, navegação touch e modos de teste. | Usuários |
+| 🏗️ **[Guia de Hardware](HARDWARE.md)** | Esquemas, lista de materiais e diagramas de ligação. | Makers |
+| 📍 **[Referência de Pinagem](PINOUT.md)** | Mapeamento detalhado dos GPIOs do ESP32 CYD. | Eletrônicos |
+| 📱 **[Estrutura de Menus](MENUS.md)** | Detalhamento da interface Grid e zonas de toque. | Todos |
+| ⚙️ **[Configurações](CONFIG.md)** | Ajustes de firmware, calibração e persistência NVS. | Avançado |
+| 👨‍💻 **[Desenvolvimento](DEVELOP.md)** | Arquitetura do código, banco de dados e contribuição. | Devs |
+| 🚑 **[Resolução de Problemas](FAQ.md)** | Perguntas frequentes e guia de troubleshooting. | Todos |
 
 ---
 
-## 🚀 Guia Rápido
+## 🚀 Caminhos de Aprendizado
 
-### Para Novos Usuários
-1. Comece pelo [README.md](README.md) para entender as capacidades do dispositivo.
-2. Leia o [MANUAL.md](MANUAL.md) para aprender a navegar usando o touchscreen.
-3. Veja o [MENUS.md](MENUS.md) para entender o layout da interface.
+### Sou novo no projeto
+1. Leia o [README.md](../README.md) para entender o que o dispositivo faz.
+2. Siga o guia de [Hardware](HARDWARE.md) para montar seu tester.
+3. Consulte o [Manual](MANUAL.md) para sua primeira medição.
 
-### Para Desenvolvedores e Makers
-1. Confira o [PINOUT.md](PINOUT.md) antes de conectar novos sensores.
-2. Leia o [DEVELOP.md](DEVELOP.md) para entender como o sistema de banco de dados em RAM funciona.
-3. Use o [CONFIG.md](CONFIG.md) para entender como calibrar os sensores ZMPT101B e INA219.
-
----
-
-## 📊 Status da Migração (Arduino → ESP32)
-
-- [x] **Core:** Migrado para ESP32 (Dual Core).
-- [x] **Display:** TFT_eSPI (High Performance) - OK.
-- [x] **Touch:** Interface XPT2046 - OK.
-- [x] **Database:** RAM Caching (Busca instantânea) - OK.
-- [x] **Multímetro:** Integração True RMS e I2C - OK.
-- [x] **Config:** Persistência via NVS (Preferences) - OK.
+### Quero customizar o firmware
+1. Entenda a pinagem no [Pinout](PINOUT.md).
+2. Estude a arquitetura em [Desenvolvimento](DEVELOP.md).
+3. Modifique o arquivo `src/config.h` conforme necessário.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Especificações Técnicas (Resumo)
 
-- **Microcontrolador:** ESP32-WROOM-32.
-- **Gráficos:** TFT_eSPI (ILI9341).
-- **Touch:** XPT2046.
-- **Sensores:** ZMPT101B (AC), INA219 (DC), DS18B20 (Temp).
-- **Armazenamento:** MicroSD via HSPI bus.
+- **Processador:** ESP32 Dual Core @ 240MHz.
+- **Memória:** 520KB RAM / 4MB Flash.
+- **Display:** TFT 2.8" (320x240) com Touch Resistivo.
+- **Sensores:** AC Isolate (ZMPT), DC Precision (INA219), Thermal (DS18B20).
+- **Banco de Dados:** Busca em RAM otimizada com log no SD Card.
 
 ---
 
-*Última atualização: 24 de Abril de 2026*
+<p align="center">
+  <i>Última atualização: Abril de 2026 — Component Tester PRO Team</i>
+</p>
