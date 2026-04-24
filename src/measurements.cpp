@@ -8,6 +8,7 @@
 #include "logger.h"
 #include "utils.h"
 #include "menu.h"
+#include "database.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <Arduino.h>
@@ -95,6 +96,16 @@ void measure_capacitor() {
     }
     set_green_led(true);
     addToHistory("Cap", capacitance, currentTemperature, true);
+    
+    // Auto Identify
+    ComponentDB match = findBestMatch(CAT_CAPACITOR, (uint16_t)(capacitance * 1000.0), 0, 0);
+    if (strlen(match.name) > 0) {
+      tft.setCursor(20, 160);
+      tft.setTextSize(1);
+      tft.setTextColor(UI_COLOR_ACCENT);
+      tft.print(F("Match: "));
+      tft.println(match.name);
+    }
   } else {
     tft.setTextColor(UI_COLOR_RED);
     tft.setTextSize(2);
@@ -145,6 +156,19 @@ void measure_resistor() {
   }
 
   addToHistory("Res", resistance > 0 ? resistance : 0, currentTemperature, resistance > 0);
+  
+  if (resistance > 0) {
+    // Auto Identify
+    ComponentDB match = findBestMatch(CAT_RESISTOR, (uint16_t)resistance, 0, 0);
+    if (strlen(match.name) > 0) {
+      tft.setCursor(20, 160);
+      tft.setTextSize(1);
+      tft.setTextColor(UI_COLOR_ACCENT);
+      tft.print(F("Match: "));
+      tft.println(match.name);
+    }
+  }
+  
   wait_for_back();
 }
 
@@ -181,7 +205,26 @@ void measure_diode() {
     tft.println(F("Nenhum Diodo Encontrado"));
     set_red_led(true);
   }
-  addToHistory("Diod", 0, currentTemperature, (vF1 > 100 && vF1 < 900) || (vF2 > 100 && vF2 < 900));
+  
+  // Auto Identify Diode
+  bool detected = (vF1 > 100 && vF1 < 900) || (vF2 > 100 && vF2 < 900);
+  if (detected) {
+    uint16_t vf_val = (vF1 > 100 && vF1 < 900) ? vF1 : vF2;
+    vf_val = (uint16_t)(vf_val * (5000.0 / 1023.0)); // Convert to mV
+    ComponentDB match = findBestMatch(CAT_DIODE, vf_val, 0, 0);
+    if (strlen(match.name) == 0) match = findBestMatch(CAT_SCHOTTKY, vf_val, 0, 0);
+    if (strlen(match.name) == 0) match = findBestMatch(CAT_ZENER, vf_val, 0, 0);
+    
+    if (strlen(match.name) > 0) {
+      tft.setCursor(30, 160);
+      tft.setTextSize(1);
+      tft.setTextColor(UI_COLOR_ACCENT);
+      tft.print(F("Provavel: "));
+      tft.println(match.name);
+    }
+  }
+
+  addToHistory("Diod", 0, currentTemperature, detected);
   wait_for_back();
 }
 
@@ -214,6 +257,17 @@ void measure_transistor() {
     tft.setCursor(30, 130);
     tft.println(F("P1: Anodo | P2: Katodo"));
     set_green_led(true);
+
+    // Auto Identify BJT (Limited with 2 probes, but can guess by Vf)
+    uint16_t vf_mv = (uint16_t)(vF * (5000.0 / 1023.0));
+    ComponentDB match = findBestMatch(CAT_BJT_NPN, 300, vf_mv, 0); // Use 300 as typical HFE guess
+    if (strlen(match.name) > 0) {
+       tft.setCursor(30, 160);
+       tft.setTextSize(1);
+       tft.setTextColor(UI_COLOR_ACCENT);
+       tft.print(F("Sugerido: "));
+       tft.println(match.name);
+    }
   } else {
     tft.setTextColor(UI_COLOR_RED);
     tft.println(F("Nenhum BJT Ativo"));

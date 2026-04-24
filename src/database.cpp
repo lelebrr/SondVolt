@@ -92,10 +92,21 @@ ComponentDB findBestMatch(uint8_t category, uint16_t measured_value1,
         ComponentDB currentComp;
         if (parseCSVLine(line_buffer, currentComp)) {
           if (currentComp.category == category) {
-            if (measured_value1 >= currentComp.min1 &&
-                measured_value1 <= currentComp.max1) {
-              uint16_t diff =
-                  abs((int)measured_value1 - (int)currentComp.value1);
+            bool val1_match = (measured_value1 >= currentComp.min1 && measured_value1 <= currentComp.max1);
+            
+            // Se tivermos um valor secundário (ex: Vf) no DB, ele deve bater também
+            bool val2_match = true;
+            if (currentComp.value2 > 0 && measured_value2 > 0) {
+                // Margem de 20% para o valor secundário
+                uint16_t margin = currentComp.value2 / 5;
+                if (measured_value2 < (currentComp.value2 - margin) || 
+                    measured_value2 > (currentComp.value2 + margin)) {
+                    val2_match = false;
+                }
+            }
+
+            if (val1_match && val2_match) {
+              uint16_t diff = abs((int)measured_value1 - (int)currentComp.value1);
               if (diff < smallest_diff) {
                 smallest_diff = diff;
                 bestMatch = currentComp;
