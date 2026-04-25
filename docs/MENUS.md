@@ -1,5 +1,9 @@
 # 📱 Estrutura de Menus — Sondvolt v3.2
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este documento detalha a estrutura completa de menus e navegação da interface touchscreen do Sondvolt.
 
 ---

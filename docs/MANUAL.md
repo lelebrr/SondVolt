@@ -1,10 +1,14 @@
-# 📖 Manual do Usuário — Sondvolt v3.2
+# 📖 Manual do Usuário — Component Tester PRO v3.2
 
 <p align="center">
-  <img src="../assets/ui_collage.png" alt="Interface do Sondvolt" width="400">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
 </p>
 
-## Component Tester Pro
+<p align="center">
+  <img src="../assets/ui_collage.png" alt="Interface do Component Tester PRO" width="400">
+</p>
+
+## Component Tester PRO
 
 **Versão do Firmware:** 3.2.0
 **Placa Base:** ESP32-2432S028R (Cheap Yellow Display)
@@ -20,12 +24,12 @@ Este documento contém todas as instruções necessárias para operar o **Sondvo
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    SONDVOLT v3.2 - INTERFACE PRINCIPAL           │
+│                COMPONENT TESTER PRO v3.2 - INTERFACE             │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │                    BARRA DE STATUS                       │   │
-│  │ [Bateria: 85%] [SD: 2.1GB] [WiFi: OFF] [Segurança: OK]  │   │
+│  │ [Bateria: 85%] [SD: 2.1GB] [WiFi: OFF] [Segurança: OK] │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
@@ -48,15 +52,15 @@ Este documento contém todas as instruções necessárias para operar o **Sondvo
 
 ## 1. Introdução
 
-### 1.1 O que é o Sondvolt
+### 1.1 O que é o Component Tester PRO
 
-O **Sondvolt** é um instrumento de medição eletrônica multifuncional de última geração, desenvolvido sobre a plataforma ESP32-2432S028R (Cheap Yellow Display). Este equipamento combina as funcionalidades de um testador de componentes eletrônico e um multímetro digital em um único dispositivo compacto, com interface gráfica colorida touchscreen de 2,8 polegadas.
+O **Component Tester PRO** é um instrumento de medição eletrônica multifuncional de última geração, desenvolvido sobre a plataforma ESP32-2432S028R (Cheap Yellow Display). Este equipamento combina as funcionalidades de um testador de componentes eletrônico e um multímetro digital em um único dispositivo compacto, com interface gráfica colorida touchscreen de 2,8 polegadas.
 
-O Sondvolt foi projetado para atender engenheiros, técnicos eletrônicos, estudantes de eletrônica e entusiastas de tecnologia que precisam de uma ferramenta versátil para diagnóstico, teste e medição de componentes e circuitos eletrônicos. O dispositivo oferece uma solução tudo-em-um para oficinas de eletrônica, laboratórios de ensino e aplicações de campo.
+O Component Tester PRO foi projetado para atender engenheiros, técnicos eletrônicos, estudantes de eletrônica e entusiastas de tecnologia que precisam de uma ferramenta versátil para diagnóstico, teste e medição de componentes e circuitos eletrônicos. O dispositivo oferece uma solução tudo-em-um para oficinas de eletrônica, laboratórios de ensino e aplicações de campo.
 
 ### 1.2 Principais Funcionalidades
 
-O Sondvolt oferece as seguintes funcionalidades principais:
+O Component Tester PRO oferece as seguintes funcionalidades principais:
 
 #### 🎯 Auto-Detecção Inteligente
 Identificação automática de mais de 8 tipos diferentes de componentes eletrônicos, incluindo resistores, capacitores, diodos, transistores, LEDs, MOSFETs, indutores e componentes desconhecidos. O sistema analisa as características elétricas do componente e determina o tipo automaticamente, sem necessidade de seleção manual de modo.
@@ -81,23 +85,46 @@ Suporte para sonda térmica DS18B20 one-wire, permitindo medições de temperatu
 Armazenamento de todas as medições em cartão SD, permitindo consulta posterior e análise estatística de componentes testados.
 
 #### 🛡️ Sistema de Segurança Integrado
-Proteção automática contra tensões perigosas (220V AC), com detecção em tempo real, alertas sonoros e visuais, e bloqueio temporário do equipamento quando tensões perigosas são detectadas.
+Proteção automática contra tensões perigosas (220V AC), com detecção em tempo real, alertas sonoros e visuais, e bloqueio temporário do equipamento quando tensões perigosas são detectadas. Versão 3.2 inclui confirmação obrigatória de componentes de proteção.
 
 #### 🖥️ Interface Gráfica Touchscreen
 Display TFT colorido de 320x240 pixels com interface intuitiva baseada em ícones, botões de navegação e feedback visual imediato através de LEDs e buzzer.
 
+#### 🧪 Novas Funções no Menu (v3.2 atualizado)
+- **IC / CI:** acesso direto para análise básica de circuitos integrados desacoplados.
+- **Scanner:** varredura automática de componente com foco em diagnóstico rápido.
+- **Temperatura (submenu):**
+  - **Termômetro Contato** (DS18B20)
+  - **Câmera Térmica**
+- **CPU Info:** atalho direto no menu “Mais Funções”.
+
+#### ⚙️ Configurações Expandidas
+O menu de Ajustes agora inclui, além de brilho/som/tema:
+- Auto-desligamento com ciclos (OFF/1/5/15 min)
+- Grade em gráficos
+- Animações de interface
+- Auto-salvar histórico
+- Confirmar ações críticas
+- Modo especialista
+- Idioma (PT-BR / EN / ES)
+- Perfil de beep (normal/forte)
+- Recarregar SD, limpar histórico, reset e informações de CPU
+
 #### 💾 Banco de Dados de Componentes
 Arquivo COMPBD.CSV no cartão SD para identificação automática de componentes por part number, permitindo reconhecimento de transistores, diodos e outros componentes populares.
 
+#### 📊 Exportação de Dados
+Exportação de medições em formato CSV com dados de pico e timestamp para análise externa.
+
 ### 1.3 Vantagens sobre Multímetros Comuns
 
-O Sondvolt apresenta diversas vantagens em relação multímetros digitais convencionais:
+O Component Tester PRO apresenta diversas vantagens em relação multímetros digitais convencionais:
 
-| Característica | Multímetro Comum | Sondvolt |
+| Característica | Multímetro Comum | Component Tester PRO v3.2 |
 |:---|:---:|:---:|
 | **Tipos de medição** | 2-3 (tensão, corrente, resistência) | 8+ (resistência, capacitância, diodo, transistor, temperatura, AC, DC, corrente) |
 | **Auto-detecção** | Não | Sim (identificação automática de componentes) |
-| **Interface** | Display de 7 segmentos ou LCD básico | Display TFT colorido touchscreen de 3,2" |
+| **Interface** | Display de 7 segmentos ou LCD básico | Display TFT colorido touchscreen de 2,8" |
 | **Armazenamento** | Geralmente não | Cartão SD com histórico completo |
 | **Segurança AC** | básica (fusível) | Detecção automática com alerta e bloqueio |
 | **Identificação de componentes** | Não | Sim (banco de dados CSV) |
@@ -202,6 +229,29 @@ O principal diferencial do Medivolt está na capacidade de auto-detecção e tes
 ---
 
 ## 🎯 Guia Rápido de Operação
+
+### Mapa de Navegação (resumo prático)
+
+**Home:**
+- Teste Auto
+- Multímetro
+- Comparar
+- Mais
+
+**Mais Funções:**
+- Resistor, Capacitor, Diodo, LED, Transistor, Indutor
+- IC / CI
+- Scanner
+- Temperatura
+- Calibrar
+- Histórico
+- Ajustes
+- CPU Info
+- Sobre
+
+**Temperatura:**
+- Termômetro Contato
+- Câmera Térmica
 
 ### Passo a Passo Inicial
 

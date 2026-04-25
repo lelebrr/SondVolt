@@ -36,6 +36,10 @@ static uint16_t touchStartX = 0;
 static uint16_t touchStartY = 0;
 static uint16_t lastTouchX = 0;
 static uint16_t lastTouchY = 0;
+static const int8_t SETTINGS_ITEM_COUNT = 18;
+static const int16_t SETTINGS_ITEM_HEIGHT = 45;
+static const int16_t SETTINGS_VISIBLE_HEIGHT = 165;
+static const int16_t SETTINGS_SCROLL_MAX = (SETTINGS_ITEM_COUNT * SETTINGS_ITEM_HEIGHT) - SETTINGS_VISIBLE_HEIGHT;
 
 static bool is_help_available_state(AppState state) {
     switch (state) {
@@ -44,11 +48,13 @@ static bool is_help_available_state(AppState state) {
         case STATE_MEASURE_DIODE:
         case STATE_MEASURE_TRANSISTOR:
         case STATE_MEASURE_INDUCTOR:
+        case STATE_MEASURE_IC:
         case STATE_MEASURE_LED:
         case STATE_MEASURE_GENERIC:
         case STATE_MULTIMETER:
         case STATE_THERMAL_PROBE:
         case STATE_THERMAL_CAMERA:
+        case STATE_SCANNER:
             return true;
         default:
             return false;
@@ -249,6 +255,13 @@ static void draw_instrument_content() {
             strcpy(subBuf1, "Q: 4.2 @ 1kHz");
             strcpy(subBuf2, "Rdc: 0.8 Ohms");
             break;
+        case STATE_MEASURE_IC:
+            title = "ANALISE DE CI / IC";
+            color = V_CYAN_ELECTRIC;
+            sprintf(valBuf, "AUTO");
+            strcpy(subBuf1, "Deteccao por pinos 1/2/3");
+            strcpy(subBuf2, "Use componente desacoplado");
+            break;
         case STATE_MULTIMETER: {
             MultimeterReading mr = multimeter_get_last_reading();
             title = "MULTIMETRO DIGITAL";
@@ -308,6 +321,13 @@ static void draw_instrument_content() {
                 strcpy(subBuf2, "Auto-Detec: Ativa");
             }
             break;
+        case STATE_SCANNER:
+            title = "SCANNER DE COMPONENTES";
+            color = V_VIBRANT_PURPLE;
+            sprintf(valBuf, "SCAN");
+            strcpy(subBuf1, "Varredura inteligente ativa");
+            strcpy(subBuf2, "Conecte o componente nos probes");
+            break;
         default:
             title = "ANALISANDO...";
             sprintf(valBuf, "---");
@@ -327,6 +347,7 @@ static void draw_instrument_content() {
         case STATE_MEASURE_DIODE:     icon = ICON_DIODE; break;
         case STATE_MEASURE_TRANSISTOR: icon = ICON_TRANSISTOR_NPN; break;
         case STATE_MEASURE_INDUCTOR:  icon = ICON_INDUCTOR; break;
+        case STATE_MEASURE_IC:        icon = ICON_SETTINGS; break;
         case STATE_MEASURE_LED:       icon = ICON_LED; break;
         case STATE_MULTIMETER: {
             MultimeterReading mr = multimeter_get_last_reading();
@@ -340,6 +361,7 @@ static void draw_instrument_content() {
             else if (lastVoltage > 0.1) icon = ICON_DIODE;
             else icon = ICON_AUTO;
             break;
+        case STATE_SCANNER:           icon = ICON_AUTO; break;
         default:                      icon = ICON_SETTINGS; break;
     }
     draw_bitmap_icon(icon, 28, 87); 
@@ -516,16 +538,23 @@ static void draw_settings_screen() {
     const char* opts[] = { 
         "Brilho da Tela", "Sons do Sistema", "Auto-Desligamento",
         "Unidades / Units", "Tema do Sistema", "Modo Noturno",
-        "Calibracao Probe", "SD: Recarregar", "Limpar Historico",
-        "Reset de Fabrica", "Informacoes CPU"
+        "Grade em Graficos", "Animacoes UI", "Auto-Salvar Historico",
+        "Confirmar Acoes", "Modo Especialista", "Idioma",
+        "Beep Forte", "Calibracao Probe", "SD: Recarregar",
+        "Limpar Historico", "Reset de Fabrica", "Informacoes CPU"
     };
     
     const char* themeNames[] = { "Verde", "Azul", "Laranja", "Roxo" };
+    const char* languageNames[] = { "PT-BR", "EN", "ES" };
     
-    char bVal[16], sVal[16], aVal[16];
+    char bVal[16], sVal[16], aVal[16], lVal[16];
     sprintf(bVal, "%d%%", (deviceSettings.backlight * 100) / 255);
     strcpy(sVal, deviceSettings.soundEnabled ? "LIGADO" : "MUDO");
-    strcpy(aVal, deviceSettings.autoSleep ? "5 min" : "DESL.");
+    if (!deviceSettings.autoSleep) strcpy(aVal, "DESL.");
+    else if (deviceSettings.autoSleepMs <= 60000UL) strcpy(aVal, "1 min");
+    else if (deviceSettings.autoSleepMs <= 300000UL) strcpy(aVal, "5 min");
+    else strcpy(aVal, "15 min");
+    strcpy(lVal, languageNames[deviceSettings.languageIdx % 3]);
 
     const char* vals[] = { 
         bVal, 
@@ -534,13 +563,22 @@ static void draw_settings_screen() {
         deviceSettings.unitsMetric ? "Metrico" : "Imperial",
         themeNames[deviceSettings.themeIdx % 4],
         deviceSettings.darkMode ? "DARK" : "LIGHT",
-        "OK", "SCAN", "CLEAR", "WARN", "VER" 
+        deviceSettings.showGrid ? "ON" : "OFF",
+        deviceSettings.animations ? "ON" : "OFF",
+        deviceSettings.autoSaveHistory ? "ON" : "OFF",
+        deviceSettings.confirmActions ? "ON" : "OFF",
+        deviceSettings.expertMode ? "ON" : "OFF",
+        lVal,
+        deviceSettings.strongBeep ? "FORTE" : "NORMAL",
+        deviceSettings.calibrated ? "OK" : "PEND",
+        sdCardPresent ? "OK" : "SCAN",
+        "CLEAR", "WARN", "VER"
     };
     
     int16_t y_start = 55 + uiScrollY;
     
-    for(int i=0; i<11; i++) {
-        int16_t y = y_start + i * 45;
+    for(int i=0; i<SETTINGS_ITEM_COUNT; i++) {
+        int16_t y = y_start + i * SETTINGS_ITEM_HEIGHT;
         if (y < 10 || y > 210) continue; 
         
         uint16_t boxColor = 0x1082;
@@ -555,8 +593,14 @@ static void draw_settings_screen() {
     
     // Indicador de Scroll
     tft.fillRect(310, 50, 4, 150, C_DIVIDER);
-    int barH = 30;
-    int barY = 50 + (abs(uiScrollY) * (150 - barH) / 330); 
+    int totalContent = SETTINGS_ITEM_COUNT * SETTINGS_ITEM_HEIGHT;
+    int barH = (SETTINGS_VISIBLE_HEIGHT * 150) / totalContent;
+    if (barH < 20) barH = 20;
+    if (barH > 150) barH = 150;
+    int scrollAbs = -uiScrollY;
+    if (scrollAbs < 0) scrollAbs = 0;
+    if (scrollAbs > SETTINGS_SCROLL_MAX) scrollAbs = SETTINGS_SCROLL_MAX;
+    int barY = 50 + ((SETTINGS_SCROLL_MAX > 0) ? (scrollAbs * (150 - barH) / SETTINGS_SCROLL_MAX) : 0);
     tft.fillRect(310, barY, 4, barH, COLOR_PRIMARY);
     
     UNLOCK_TFT();
@@ -712,7 +756,7 @@ bool ui_handle_touch(uint16_t x, uint16_t y) {
             // Limites dependentes do estado
             if (uiScrollY > 0) uiScrollY = 0;
             if (currentAppState == STATE_SETTINGS) {
-                if (uiScrollY < -330) uiScrollY = -330;
+                if (uiScrollY < -SETTINGS_SCROLL_MAX) uiScrollY = -SETTINGS_SCROLL_MAX;
             } else { // STATE_HELP
                 if (uiScrollY < -100) uiScrollY = -100;
             }
@@ -739,11 +783,12 @@ void ui_reset_touch_state() {
                     isDialogActive = false;
                     needsScreenRedraw = true;
                 } else if (lastTouchX > 170 && lastTouchX < 280) { // SIM
-                    if (dialogTargetIdx == 8) {
+                    if (dialogTargetIdx == 15) {
                         logger_clear();
+                        memset(recentTests, 0, sizeof(recentTests));
                         Serial.println("HISTORICO APAGADO!");
                     }
-                    if (dialogTargetIdx == 9) {
+                    if (dialogTargetIdx == 16) {
                         // Reset de fábrica (limpa NVS se necessário)
                         ESP.restart();
                     }
@@ -768,14 +813,14 @@ void ui_reset_touch_state() {
                 // Calcula qual item foi clicado baseado no Scroll
                 // Header acaba em 40, itens começam em 55 + scroll
                 int16_t relativeY = lastTouchY - (55 + uiScrollY);
-                int8_t itemIdx = relativeY / 45;
+                int8_t itemIdx = relativeY / SETTINGS_ITEM_HEIGHT;
                 
-                if (itemIdx >= 0 && itemIdx < 11) {
+                if (itemIdx >= 0 && itemIdx < SETTINGS_ITEM_COUNT) {
                     buzzer_click();
                     
                     // Feedback visual: Pisca o item
                     LOCK_TFT();
-                    tft.drawRoundRect(20, 55 + uiScrollY + itemIdx * 45, 280, 40, 6, TFT_WHITE);
+                    tft.drawRoundRect(20, 55 + uiScrollY + itemIdx * SETTINGS_ITEM_HEIGHT, 280, 40, 6, TFT_WHITE);
                     UNLOCK_TFT();
                     delay(80);
                     
@@ -789,6 +834,19 @@ void ui_reset_touch_state() {
                         case 1: // Som
                             deviceSettings.soundEnabled = !deviceSettings.soundEnabled;
                             break;
+                        case 2: // Auto-Desligamento: OFF -> 1min -> 5min -> 15min -> OFF
+                            if (!deviceSettings.autoSleep) {
+                                deviceSettings.autoSleep = true;
+                                deviceSettings.autoSleepMs = 60000UL;
+                            } else if (deviceSettings.autoSleepMs <= 60000UL) {
+                                deviceSettings.autoSleepMs = 300000UL;
+                            } else if (deviceSettings.autoSleepMs <= 300000UL) {
+                                deviceSettings.autoSleepMs = 900000UL;
+                            } else {
+                                deviceSettings.autoSleep = false;
+                                deviceSettings.autoSleepMs = 0;
+                            }
+                            break;
                         case 3: // Unidades
                             deviceSettings.unitsMetric = !deviceSettings.unitsMetric;
                             break;
@@ -800,23 +858,53 @@ void ui_reset_touch_state() {
                             deviceSettings.darkMode = !deviceSettings.darkMode;
                             colors_update();
                             break;
-                        case 6: // Calibração
+                        case 6: // Grade
+                            deviceSettings.showGrid = !deviceSettings.showGrid;
+                            break;
+                        case 7: // Animacoes
+                            deviceSettings.animations = !deviceSettings.animations;
+                            break;
+                        case 8: // Auto salvar historico
+                            deviceSettings.autoSaveHistory = !deviceSettings.autoSaveHistory;
+                            break;
+                        case 9: // Confirmar acoes
+                            deviceSettings.confirmActions = !deviceSettings.confirmActions;
+                            break;
+                        case 10: // Modo especialista
+                            deviceSettings.expertMode = !deviceSettings.expertMode;
+                            break;
+                        case 11: // Idioma
+                            deviceSettings.languageIdx = (deviceSettings.languageIdx + 1) % 3;
+                            break;
+                        case 12: // Beep forte
+                            deviceSettings.strongBeep = !deviceSettings.strongBeep;
+                            break;
+                        case 13: // Calibração
                             currentAppState = STATE_CALIBRATION;
                             break;
-                        case 7: // SD Scan
+                        case 14: // SD Scan
                             sdCardError = !logger_init();
                             break;
-                        case 8: // Limpar Histórico
-                            isDialogActive = true;
-                            dialogTargetIdx = 8;
-                            draw_confirmation_dialog("Limpar todo o historico?");
+                        case 15: // Limpar Histórico
+                            if (deviceSettings.confirmActions) {
+                                isDialogActive = true;
+                                dialogTargetIdx = 15;
+                                draw_confirmation_dialog("Limpar todo o historico?");
+                            } else {
+                                logger_clear();
+                                memset(recentTests, 0, sizeof(recentTests));
+                            }
                             break;
-                        case 9: // Reset
-                            isDialogActive = true;
-                            dialogTargetIdx = 9;
-                            draw_confirmation_dialog("RESTAURAR PADRAO DE FABRICA?");
+                        case 16: // Reset
+                            if (deviceSettings.confirmActions) {
+                                isDialogActive = true;
+                                dialogTargetIdx = 16;
+                                draw_confirmation_dialog("RESTAURAR PADRAO DE FABRICA?");
+                            } else {
+                                ESP.restart();
+                            }
                             break;
-                        case 10: // CPU Info
+                        case 17: // CPU Info
                             currentAppState = STATE_STATS;
                             needsScreenRedraw = true;
                             return;

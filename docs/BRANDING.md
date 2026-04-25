@@ -1,5 +1,9 @@
 # Sondvolt — Identidade da Marca
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 ## Visão Geral
 
 **Sondvolt** é a marca oficial do projeto de testador de componentes eletrônicos e multímetro AC/DC True RMS baseado em ESP32 (Cheap Yellow Display).

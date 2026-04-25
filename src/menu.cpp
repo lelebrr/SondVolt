@@ -20,8 +20,8 @@ MenuCard HOME_MENU[] = {
 };
 
 MenuCard TEMP_MENU[] = {
-    { "Toque",       STATE_THERMAL_PROBE,     ICON_TEMP,          V_WARNING       },
-    { "Camera",      STATE_THERMAL_CAMERA,    ICON_TEMP,          V_ALERT         }
+    { "Termometro Contato", STATE_THERMAL_PROBE,  ICON_TEMP,       V_WARNING       },
+    { "Camera Termica",     STATE_THERMAL_CAMERA, ICON_TEMP,       V_ALERT         }
 };
 
 MenuCard MAIS_MENU[] = {
@@ -31,10 +31,13 @@ MenuCard MAIS_MENU[] = {
     { "LED",        STATE_MEASURE_LED,       ICON_LED,           V_NEON_GREEN    },
     { "Transistor", STATE_MEASURE_TRANSISTOR,ICON_TRANSISTOR_NPN, V_VIBRANT_PURPLE},
     { "Indutor",    STATE_MEASURE_INDUCTOR,  ICON_INDUCTOR,      V_WARNING       },
-    { "Temp",       STATE_SUBMENU_TEMP,      ICON_TEMP,          V_WARNING       },
+    { "IC / CI",    STATE_MEASURE_IC,        ICON_SETTINGS,      V_CYAN_ELECTRIC },
+    { "Scanner",    STATE_SCANNER,           ICON_AUTO,          V_VIBRANT_PURPLE},
+    { "Temperatura", STATE_SUBMENU_TEMP,      ICON_TEMP,          V_WARNING       },
     { "Calibrar",   STATE_CALIBRATION,       ICON_RESISTOR,      V_NEON_GREEN    },
     { "Historico",  STATE_HISTORY,           ICON_HISTORY,       V_TEXT_SUB      },
     { "Ajustes",    STATE_SETTINGS,          ICON_SETTINGS,      V_PURE_WHITE    },
+    { "CPU Info",   STATE_STATS,             ICON_ABOUT,         V_CYAN_ELECTRIC },
     { "Sobre",      STATE_ABOUT,             ICON_ABOUT,         V_NEON_GREEN    }
 };
 
@@ -43,7 +46,7 @@ static MenuCard* get_current_menu(uint8_t* count) {
         if (count) *count = 2;
         return TEMP_MENU;
     } else if (currentAppState == STATE_SUBMENU_MAIS) {
-        if (count) *count = 11;
+        if (count) *count = 14;
         return MAIS_MENU;
     } else {
         if (count) *count = 4;

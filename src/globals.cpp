@@ -82,7 +82,14 @@ DeviceSettings deviceSettings = {
     .zmptScaleFactor = ZMPT_CALIBRATION,
     .themeColor = COLOR_PRIMARY,
     .unitsMetric = true,
-    .themeIdx = 0
+    .themeIdx = 0,
+    .showGrid = true,
+    .animations = true,
+    .autoSaveHistory = true,
+    .confirmActions = true,
+    .expertMode = false,
+    .languageIdx = 0,
+    .strongBeep = false
 };
 
 LogEntry recentTests[6] = {0};

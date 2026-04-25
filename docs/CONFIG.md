@@ -1,5 +1,9 @@
 # ⚙️ Configurações — Sondvolt v3.2
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este documento detalha todas as opções de configuração do firmware do Sondvolt, incluindo calibração, persistência NVS e ajustes do sistema.
 
 ---

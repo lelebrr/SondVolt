@@ -1,5 +1,9 @@
 # ❓ Perguntas Frequentes — Sondvolt v3.2
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Aqui você encontra as respostas para as dúvidas mais comuns sobre montagem, operação e manutenção do Sondvolt.
 
 ---

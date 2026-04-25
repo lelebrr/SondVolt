@@ -1,5 +1,9 @@
 # 🤝 Guia de Contribuição — Sondvolt v3.2
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Obrigado pelo seu interesse em contribuir com o Component Tester PRO! Este documento fornece todas as informações necessárias para começar a colaborar com o projeto.
 
 ---

@@ -1,5 +1,9 @@
 # Sobre o Component Tester PRO v3.2 — História e Objetivo
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 ---
 
 ## História do Projeto

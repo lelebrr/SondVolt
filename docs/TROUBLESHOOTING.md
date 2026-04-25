@@ -1,5 +1,9 @@
 # 🔧 Resolução de Problemas — Sondvolt v3.2
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este guia ajuda a diagnosticar e resolver problemas comuns do Sondvolt.
 
 ---

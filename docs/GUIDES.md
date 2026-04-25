@@ -1,5 +1,9 @@
 # 📚 Guias Passo a Passo - Sondvolt v3.2 (CYD Edition)
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 ## 1. Guia de Medição de Componentes (Modo Clássico)
 
 Este guia cobre os 13 modos disponíveis no menu **Medir**.

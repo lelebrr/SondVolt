@@ -1,5 +1,9 @@
 # ⚡ Guia de Segurança Elétrica
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este documento estabelece diretrizes críticas de segurança para montagem e operação do **Sondvolt**.
 
 ---

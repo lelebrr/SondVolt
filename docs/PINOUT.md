@@ -1,5 +1,9 @@
 # 📍 Referência Completa de Pinagem
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este documento é a referência completa de todos os pinos da placa **ESP32-2432S028R (Cheap Yellow Display)** utilizada no **Sondvolt**.
 
 ---

@@ -11,6 +11,28 @@
 #include "globals.h"
 #include "logger.h"
 
+namespace {
+constexpr uint16_t TOUCH_X_MIN_RAW = 200;
+constexpr uint16_t TOUCH_X_MAX_RAW = 3700;
+constexpr uint16_t TOUCH_Y_MIN_RAW = 240;
+constexpr uint16_t TOUCH_Y_MAX_RAW = 3800;
+constexpr uint16_t TOUCH_SCREEN_W = 320;
+constexpr uint16_t TOUCH_SCREEN_H = 240;
+
+constexpr TickType_t UI_TASK_DELAY = pdMS_TO_TICKS(20);
+constexpr TickType_t MEASURE_TASK_DELAY = pdMS_TO_TICKS(100);
+
+inline uint16_t map_touch_x(int16_t rawX) {
+    long mapped = map(rawX, TOUCH_X_MIN_RAW, TOUCH_X_MAX_RAW, 0, TOUCH_SCREEN_W - 1);
+    return (uint16_t)constrain(mapped, 0, TOUCH_SCREEN_W - 1);
+}
+
+inline uint16_t map_touch_y(int16_t rawY) {
+    long mapped = map(rawY, TOUCH_Y_MIN_RAW, TOUCH_Y_MAX_RAW, 0, TOUCH_SCREEN_H - 1);
+    return (uint16_t)constrain(mapped, 0, TOUCH_SCREEN_H - 1);
+}
+}
+
 // Instâncias Globais — Declaradas em display_globals.h
 // spiTFT_SD, touchSPI e touch são gerenciados em display_globals.cpp
 
@@ -20,8 +42,8 @@ void TaskUserInterface(void* pvParameters) {
         if (touch.touched()) {
             TS_Point p = touch.getPoint();
             // Mapeamento de toque Landscape (320x240)
-            uint16_t tx = map(p.x, 200, 3700, 0, 320);
-            uint16_t ty = map(p.y, 240, 3800, 0, 240);
+            uint16_t tx = map_touch_x(p.x);
+            uint16_t ty = map_touch_y(p.y);
             
             ui_handle_touch(tx, ty);
         } else {
@@ -30,7 +52,7 @@ void TaskUserInterface(void* pvParameters) {
         
         ui_update();
         UNLOCK_TFT();
-        vTaskDelay(pdMS_TO_TICKS(20)); // Corrigido macro FreeRTOS
+        vTaskDelay(UI_TASK_DELAY);
     }
 }
 
@@ -64,6 +86,10 @@ void TaskMeasurement(void* pvParameters) {
             case STATE_THERMAL_CAMERA:
                 lastTemperature = thermal_read();
                 break;
+            case STATE_MEASURE_IC:
+            case STATE_SCANNER:
+                measurements_update();
+                break;
             case STATE_COMPARATOR:
                 // Medição contínua para comparação
                 measurements_update();
@@ -79,7 +105,7 @@ void TaskMeasurement(void* pvParameters) {
                 break;
         }
         
-        vTaskDelay(pdMS_TO_TICKS(100)); 
+        vTaskDelay(MEASURE_TASK_DELAY);
     }
 }
 
@@ -92,7 +118,10 @@ void setup() {
     
     tft.init();
     tft.setRotation(3); 
-    tft.invertDisplay(true); 
+    // Cores reais (evita distorção/inversão global)
+    tft.invertDisplay(false);
+    // Bitmaps 16-bit (ícones/logo) no formato correto de byte-order
+    tft.setSwapBytes(true);
     tft.fillScreen(TFT_BLACK);
     
     pinMode(PIN_TFT_BL, OUTPUT);

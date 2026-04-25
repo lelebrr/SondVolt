@@ -150,6 +150,13 @@ typedef struct {
     uint16_t themeColor;         // Cor primária do sistema
     bool unitsMetric;            // true = Metrico, false = Imperial
     uint8_t themeIdx;            // Indice do tema selecionado
+    bool showGrid;
+    bool animations;
+    bool autoSaveHistory;
+    bool confirmActions;
+    bool expertMode;
+    uint8_t languageIdx;         // 0=PT, 1=EN, 2=ES
+    bool strongBeep;
 } DeviceSettings;
 
 extern DeviceSettings deviceSettings;

@@ -1,5 +1,9 @@
 # 💻 Guia do Desenvolvedor — Sondvolt v3.2
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este guia é destinado a desenvolvedores que desejam modificar, estender ou contribuir para o firmware do Sondvolt.
 
 ---

@@ -1,6 +1,10 @@
 # 🔧 Guia de Hardware — Component Tester PRO v3.2
 
 <p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
+<p align="center">
   <img src="../assets/hardware_layout.png" alt="Layout do Hardware" width="300">
 </p>
 

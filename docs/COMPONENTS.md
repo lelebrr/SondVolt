@@ -1,6 +1,10 @@
 # 🧪 Guia Completo de Componentes — Component Tester PRO v3.2
 
 <p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
+<p align="center">
   <img src="../assets/components_showcase.png" alt="Componentes Suportados" width="400">
 </p>
 
@@ -32,13 +36,13 @@ O firmware v3.2 suporta múltiplos tipos de componentes passivos, ativos e módu
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-### 📈 Capacidades de Detecção
+### 📈 Capacidades de Detecção v3.2
 
 | Categoria | Componentes | Precisão | Tempo | Sucesso |
 |:---|:---|:---:|:---:|:---:|
 | **Passivos** | 5 tipos | ±0.5% - ±2% | <1s | 99.5% |
 | **Ativos** | 6 tipos | ±1% - ±10% | <2s | 98% |
-| **Módulos** | 3 tipos | ±0.3% - ±1% | <1s | 99.9% |
+| **Módulos** | 3 tipos | ±0.3% - ±1.5% | <1s | 99.9% |
 
 ### 🔄 Fluxo de Análise de Componentes
 

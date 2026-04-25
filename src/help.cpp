@@ -89,6 +89,30 @@ static const HelpInfo help_database[] = {
         "Terminais 1, 2 e 3 sao usados para a deteccao.",
         "O sistema tentara identificar o tipo e os valores sozinho.",
         "Se o componente estiver em curto, o sistema avisara."
+    },
+    // 11: IC / CI
+    {
+        "ANALISE DE IC / CI",
+        "Conecte o CI fora da placa (desacoplado) usando os terminais 1, 2 e 3.",
+        "Teste entre pares de pinos para identificar juncoes e comportamento basico.",
+        "Nao teste CI energizado e evite pinos com capacitor carregado.",
+        "Observe o chanfro/bolha para orientar o pino 1 do encapsulamento."
+    },
+    // 12: Scanner
+    {
+        "SCANNER DE COMPONENTES",
+        "Conecte o componente e inicie a varredura para identificar tipo/estado.",
+        "Use os terminais 1, 2 e 3; o sistema alterna automaticamente os pares.",
+        "Para melhor resultado, limpe os terminais e evite contato com os dedos.",
+        "Componentes com polaridade devem ser testados nos dois sentidos."
+    },
+    // 13: Calibracao
+    {
+        "CALIBRACAO DE PONTAS",
+        "Curto-circuite as pontas e inicie o processo de calibracao.",
+        "Use as pontas 1 e 2 (ou 1 e 3) conforme solicitado na tela.",
+        "Nao mova as pontas durante o processo para evitar offsets incorretos.",
+        "A calibracao remove erro de cabo/contato para leituras mais precisas."
     }
 };
 

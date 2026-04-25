@@ -1,5 +1,9 @@
 # 📦 Guia de Montagem Completa
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este guia passo-a-passo detalha como montar o **Sondvolt** utilizando a placa **ESP32-2432S028R (Cheap Yellow Display)**.
 
 ---

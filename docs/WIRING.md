@@ -1,5 +1,9 @@
 # 🔌 Guia de Ligação de Componentes (Wiring Guide)
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Este guia detalha a conexão de todos os componentes externos ao **Sondvolt v3.2** baseado na placa **ESP32-2432S028R (Cheap Yellow Display)**.
 
 ---

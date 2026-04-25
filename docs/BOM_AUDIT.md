@@ -1,5 +1,9 @@
 # 📋 Auditoria de Materiais (BOM) — Sondvolt v3.2
 
+<p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
 Esta é a lista exaustiva e detalhada de todos os componentes necessários para construir o Sondvolt v3.2 com o sistema de proteção 220V AC robusto.
 
 ## 1. Placas e Módulos Base

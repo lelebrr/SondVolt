@@ -1,6 +1,10 @@
 # 🚀 Roadmap — Sondvolt v3.2
 
 <p align="center">
+  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
+</p>
+
+<p align="center">
   <img src="../assets/hero.png" alt="Visão Futura do Sondvolt" width="400">
 </p>
 
