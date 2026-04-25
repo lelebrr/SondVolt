@@ -26,8 +26,8 @@ enum LogLevel {
 bool logger_init();
 bool logger_write(const char* component, float value, const char* unit, const char* status);
 void logger_log(LogLevel level, const char* message);
-void logger_update();
 void logger_close();
+void logger_clear();
 
 // Função para recuperar histórico para a UI
 uint8_t logger_get_recent(HistoryItem* buffer, uint8_t maxEntries);

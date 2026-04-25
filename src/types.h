@@ -78,6 +78,7 @@ enum IconType {
     ICON_ABOUT,
     ICON_WARNING,
     ICON_VOLTAGE,
+    ICON_AUTO,
     ICON_UNKNOWN
 };
 

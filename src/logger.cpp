@@ -7,6 +7,7 @@
 #include "config.h"
 #include "display_globals.h"
 #include <SdFat.h>
+#include "globals.h"
 
 extern SdFat sd;
 static FsFile logFile;
@@ -20,9 +21,11 @@ bool logger_init() {
     SdSpiConfig spiConfig(PIN_SD_CS, SHARED_SPI, SD_SCK_MHZ(20), &spiTFT_SD);
     if (!sd.begin(spiConfig)) {
         LOG_SERIAL_F("[LOG] SD nao disponivel");
+        sdCardPresent = false;
         return false;
     }
     logInitialized = true;
+    sdCardPresent = true;
     LOG_SERIAL_F("[LOG] SD inicializado com sucesso");
     return true;
 }
@@ -46,16 +49,12 @@ uint8_t logger_get_recent(HistoryItem* buffer, uint8_t maxEntries) {
     logFile = sd.open(LOG_FILE_PATH, FILE_READ);
     if (!logFile) return 0;
 
-    // Simples: Lê o arquivo todo e guarda os últimos N
-    // Para melhor performance em arquivos grandes, deveríamos ler de trás pra frente
     uint8_t count = 0;
     String line;
     while (logFile.available()) {
         line = logFile.readStringUntil('\n');
         if (line.length() < 10) continue;
 
-        // Parse simples do CSV
-        // Formato: timestamp;component;value;unit;status
         int first = line.indexOf(';');
         int second = line.indexOf(';', first + 1);
         int third = line.indexOf(';', second + 1);
@@ -63,7 +62,6 @@ uint8_t logger_get_recent(HistoryItem* buffer, uint8_t maxEntries) {
 
         if (fourth == -1) continue;
 
-        // Rotaciona buffer se exceder maxEntries
         uint8_t targetIdx = (count < maxEntries) ? count : (maxEntries - 1);
         if(count >= maxEntries) {
             for(int i=0; i<maxEntries-1; i++) buffer[i] = buffer[i+1];
@@ -72,12 +70,17 @@ uint8_t logger_get_recent(HistoryItem* buffer, uint8_t maxEntries) {
         strncpy(buffer[targetIdx].componentName, line.substring(first + 1, second).c_str(), 31);
         buffer[targetIdx].value = line.substring(second + 1, third).toFloat();
         strncpy(buffer[targetIdx].unit, line.substring(third + 1, fourth).c_str(), 9);
-        buffer[targetIdx].status = 0; // Simplificado
+        buffer[targetIdx].status = 0; 
 
         count++;
     }
     logFile.close();
     return (count > maxEntries) ? maxEntries : count;
+}
+
+void logger_clear() {
+    if (!logInitialized) return;
+    sd.remove(LOG_FILE_PATH);
 }
 
 void logger_log(LogLevel level, const char* message) {

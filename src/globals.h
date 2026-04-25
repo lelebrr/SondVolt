@@ -21,6 +21,7 @@ enum AppState {
     STATE_MEASURE_TRANSISTOR = 13,
     STATE_MEASURE_INDUCTOR   = 14,
     STATE_MEASURE_IC         = 15,
+    STATE_MEASURE_LED        = 16,
     STATE_MEASURE_GENERIC   = 19,
     STATE_MULTIMETER        = 20,
     STATE_THERMAL_PROBE     = 30,
@@ -155,6 +156,9 @@ typedef struct {
     bool soundEnabled;
     bool calibrated;
     float zmptScaleFactor;
+    uint16_t themeColor;         // Cor primária do sistema
+    bool unitsMetric;            // true = Metrico, false = Imperial
+    uint8_t themeIdx;            // Indice do tema selecionado
 } DeviceSettings;
 
 extern DeviceSettings deviceSettings;

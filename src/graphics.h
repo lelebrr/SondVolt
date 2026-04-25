@@ -22,6 +22,9 @@ void graphics_draw_back_button();
 
 // Função Central de Ícones
 void draw_component_icon(IconType type, int16_t x, int16_t y, uint16_t color);
+void draw_bitmap_icon(IconType type, int16_t x, int16_t y);
+void draw_logo_full();
+void draw_logo_small(int16_t x, int16_t y);
 
 // Protótipos de Ícones Individuais
 void draw_icon_resistor(int16_t x, int16_t y, uint16_t size, uint16_t color);

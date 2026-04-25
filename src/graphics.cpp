@@ -6,13 +6,27 @@
 #include "graphics.h"
 #include "display_globals.h"
 #include "fonts.h" 
+#include "icons_bitmap.h"
+#include "logo_bitmap.h"
+#include "display_mutex.h"
 
 void graphics_draw_header(const char* title) {
-    tft.fillRect(0, 0, 320, 35, COLOR_SURFACE);
-    tft.drawFastHLine(0, 35, 320, COLOR_PRIMARY);
+    LOCK_TFT();
+    // Cabeçalho com degradê escuro
+    tft.fillRect(0, 0, 320, 32, 0x1082); // Cinza escuro profundo
+    tft.fillRect(0, 32, 320, 3, COLOR_PRIMARY); // Barra de destaque colorida
     
-    // Desenho Manual 5x7
-    draw_text_5x7(tft, 15, 12, title, TFT_WHITE, 2);
+    // Texto alinhado totalmente à direita
+    int16_t textWidth = strlen(title) * 6 * 2;
+    draw_text_5x7(tft, 320 - textWidth - 15, 10, title, TFT_WHITE, 2);
+    
+    // Se não for o menu principal, desenha o botão voltar integrado
+    if (strcmp(title, "MENU PRINCIPAL") != 0) {
+        tft.fillRoundRect(5, 5, 25, 22, 4, COLOR_BAD);
+        draw_text_5x7(tft, 12, 8, "<", TFT_WHITE, 1);
+    }
+    
+    UNLOCK_TFT();
 }
 
 void graphics_draw_button(int16_t x, int16_t y, int16_t w, int16_t h, const char* label, uint16_t color) {
@@ -33,8 +47,9 @@ void graphics_draw_splash() {
 }
 
 void graphics_draw_back_button() {
-    tft.fillRoundRect(5, 5, 40, 30, 4, COLOR_BAD);
-    draw_text_5x7(tft, 18, 12, "<", TFT_WHITE, 2);
+    // Botão Voltar menor e mais discreto
+    tft.fillRoundRect(5, 5, 25, 22, 4, COLOR_BAD);
+    draw_text_5x7(tft, 12, 8, "<", TFT_WHITE, 1);
 }
 
 void draw_component_icon(IconType type, int16_t x, int16_t y, uint16_t color) {
@@ -124,4 +139,44 @@ void draw_icon_about(int16_t x, int16_t y, uint16_t size, uint16_t color) {
     tft.drawCircle(x + size/2, y + size/2, size/2 - 2, color);
     tft.fillRect(x + size/2 - 1, y + size/2 - 2, 2, 8, color);
     tft.fillCircle(x + size/2, y + size/2 - 6, 2, color);
+}
+void draw_bitmap_icon(IconType type, int16_t x, int16_t y) {
+    const uint16_t* bitmap = nullptr;
+    
+    switch (type) {
+        case ICON_RESISTOR:  bitmap = icon_resistor_32x32; break;
+        case ICON_CAPACITOR: bitmap = icon_capacitor_32x32; break;
+        case ICON_DIODE:     bitmap = icon_diode_32x32; break;
+        case ICON_LED:       bitmap = icon_led_32x32; break;
+        case ICON_TRANSISTOR_NPN:
+        case ICON_TRANSISTOR_PNP: bitmap = icon_transistor_32x32; break;
+        case ICON_INDUCTOR:  bitmap = icon_inductor_32x32; break;
+        case ICON_MULTIMETER: bitmap = icon_multimeter_32x32; break;
+        case ICON_TEMP:       bitmap = icon_temp_32x32; break;
+        case ICON_HISTORY:    bitmap = icon_history_32x32; break;
+        case ICON_SETTINGS:   bitmap = icon_settings_32x32; break;
+        case ICON_ABOUT:      bitmap = icon_about_32x32; break;
+        case ICON_AUTO:       bitmap = icon_auto_32x32; break;
+        default: break;
+    }
+
+    if (bitmap) {
+        LOCK_TFT();
+        tft.pushImage(x, y, 32, 32, bitmap);
+        UNLOCK_TFT();
+    }
+}
+
+void draw_logo_full() {
+    LOCK_TFT();
+    tft.fillScreen(TFT_BLACK);
+    int16_t y_centered = (240 - logo_full_height) / 2;
+    tft.pushImage(0, y_centered, logo_full_width, logo_full_height, logo_full_bitmap);
+    UNLOCK_TFT();
+}
+
+void draw_logo_small(int16_t x, int16_t y) {
+    LOCK_TFT();
+    tft.pushImage(x, y, logo_small_width, logo_small_height, logo_small_bitmap);
+    UNLOCK_TFT();
 }

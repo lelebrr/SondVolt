@@ -11,10 +11,11 @@
 #include "globals.h"
 
 MenuCard MAIN_MENU[] = {
+    { "Automatico", STATE_MEASURE_GENERIC,   ICON_AUTO,          C_GREEN  },
     { "Resistor",  STATE_MEASURE_RESISTOR,  ICON_RESISTOR,      C_ORANGE },
     { "Capacitor", STATE_MEASURE_CAPACITOR, ICON_CAPACITOR,     C_BLUE   },
     { "Diodo",     STATE_MEASURE_DIODE,     ICON_DIODE,         C_RED    },
-    { "LED",       STATE_MEASURE_GENERIC,   ICON_LED,           C_GREEN  },
+    { "LED",       STATE_MEASURE_LED,       ICON_LED,           C_GREEN  },
     { "Transistor", STATE_MEASURE_TRANSISTOR,ICON_TRANSISTOR_NPN, C_PURPLE },
     { "Indutor",   STATE_MEASURE_INDUCTOR,  ICON_INDUCTOR,      C_YELLOW },
     { "Multimetro", STATE_MULTIMETER,        ICON_MULTIMETER,    C_CYAN   },
@@ -41,18 +42,29 @@ const int16_t GAP = 8;
 #include "fonts.h"
 
 void draw_card(int16_t x, int16_t y, const MenuCard* card, bool selected) {
-    uint16_t bg = selected ? C_CARD_SEL : C_CARD_BG;
-    uint16_t border = selected ? C_PRIMARY : C_DIVIDER;
+    uint16_t bg = selected ? C_CARD_SEL : COLOR_SURFACE;
+    uint16_t border = selected ? COLOR_PRIMARY : 0x1082; // 0x1082 é um cinza muito escuro
+    
     LOCK_TFT();
+    // Sombra (subtil)
+    if (!selected) {
+        tft.fillRoundRect(x+2, y+2, CARD_W, CARD_H, 8, 0x0841); // Sombra quase preta
+    }
+    
     tft.fillRoundRect(x, y, CARD_W, CARD_H, 8, bg);
     tft.drawRoundRect(x, y, CARD_W, CARD_H, 8, border);
-    draw_component_icon(card->icon, x + CARD_W/2 - 16, y + 15, card->color);
     
-    draw_component_icon(card->icon, x + CARD_W/2 - 16, y + 15, card->color);
+    // Ícone centralizado
+    draw_bitmap_icon(card->icon, x + CARD_W/2 - 16, y + 15);
     
-    // Desenho Manual 5x7
-    int16_t textLen = strlen(card->label) * 6; // tamanho 1
-    draw_text_5x7(tft, x + (CARD_W - textLen)/2, y + CARD_H - 12, card->label, selected ? TFT_WHITE : C_TEXT_SECONDARY, 1);
+    // Rótulo com fundo contrastante se selecionado
+    int16_t textLen = strlen(card->label) * 6;
+    if (selected) {
+        tft.fillRoundRect(x + 5, y + CARD_H - 18, CARD_W - 10, 12, 4, COLOR_PRIMARY);
+        draw_text_5x7(tft, x + (CARD_W - textLen)/2, y + CARD_H - 15, card->label, TFT_BLACK, 1);
+    } else {
+        draw_text_5x7(tft, x + (CARD_W - textLen)/2, y + CARD_H - 15, card->label, TFT_WHITE, 1);
+    }
     
     UNLOCK_TFT();
 }
