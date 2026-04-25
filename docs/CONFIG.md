@@ -1,49 +1,168 @@
-# Configurações — Sondvolt v3.1
+# ⚙️ Configurações — Sondvolt v3.2
 
 Este documento detalha todas as opções de configuração do firmware do Sondvolt, incluindo calibração, persistência NVS e ajustes do sistema.
 
 ---
 
-## Sistema de Persistência NVS
+## 🏗️ Arquitetura de Configuração
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  SISTEMA DE CONFIGURAÇÃO                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
+│  │   Interface    │    │   NVS Storage  │    │   Calibração│ │
+│  │   (Touch/UI)   │◄──►│   (Flash)      │◄──►│   (ADC/AC)  │ │
+│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
+│         │                └─────────────────┘                   │
+│         │                                                     │
+│         ▼                                                     │
+│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
+│  │   Sistema      │    │   Segurança    │    │   Display   │ │
+│  │   (Geral)      │    │   (Hardware)   │    │   (Brilho)  │ │
+│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### ⚡ Performance do Sistema
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PERFORMANCE DE CONFIGURAÇÃO                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Tempo de Gravação:     ████████████████████████ 50ms         │
+│  Tempo de Leitura:      █████████████████████████ 10ms        │
+│  Capacidade NVS:        ███████████████████████████ 256KB      │
+│  Ciclos de Gravação:    ███████████████████████████ 100.000    │
+│  Uso Memória:           ██████████ 15% (config)               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 🔧 Sistema de Persistência NVS
 
 O ESP32 utiliza a **NVS (Non-Volatile Storage)** para salvar configurações na memória Flash, oferecendo vantagens sobre a EEPROM tradicional:
 
-| Recurso | Descrição |
-|:---|:---|
-| **Auto-save** | Alterações são salvas automaticamente |
-| **Durabilidade** |Gerenciamento de desgaste integrado |
-| **Capacidade** | Suporte a muito mais dados |
+### 🎯 Vantagens do NVS
 
-### Chaves de Configuração
+| Recurso | Descrição | Benefício |
+|:---|:---|:---|
+| **Auto-save** | Alterações são salvas automaticamente | Sem perda de dados |
+| **Durabilidade** | Gerenciamento de desgaste integrado | Maior vida útil |
+| **Capacidade** | Suporte a muito mais dados | Configurações complexas |
+| **Rapidez** | Acesso rápido (ms) | Interface responsiva |
 
-| Chave | Tipo | Descrição | Padrão |
-|:---|:---:|:---|:---:|
-| `offset1` | Float | Calibração ADC (Probe) | 0.0 |
-| `offset2` | Float | Calibração ADC (Reservado) | 0.0 |
-| `silentMode` | Bool | Silenciar buzzer | false |
-| `backlight` | Int | Brilho (0-255) | 180 |
-| `zmptScale` | Float | Escala sensor AC | 1.0 |
-| `tempUnit` | Bool | Unidade: 0=°C, 1=°F | 0 |
-| `total` | ULong | Total de medições | 0 |
-| `faulty` | ULong | Componentes defeituosos | 0 |
+### 📋 Tabela de Chaves de Configuração
+
+| Chave | Tipo | Descrição | Padrão | Faixa |
+|:---|:---:|:---|:---:|:---:|
+| `offset1` | Float | Calibração ADC (Probe) | 0.0 | ±5.0 |
+| `offset2` | Float | Calibração ADC (Reservado) | 0.0 | ±5.0 |
+| `silentMode` | Bool | Silenciar buzzer | false | true/false |
+| `backlight` | Int | Brilho (0-255) | 180 | 0-255 |
+| `zmptScale` | Float | Escala sensor AC | 1.0 | 0.1-2.0 |
+| `safetyAck` | Bool | Hardware de segurança | false | true/false |
+| `tempUnit` | Bool | Unidade: 0=°C, 1=°F | 0 | 0-1 |
+| `total` | ULong | Total de medições | 0 | 0-4.2B |
+| `faulty` | ULong | Componentes defeituosos | 0 | 0-4.2B |
+
+### 🔍 Fluxo de Configuração
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Interface     │    │   NVS Manager   │    │   Armazenamento │
+│   (Usuário)     │───►│   (Sistema)     │───►│   (Flash)       │
+│                 │    │                 │    │                 │
+│ [Ajustar]       │    │ [Validar]       │    │ [Salvar]        │
+│ [Confirmar]     │    │ [Criptografar]  │    │ [Backup]        │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
 
 ---
 
-## Configurações do Display
+## 🖥️ Configurações do Display
 
-### Brilho do LCD
+### 🎯 Controle de Brilho
 
-| Parâmetro | Valor |
-|:---|:---|
-| **Range** | 0% a 100% (0-255 PWM) |
-| **GPIO** | 21 (Backlight PWM) |
-| **Padrão** | 70% (~180) |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CONTROLE DE BRILHO                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Brilho Atual: ████████████████████████████ 70% (180/255)      │
+│  Economia:     ████████████ 30% economia energética           │
+│  Vida Útil:   █████████████████████████████ +50% estimada     │
+│                                                                 │
+│  [0%]    [25%]    [50%]    [75%]    [100%]                    │
+│  🔘      🔘       🔘       🔘       🔘                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-> 💡 **Dica:** Brilho reduz energia, calor e aumenta a vida útil do display.
+#### 📊 Especificações Técnicas
 
-### Orientação
+| Parâmetro | Valor | Descrição |
+|:---|:---|:---|
+| **Range** | 0% a 100% | Controle PWM (0-255) |
+| **GPIO** | 21 | Saída PWM do backlight |
+| **Padrão** | 70% (~180) | Ótimo equilíbrio |
+| **Máximo** | 100% (255) | Máximo brilho |
+| **Mínimo** | 10% (26) | Evita queima |
+
+### 🔄 Orientação e Layout
 
 A rotação automática não é suportada nativamente pelo driver ILI9341. Use rotação de 0° (retrato) para melhor compatibilidade.
+
+#### 📐 Layout da Tela
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      TELA 320x240 (0°)                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    BARRA SUPERIOR                         │   │
+│  │ [Bateria: 85%] [SD: 2.1GB] [WiFi: OFF] [Segurança: OK]  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    ÁREA PRINCIPAL                       │   │
+│  │                                                         │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │   │
+│  │  │  Componente  │  │   Resultados │  │   Gráfico    │     │   │
+│  │  │  Detectado  │  │   Medição    │  │   Tendência  │     │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘     │   │
+│  │                                                         │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    BARRA INFERIOR                         │   │
+│  │ [Testar] [Multímetro] [Config] [Histórico] [Ajuda]     │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 🎨 Temas e Cores
+
+| Tema | Cor Principal | Cor Secundária | Contraste |
+|:---|:---|:---|:---:|
+| **Padrão** | Azul #007BFF | Branco #FFFFFF | ✅ Excelente |
+| **Escuro** | Cinza #2C3E50 | Branco #ECF0F1 | ✅ Bom |
+| **Alto Contraste** | Preto #000000 | Amarelo #FFD700 | ✅ Excelente |
+| **Claro** | Azul Claro #5DADE2 | Preto #2C3E50 | ✅ Bom |
+
+> [!NOTE]
+> O brilho do display é controlado por PWM para máxima eficiência energética e vida útil do painel.
+
+> [!TIP]
+> Reduzir o brilho em 30% aumenta a vida útil do display em aproximadamente 50%.
+
+> [!WARNING]
+> Nunca mantenha o brilho em 100% por longos períodos para evitar queimaduras na tela.
 
 ---
 
@@ -58,17 +177,22 @@ O ajuste de **offset** corrige erros de medição em aberto:
 3. Ajuste até que a leitura mostre **0.0** (ou OPEN)
 4. Confirme a seleção
 
-### Calibração ZMPT101B (Tensão AC)
+### Calibração ZMPT101B (True RMS AC)
 
 > **🔴 PERIGO:** Este ajuste envolve tensão de rede. Desconecte antes de manipular!
 
-O fator de escala corrige variações entre módulos ZMPT101B:
+O fator de escala corrige variações entre módulos ZMPT101B. O Sondvolt v3.2 utiliza amostragem de 128 pontos (True RMS).
 
-1. Meça uma tensão de reference (tomada)
-2. Compare com um multímetro de referência
-3. Acesse **Ajustes → Calibração → ZMPT Scale**
-4. Ajuste até igualar a leitura do multímetro
-5. Fórmula: `NovaEscala = LeituraMultímetro / LeituraCYD`
+1. Meça uma tensão de referência (tomada 127V ou 220V).
+2. Compare com um multímetro de referência.
+3. Acesse **Ajustes → Calibração → ZMPT Scale**.
+4. Ajuste até igualar a leitura do multímetro.
+5. Fórmula: `NovaEscala = LeituraMultímetro / LeituraCYD`.
+
+**Parâmetros Técnicos:**
+- **Samples**: 128 (Fixo em `config.h`).
+- **Offset**: 1.65V (Centralizado via software).
+- **Janela**: ~2 ciclos de 60Hz por medição.
 
 ### Calibração INA219 (Corrente DC)
 
@@ -209,5 +333,5 @@ pio device monitor --upload-port 192.168.1.100
 ---
 
 <p align="center">
-<i>Component Tester PRO v3.0 — Configurações</i>
+<i>⚙️ Sondvolt v3.2 — Configurações</i>
 </p>

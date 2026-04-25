@@ -1,4 +1,4 @@
-# Guia de Teste — Component Tester PRO v3.0
+# ✅ Guia de Teste — Sondvolt v3.2
 
 Este guia ensina como testar e validar o Component Tester PRO após a montage a fisik. Siguan langkah-langkah exatamente untuk memverifikasi that semua komponen berfungsi dengan benar.
 
@@ -141,13 +141,13 @@ Verificar se o SD Card é reconhecido e os dados são lidos corretamente.
 
 ## Teste dos Sensores
 
-### Teste do ZMPT101B (Tensão AC)
+### Teste do ZMPT101B (Tensão AC c/ Segurança)
 
-1. **Conecte o sensor** — Selon схем в [HARDWARE.md](HARDWARE.md)
-2. **Acesse modo Multímetro** — Selecione "Tensão AC"
-3. **Meça uma tomada** — Use probes apropriados
+1. **Teste de Bloqueio**: Antes de conectar a rede, verifique se ao tentar entrar no Multímetro AC a tela de confirmação de hardware aparece.
+2. **Teste de Proteção**: Conecte os probes à rede. Saia do menu multímetro e tente usar o teste de componentes. O sistema deve emitir bip e exibir aviso de alta tensão se a rede estiver presente.
+3. **Validação True RMS**: Meça uma rede 220V. O valor exibido deve coincidir com um multímetro CAT III confiável dentro de ±1.5%.
 
-**Valores esperados:** 110V-127V (tomada brasileira) ou 220V (tomada industrial)
+**Valores esperados:** 110V-127V ou 220V-240V AC.
 
 ### Teste do INA219 (Corrente/Tensão DC)
 
@@ -232,10 +232,10 @@ Verificar se o SD Card é reconhecido e os dados são lidos corretamente.
 |:---|:---:|:---|
 | Resistor | ±2% | >100Ω |
 | Capacitor | ±10% | >100nF |
-| Tensão DC | ±2% | Calibrado |
-| Tensão AC | ±5% | Calibrado |
-| Corrente DC | ±3% | Calibrado |
-| Temperatura | ±1°C | DS18B20 |
+| Tensão DC | ±0.5% | Calibrado |
+| Tensão AC (True RMS) | ±1.5% | 128 Amostras |
+| Corrente DC | ±1.0% | Calibrado |
+| Temperatura | ±0.5°C | DS18B20 |
 
 ### Calibração
 
@@ -284,10 +284,13 @@ CHECKLIST DE VALIDAÇÃO:
 │ ☑ Histórico salvo no SD                │
 │                                            │
 │ Segurança                                  │
-│ ☑ Sem aquecimento excessivo             │
+│ ☑ Sistema de Bloqueio 50V AC Ativo       │
+│ ☑ Tela de Confirmação Hardware OK        │
+│ ☑ Proteção contra Surtos Validada        │
+│ ☑ Sem aquecimento excessivo              │
 │ ☌ Sem cheiro de queimado                 │
-│ ☑ Tensões dentro dos limites              │
-└─────────────────────────────────────────┘
+│ ☑ Tensões dentro dos limites             │
+└──────────────────────────────────────────┘
 ```
 
 ---
@@ -323,5 +326,5 @@ Se algum teste falhar:
 ---
 
 <p align="center">
-<i>Última atualização: Abril de 2026 — Component Tester PRO Team</i>
+<i>✅ Última atualização: Abril de 2026 — Sondvolt Team v3.2</i>
 </p>

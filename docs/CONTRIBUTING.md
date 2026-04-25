@@ -1,4 +1,4 @@
-# Guia de Contribuição — Component Tester PRO v3.0
+# 🤝 Guia de Contribuição — Sondvolt v3.2
 
 Obrigado pelo seu interesse em contribuir com o Component Tester PRO! Este documento fornece todas as informações necessárias para começar a colaborar com o projeto.
 
@@ -337,5 +337,5 @@ Obrigado por contribuir com o Component Tester PRO!
 ---
 
 <p align="center">
-<i>Última atualização: Abril de 2026 — Component Tester PRO Team</i>
+<i>🤝 Última atualização: Abril de 2026 — Sondvolt Team v3.2</i>
 </p>

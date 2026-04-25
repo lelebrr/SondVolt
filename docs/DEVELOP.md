@@ -1,4 +1,4 @@
-# Guia do Desenvolvedor — Sondvolt v3.1
+# 💻 Guia do Desenvolvedor — Sondvolt v3.2
 
 Este guia é destinado a desenvolvedores que desejam modificar, estender ou contribuir para o firmware do Sondvolt.
 
@@ -262,5 +262,5 @@ case MODE_NOVO:
 ---
 
 <p align="center">
-<i>Component Tester PRO v3.0 — Guia do Desenvolvedor</i>
+<i>💻 Sondvolt v3.2 — Guia do Desenvolvedor</i>
 </p>

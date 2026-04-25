@@ -9,56 +9,51 @@
 #include "display_mutex.h"
 #include "display_globals.h"
 #include "config.h"
+#include "visual.h"
+#include "fonts.h"
 
 void draw_splash_screen() {
     LOCK_TFT();
-    tft.fillScreen(COLOR_BACKGROUND);
+    tft.fillScreen(V_BG_DARK);
     
-    // Circulo de brilho ao fundo
-    for(int r = 100; r > 0; r -= 10) {
-        uint16_t c = tft.color565(0, r/2, 0); // Verde degradê
+    // Efeito de brilho Neon ao fundo (Ciano/Azul)
+    for(int r = 120; r > 0; r -= 15) {
+        uint16_t c = color_mix(V_DEEP_BLUE, V_BG_DARK, (r * 255) / 120);
         tft.fillCircle(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 20, r, c);
     }
     
-    // Nome do Projeto
-    tft.setTextSize(3);
-    tft.setTextColor(COLOR_TEXT);
-    tft.setCursor(SCREEN_WIDTH/2 - 70, SCREEN_HEIGHT/2 - 30);
-    tft.print("SONDVOLT");
+    // Nome do Projeto (Estilizado com Sombra)
+    draw_text_5x7(tft, SCREEN_WIDTH/2 - (8*6*4)/2 + 2, 82, "SONDVOLT", 0x0000, 4);
+    draw_text_5x7(tft, SCREEN_WIDTH/2 - (8*6*4)/2, 80, "SONDVOLT", V_CYAN_ELECTRIC, 4);
     
-    // Slogan
-    tft.setTextSize(1);
-    tft.setTextColor(COLOR_PRIMARY);
-    tft.setCursor(SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT/2 + 15);
-    tft.print("Component Tester PRO");
+    // Slogan Neon
+    draw_text_5x7(tft, SCREEN_WIDTH/2 - (20*6)/2, 125, "THE FUTURE OF MEASUREMENTS", V_NEON_GREEN, 1);
     
-    // Animacao de barra de progresso
-    int16_t pbW = 200;
-    int16_t pbH = 6;
+    // Animacao de barra de progresso Neon
+    int16_t pbW = 240;
+    int16_t pbH = 8;
     int16_t pbX = (SCREEN_WIDTH - pbW) / 2;
-    int16_t pbY = SCREEN_HEIGHT - 60;
+    int16_t pbY = SCREEN_HEIGHT - 65;
     
-    tft.drawRoundRect(pbX, pbY, pbW, pbH, 3, COLOR_TEXT_DIM);
+    tft.drawRoundRect(pbX, pbY, pbW, pbH, 4, V_BG_HIGHLIGHT);
     
-    for(int i = 0; i <= 100; i += 5) {
+    for(int i = 0; i <= 100; i += 4) {
         int16_t fillW = (pbW - 4) * i / 100;
-        tft.fillRoundRect(pbX + 2, pbY + 2, fillW, pbH - 4, 2, COLOR_PRIMARY);
+        tft.fillRoundRect(pbX + 2, pbY + 2, fillW, pbH - 4, 2, V_CYAN_ELECTRIC);
         
-        // Efeito de pulso no texto
+        // Texto dinâmico de carregamento
         if (i % 20 == 0) {
-            tft.setTextColor(i % 40 == 0 ? COLOR_TEXT : COLOR_PRIMARY);
-            tft.setCursor(SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT - 40);
-            tft.print("Iniciando Hardware...");
+            tft.fillRect(0, SCREEN_HEIGHT - 45, 320, 15, V_BG_DARK);
+            const char* msg = (i < 40) ? "LOADING KERNEL..." : (i < 80) ? "CONFIGURING SENSORS..." : "SYSTEM READY!";
+            int16_t msgX = 160 - (strlen(msg) * 3);
+            draw_text_5x7(tft, msgX, SCREEN_HEIGHT - 45, msg, V_TEXT_SUB, 1);
         }
         
-        delay(30);
+        delay(25);
     }
     
-    tft.setTextColor(COLOR_TEXT_DIM);
-    tft.setTextSize(1);
-    tft.setCursor(SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT - 20);
-    tft.print("v3.2.0 - Build 2026");
+    draw_text_5x7(tft, SCREEN_WIDTH/2 - (15*6)/2, SCREEN_HEIGHT - 25, "v4.0 PRO - 2026", V_BG_HIGHLIGHT, 1);
     
     UNLOCK_TFT();
-    delay(500); // Pausa final
+    delay(400); 
 }

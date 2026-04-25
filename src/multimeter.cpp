@@ -175,24 +175,29 @@ float multimeter_read_resistance() {
     return multimeter_apply_filters(resistor);
 }
 
+static float lastPeakValue = 0.0f;
+
 float multimeter_read_ac_voltage_rms() {
-    static int16_t samples[ZMPT_NUM_SAMPLES];
+    int16_t samples[ZMPT_NUM_SAMPLES];
     uint32_t sampleCount = 0;
+    int16_t maxSample = 0;
 
-    uint32_t startTime = micros();
-
-    while(sampleCount < ZMPT_NUM_SAMPLES) {
+    for(int i = 0; i < ZMPT_NUM_SAMPLES; i++) {
         uint16_t adcValue = analogRead(PIN_ADC_ZMPT);
-
         int16_t sample = (int16_t)adcValue - ZMPT_ZERO_POINT;
         samples[sampleCount++] = sample;
+        
+        int16_t absSample = (sample < 0) ? -sample : sample;
+        if (absSample > maxSample) maxSample = absSample;
 
         delayMicroseconds(ZMPT_SAMPLE_RATE_US);
     }
 
     float rms = multimeter_calculate_rms(samples, sampleCount);
-
     float voltage = rms * ZMPT_SCALE_FACTOR * zmptCalibration / 2048.0f;
+    
+    // Calcula valor de pico real em Volts
+    lastPeakValue = (maxSample * ZMPT_SCALE_FACTOR * zmptCalibration / 2048.0f);
 
     return multimeter_apply_filters(voltage);
 }
@@ -226,15 +231,21 @@ MultimeterReading multimeter_read() {
     reading.timestamp = millis();
 
     switch(currentMode) {
-        case MMODE_DC_VOLTAGE:
-            reading.value = multimeter_read_dc_voltage();
-            reading.unit = "V";
-            reading.unitAbbrev = "V";
-            break;
-
         case MMODE_AC_VOLTAGE:
             reading.value = multimeter_read_ac_voltage_rms();
-            reading.unit = "V";
+            reading.peakValue = lastPeakValue;
+            reading.unit = "V AC";
+            reading.unitAbbrev = "V";
+            
+            // Detecção de surto (se o pico for > 20% maior que o RMS * 1.414)
+            if (reading.peakValue > (reading.value * 1.7f)) {
+                reading.surgeDetected = true;
+            }
+            break;
+            
+        case MMODE_DC_VOLTAGE:
+            reading.value = multimeter_read_dc_voltage();
+            reading.unit = "V DC";
             reading.unitAbbrev = "V";
             break;
 
@@ -255,6 +266,12 @@ MultimeterReading multimeter_read() {
             reading.valid = (reading.value < SHORT_CIRCUIT_OHMS);
             reading.unit = reading.valid ? "OK" : "OL";
             reading.unitAbbrev = reading.valid ? "OK" : "OL";
+            break;
+
+        case MMODE_POWER:
+            reading.value = multimeter_read_dc_voltage() * multimeter_read_dc_current();
+            reading.unit = "W";
+            reading.unitAbbrev = "W";
             break;
 
         default:
@@ -437,7 +454,7 @@ void multimeter_handle() {
 
     if((now - lastUpdateMs) >= TIME_REFRESH_MEAS) {
         lastReading = multimeter_read();
-        multimeter_update_display();
+        // multimeter_update_display(); // Desabilitado para evitar conflito com UI principal
         lastUpdateMs = now;
     }
 }
@@ -445,30 +462,52 @@ void multimeter_handle() {
 void multimeter_update_display() {
     LOCK_TFT();
     // Desenha caixa de valor
-    tft.fillRoundRect(20, 60, SCREEN_WIDTH - 40, 60, 6, COLOR_SURFACE);
-    tft.drawRoundRect(20, 60, SCREEN_WIDTH - 40, 60, 6, COLOR_PRIMARY);
+    tft.fillRoundRect(20, 50, SCREEN_WIDTH - 40, 90, 8, COLOR_SURFACE);
+    tft.drawRoundRect(20, 50, SCREEN_WIDTH - 40, 90, 8, COLOR_PRIMARY);
     
     tft.setTextColor(COLOR_TEXT_DIM);
     tft.setTextSize(1);
-    tft.setCursor(30, 65);
-    tft.print("Value");
+    tft.setCursor(30, 55);
+    tft.print("TRUE RMS");
     
+    // Valor RMS Principal
     tft.setTextColor(COLOR_TEXT);
     tft.setTextSize(3);
     char valBuf[16];
     dtostrf(lastReading.value, 6, 2, valBuf);
-    tft.setCursor(SCREEN_WIDTH/2 - 40, 85);
+    tft.setCursor(40, 75);
     tft.print(valBuf);
-    
     tft.setTextSize(2);
-    tft.setCursor(SCREEN_WIDTH - 60, 85);
-    tft.print(lastReading.unit);
+    tft.print(" ");
+    tft.print(lastReading.unitAbbrev);
+    
+    // Valor de Pico (Subordinado)
+    if (lastReading.mode == MMODE_AC_VOLTAGE) {
+        tft.setTextColor(COLOR_WARNING);
+        tft.setTextSize(1);
+        tft.setCursor(30, 115);
+        tft.print("PICO:");
+        
+        tft.setTextSize(2);
+        char peakBuf[16];
+        dtostrf(lastReading.peakValue, 6, 1, peakBuf);
+        tft.setCursor(80, 110);
+        tft.print(peakBuf);
+        tft.print(" Vp");
+        
+        if (lastReading.surgeDetected) {
+            tft.setTextColor(COLOR_BAD);
+            tft.setCursor(SCREEN_WIDTH - 110, 110);
+            tft.print("[SURGE!]");
+        }
+    }
+    
     UNLOCK_TFT();
 
     draw_status_indicator(
         lastReading.state == MSTATE_MEASURING ? MSTATUS_GOOD :
         lastReading.state == MSTATE_HIGH_VOLTAGE ? MSTATUS_BAD : MSTATUS_WARNING,
-        SCREEN_WIDTH - 40, 70, 24
+        SCREEN_WIDTH - 40, 65, 24
     );
 }
 
@@ -707,4 +746,5 @@ bool multimeter_detect_voltage_type(float voltage) {
 
 
 // End of file
+
 

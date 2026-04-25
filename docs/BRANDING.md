@@ -17,7 +17,7 @@ O nome **Sondvolt** surge da fusão de duas palavras-chave:
 
 A junção cria uma identidade única, reconhecível e técnica, que comunica claramente a função do dispositivo — testes elétricos via pontas de prova.
 
-**Versão Atual do Firmware:** v3.1
+**Versão Atual do Firmware:** v3.2
 
 ---
 
@@ -133,7 +133,7 @@ TEXTO CORPO: 14px, Regular, #FFFFFF
 O firmware atual é identificado como:
 
 ```
-Sondvolt v3.1 (Component Tester Pro)
+Sondvolt v3.2 (Component Tester Pro)
 Placa: ESP32-2432S028R (Cheap Yellow Display)
 ```
 
@@ -154,7 +154,7 @@ Na interface do equipamento, utilizar:
 Todo material escrito deve seguir:
 
 - Nome: **Sondvolt** (primeira ocorrência: negrito)
-- Versão: sempre incluir "v3.1" ou superior
+- Versão: sempre incluir "v3.2" ou superior
 - Tagline: no início de documentos importantes
 
 ### Uso em Interface

@@ -61,19 +61,22 @@ void buzzer_update() {
 // --- Funções de Feedback ---
 
 void buzzer_ok() {
-    buzzer_beep(1000, 100);
-    vTaskDelay(pdMS_TO_TICKS(120));
-    buzzer_beep(1500, 150);
+    // Som agudo e curto (ascendente para sucesso)
+    buzzer_beep(1200, 50);
+    delay(60);
+    buzzer_beep(1800, 80);
 }
 
 void buzzer_error() {
-    buzzer_beep(300, 500);
+    // Som grave e longo (descendente para erro)
+    buzzer_beep(400, 400);
 }
 
 void buzzer_alert() {
+    // Sequência de 3 bips curtos
     for(int i=0; i<3; i++) {
-        buzzer_beep(800, 100);
-        vTaskDelay(pdMS_TO_TICKS(150));
+        buzzer_beep(2000, 50);
+        delay(100);
     }
 }
 
@@ -87,4 +90,25 @@ void buzzer_measure_start() {
 
 void buzzer_measure_end() {
     buzzer_beep(1200, 80);
+}
+
+void buzzer_success() {
+    buzzer_beep(1500, 50);
+    delay(50);
+    buzzer_beep(2000, 100);
+}
+
+void buzzer_discharge() {
+    // Som descendente "sci-fi" para descarga
+    for(int f=2000; f>400; f-=100) {
+        buzzer_tone(f);
+        delay(30);
+    }
+    buzzer_no_tone();
+}
+
+void buzzer_completion() {
+    buzzer_beep(880, 100);
+    delay(50);
+    buzzer_beep(1320, 150);
 }

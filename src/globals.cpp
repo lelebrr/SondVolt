@@ -29,7 +29,11 @@ float lastCapacitance = 0.0f;
 float lastInductance = 0.0f;
 float lastVoltage = 0.0f;
 float lastCurrent = 0.0f;
-float lastTemperature = 25.0f;
+float lastTemperature = 0.0f;
+bool isDischarging = false;
+float dischargeProgress = 0.0f;
+
+ComparatorRef referenceComp = {0.0f, COMP_UNKNOWN, "", false};
 
 // ============================================================================
 // ESTATISTICAS
@@ -69,11 +73,49 @@ bool tftInitialized = false;
 // ============================================================================
 DeviceSettings deviceSettings = {
     .backlight = 200,
-    .darkMode = false,
+    .darkMode = true,
     .silentMode = false,
     .autoSleep = true,
     .autoSleepMs = TIME_BACKLIGHT_OFF,
     .soundEnabled = true,
     .calibrated = false,
-    .zmptScaleFactor = ZMPT_CALIBRATION
+    .zmptScaleFactor = ZMPT_CALIBRATION,
+    .themeColor = COLOR_PRIMARY,
+    .unitsMetric = true,
+    .themeIdx = 0
 };
+
+LogEntry recentTests[6] = {0};
+void update_recent_tests(const char* name, float value, const char* status) {
+    for (int i = 5; i > 0; i--) recentTests[i] = recentTests[i-1];
+    recentTests[0].timestamp = millis();
+    strncpy(recentTests[0].componentName, name, 19);
+    recentTests[0].value = value;
+    strncpy(recentTests[0].status, status, 9);
+}
+
+// ============================================================================
+// SISTEMA DE CORES DINAMICAS
+// ============================================================================
+uint16_t clr_back    = 0x0863;
+uint16_t clr_surf    = 0x10C4;
+uint16_t clr_text    = 0xFFFF;
+uint16_t clr_dim     = 0xAD55;
+uint16_t clr_primary = 0x07FF;
+
+void colors_update() {
+    if (deviceSettings.darkMode) {
+        // MODO NOTURNO (Dark)
+        clr_back    = 0x0863;
+        clr_surf    = 0x10C4;
+        clr_text    = 0xFFFF;
+        clr_dim     = 0xAD55;
+    } else {
+        // MODO DIA (Light)
+        clr_back    = 0xFFFF; 
+        clr_surf    = 0xE73C; 
+        clr_text    = 0x0863; 
+        clr_dim     = 0x4208; 
+    }
+    clr_primary = deviceSettings.themeColor;
+}

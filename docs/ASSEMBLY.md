@@ -39,6 +39,16 @@ Este guia passo-a-passo detalha como montar o **Sondvolt** utilizando a placa **
 | Fio de conexão | 20cm | Cores variadas |
 | Termo-retrátil | 10 | Isolamento |
 
+#### Proteção AC (Obrigatório p/ 220V)
+| Componente | Quantidade | Modelo |
+|:---|:---:|:---|
+| Fusível Rápido | 1 | 5A (com porta-fusível) |
+| Varistor | 1 | 14D431 ou 10D431 |
+| Diodo TVS | 1 | P6KE400A ou P6KE440A |
+| Capacitor Cerâmico | 1 | 100nF (Filtro Saída) |
+| Capacitor Eletro. | 1 | 10µF (Filtro Fonte) |
+| Resistor de Carga | 1 | 10kΩ (Estabilização) |
+
 ---
 
 ## 2. Ferramentas Necessárias
@@ -136,7 +146,37 @@ Instalação:
 
 ---
 
-## 5. Conexão do ZMPT101B
+## 5. Circuito de Proteção AC (220V)
+
+### 5.1 Esquema de Proteção de Entrada
+
+Este circuito deve ser montado **antes** do sensor ZMPT101B para garantir que transientes não destruam o transformador ou a ESP32.
+
+```
+LINHA (AC) ────[ FUSÍVEL 5A ]────┬───────┬─────── (ZMPT IN 1)
+                                 │       │
+                              [VARISTOR] [TVS]
+                                 │       │
+NEUTRO (AC) ─────────────────────┴───────┴─────── (ZMPT IN 2)
+```
+
+### 5.2 Filtragem de Saída (ZMPT101B)
+
+Adicione os capacitores diretamente nos pinos do módulo ZMPT:
+
+1. **Capacitor 100nF**: Em paralelo com a saída `OUT` e `GND`.
+2. **Capacitor 10µF**: Entre `VCC` e `GND` do módulo.
+3. **Resistor 10kΩ**: Entre `OUT` e `GND` (Carga estável).
+
+| Passo | Ação | Finalidade |
+|:---:|:---|:---|
+| 1 | Solde o 100nF entre OUT e GND | Filtro de ruído de alta frequência |
+| 2 | Solde o 10µF entre VCC e GND | Estabilização da alimentação |
+| 3 | Solde o 10kΩ em paralelo com a saída | Impedância de carga correta |
+
+---
+
+## 6. Conexão do ZMPT101B
 
 ### 5.1 Localização dos Pinos
 

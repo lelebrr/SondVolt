@@ -9,6 +9,7 @@
 #include "display_mutex.h" // Adicionado para LOCK/UNLOCK
 #include "ui.h"
 #include "globals.h"
+#include "logger.h"
 
 // Instâncias Globais — Declaradas em display_globals.h
 // spiTFT_SD, touchSPI e touch são gerenciados em display_globals.cpp
@@ -37,8 +38,16 @@ void TaskUserInterface(void* pvParameters) {
 #include "thermal.h"
 #include "multimeter.h"
 
+#include "safety.h"
+
 void TaskMeasurement(void* pvParameters) {
     for (;;) {
+        // Monitoramento de segurança em background
+        safety_update();
+        if (currentAppState != STATE_MULTIMETER) {
+            safety_detect_danger();
+        }
+
         // Atualiza medições globais conforme o estado
         switch (currentAppState) {
             case STATE_MEASURE_RESISTOR:
@@ -49,13 +58,24 @@ void TaskMeasurement(void* pvParameters) {
                 break;
             case STATE_MEASURE_DIODE:
             case STATE_MULTIMETER:
-                lastVoltage = measurements_get_last_value(); // Simplificado
+                multimeter_handle();
                 break;
             case STATE_THERMAL_PROBE:
+            case STATE_THERMAL_CAMERA:
                 lastTemperature = thermal_read();
                 break;
+            case STATE_COMPARATOR:
+                // Medição contínua para comparação
+                measurements_update();
+                lastResistance = measurements_get_raw_resistance();
+                lastVoltage = measurements_get_last_value();
+                break;
+            case STATE_SUBMENU_TEMP:
+            case STATE_SUBMENU_MAIS:
+                // No measurement needed in these menus
+                break;
             default:
-                measurements_update(); // Atualização genérica
+                measurements_update(); 
                 break;
         }
         
@@ -85,6 +105,8 @@ void setup() {
     measurements_init();
     thermal_init();
     multimeter_init(false);
+    sdCardError = !logger_init();
+    safety_init();
 
     // Inicializa Sistema de UI (Splash + Menu)
     ui_init();

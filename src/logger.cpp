@@ -8,24 +8,29 @@
 #include "display_globals.h"
 #include <SdFat.h>
 #include "globals.h"
+#include "display_mutex.h"
 
 extern SdFat sd;
 static FsFile logFile;
 static bool logInitialized = false;
 
 bool logger_init() {
-    // Desativa CS do TFT antes de acessar o SD (mesmo barramento SPI)
+    LOCK_TFT();
+    // Desativa CS do TFT e Touch antes de acessar o SD (mesmo barramento SPI)
     digitalWrite(PIN_TFT_CS, HIGH);
+    digitalWrite(PIN_TOUCH_CS, HIGH);
     
-    // Usa SdSpiConfig para especificar o barramento SPI compartilhado
-    SdSpiConfig spiConfig(PIN_SD_CS, SHARED_SPI, SD_SCK_MHZ(20), &spiTFT_SD);
+    // Usa SdSpiConfig para especificar o barramento SPI compartilhado (10MHz para estabilidade)
+    SdSpiConfig spiConfig(PIN_SD_CS, SHARED_SPI, SD_SCK_MHZ(10), &spiTFT_SD);
     if (!sd.begin(spiConfig)) {
+        UNLOCK_TFT();
         LOG_SERIAL_F("[LOG] SD nao disponivel");
         sdCardPresent = false;
         return false;
     }
     logInitialized = true;
     sdCardPresent = true;
+    UNLOCK_TFT();
     LOG_SERIAL_F("[LOG] SD inicializado com sucesso");
     return true;
 }
@@ -33,13 +38,21 @@ bool logger_init() {
 bool logger_write(const char* component, float value, const char* unit, const char* status) {
     if (!logInitialized) return false;
 
+    LOCK_TFT();
+    digitalWrite(PIN_TFT_CS, HIGH);
+    
     logFile = sd.open(LOG_FILE_PATH, FILE_WRITE | O_APPEND);
-    if (!logFile) return false;
+    if (!logFile) {
+        UNLOCK_TFT();
+        return false;
+    }
 
     char buf[128];
     snprintf(buf, sizeof(buf), "%lu;%s;%.4f;%s;%s", millis(), component, value, unit, status);
     logFile.println(buf);
     logFile.close();
+    
+    UNLOCK_TFT();
     return true;
 }
 

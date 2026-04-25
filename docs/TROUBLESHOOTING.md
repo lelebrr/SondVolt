@@ -1,4 +1,4 @@
-# Resolução de Problemas — Sondvolt v3.1
+# 🔧 Resolução de Problemas — Sondvolt v3.2
 
 Este guia ajuda a diagnosticar e resolver problemas comuns do Sondvolt.
 
@@ -81,14 +81,35 @@ Antes de prosseguir, verifique:
 | Ruído eletromagnético | Afaste fios de sinal |
 | Referência ruim | GND compartilhado |
 
-### 🟡 Multímetro AC (ZMPT101B) instável
+### 🟡 Multímetro AC (ZMPT101B) instável ou impreciso
 
 | Causa Possível | Solução |
 |:---|:---|
-| Potenciômetro desalinhado | Ajuste o azul no módulo |
+| Potenciômetro desalinhado | Ajuste o trim-pot azul no módulo ZMPT |
 | Escala digital | Ajuste ZMPT Scale em Ajustes |
-| Ruído | Afaste fios AC dos fios de dados |
-| Alimentação instável | Use 5V estável |
+| Falta de carga | Verifique se o resistor 10kΩ de carga está instalado |
+| Ruído de alimentação | Verifique capacitor 10µF no VCC do ZMPT |
+| Ruído de saída | Verifique capacitor 100nF no OUT do ZMPT |
+
+### 🔴 Mensagem de Bloqueio: "ALTA TENSÃO DETECTADA"
+
+O sistema de **Segurança Ativa** bloqueia o uso fora do modo Multímetro se detectar >50V AC.
+
+| Causa Possível | Solução |
+|:---|:---|
+| Rede AC conectada nos probes | Desconecte os probes da tomada antes de testar componentes |
+| Sensor ZMPT descalibrado | Ajuste o offset e escala |
+| Ruído excessivo | Verifique blindagem e filtragem (Capacitores) |
+
+### 🟡 Alerta "[SURGE!]" piscando na tela
+
+Indica transientes ou picos de tensão acima do fator de crista normal (~1.41).
+
+| Causa Possível | Solução |
+|:---|:---|
+| Ruído na rede elétrica | Normal em ambientes industriais |
+| Transiente de chaveamento | Verifique se há motores ou reatores próximos |
+| Proteção atuando | Verifique se o Varistor/TVS estão aquecendo |
 
 ### 🟡 INA219 não detectado
 
@@ -214,5 +235,5 @@ pio run -e cyd --target upload
 ---
 
 <p align="center">
-<i>Component Tester PRO v3.0 — Resolução de Problemas</i>
+<i>🔧 Sondvolt v3.2 — Resolução de Problemas</i>
 </p>

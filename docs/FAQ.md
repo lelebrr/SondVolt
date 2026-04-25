@@ -1,4 +1,4 @@
-# Perguntas Frequentes — Sondvolt v3.1
+# ❓ Perguntas Frequentes — Sondvolt v3.2
 
 Aqui você encontra as respostas para as dúvidas mais comuns sobre montagem, operação e manutenção do Sondvolt.
 

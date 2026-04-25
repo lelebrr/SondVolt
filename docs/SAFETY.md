@@ -10,9 +10,9 @@ Este documento estabelece diretrizes críticas de segurança para montagem e ope
 > A eletricidade pode causar ferimentos graves ou fatais!
 > Este projeto envolve medições em alta tensão (250V AC). Siga TODAS as precauções!
 >
-> - ⚠️ Nunca работайте sozinho
-> - ⚠️ Sempre use equipamentos de proteção
-> - ⚠️ Se tidak yakin, peça ajuda profissional
+> - ⚠️ Nunca trabalhe sozinho
+> - ⚠️ Sempre use equipamentos de proteção (EPI)
+> - ⚠️ Use o Sistema de Proteção Ativa (Fusível/Varistor/TVS)
 
 ---
 
@@ -90,9 +90,17 @@ Este documento estabelece diretrizes críticas de segurança para montagem e ope
 
 ---
 
-## 3. Perigos Específicos do Projeto
-
 ### 3.1 Alta Tensão AC (ZMPT101B)
+
+O Sondvolt utiliza um sistema de proteção multinível para garantir que transientes e picos da rede elétrica não danifiquem o equipamento ou causem choques ao usuário:
+
+1. **Proteção Termomagnética (Fusível 5A)**: Atua em caso de falha catastrófica ou curto-circuito interno.
+2. **Proteção contra Surtos (Varistor 14D431)**: Absorve picos de tensão acima de 275V AC (comuns em descargas atmosféricas indiretas ou chaveamento de motores).
+3. **Proteção Transiente Ultra-rápida (TVS P6KE400A)**: Ceifa transientes na escala de nanosegundos que o varistor possa deixar passar.
+4. **Isolação Galvânica**: O ZMPT101B isola fisicamente a rede elétrica da placa ESP32 por meio de um transformador interno.
+
+> [!IMPORTANT]
+> **O uso do Fusível de 5A é OBRIGATÓRIO**. Substituir por valores maiores ou ignorar o fusível anula toda a segurança do sistema.
 
 ```
 ! (images/safety_high_voltage_warning.png)
@@ -381,7 +389,7 @@ Este documento estabelece diretrizes críticas de segurança para montagem e ope
 | **Local do acidente** | [SEU ENDEREÇO] |
 | **Tipo de acidente** | Choque elétrica |
 | **Tensão envolvida** | 250V AC máx |
-| **Nome do projeto** | Component Tester PRO v3.0 |
+| **Nome do projeto** | Sondvolt v3.2 |
 | **Placa** | ESP32-2432S028R |
 
 > [!IMPORTANT]

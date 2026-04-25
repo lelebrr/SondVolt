@@ -20,10 +20,9 @@ Este documento é a referência completa de todos os pinos da placa **ESP32-2432
 │    │   └─────┘  └─────┘  └─────┘  └─────┘        └─────────┘        │     │
 │    │                                                                  │     │
 │    │   ┌─────────────────┐                    ┌────────────┐      │     │
-│    │   │     CN1         │                    │   Conector  │      │     │
-│    │   │ (Analógico)     │                    │   P3/J3    │      │     │
+│    │   │ Expansion IO1   │                    │ Expansion IO2  │      │     │
 │    │   │  ┌──┬──┬──┬──┐ │                    │  ┌──┬──┬──┬──┐│      │     │
-│    │   │  │35│34│GND│5V│ │                    │  │GND│27│22│4 ││      │     │
+│    │   │  │21│22│35│ G│ │                    │  │3V│27│22│ G││      │     │
 │    │   │  └──┴──┴──┴──┘ │                    │  └──┴──┴──┴──┘│      │     │
 │    │   └─────────────────┘                    └────────────┘      │     │
 │    │                                                                  │     │
@@ -45,11 +44,12 @@ Este documento é a referência completa de todos os pinos da placa **ESP32-2432
 
 | Conector | Função | Tipo | Pitch |
 |:---|:---|:---|:---|
-| **CN1** | Analógico (Probes/ZMPT) | Header 4 pinos | 2.54mm |
-| **P3/J3** | Digital (I2C/OneWire) | JST PH 4 pinos | 2.0mm |
+| **IO1** | Analógico/I2C (Probe 1/SCL) | JST 1.25mm 4p | 1.25mm |
+| **IO2** | I2C (SDA/SCL) | JST 1.25mm 4p | 1.25mm |
 | **USB-C** | Alimentação/Programação | USB-C | — |
+| **USB-micro**| Alimentação/Programação | USB-micro | — |
 | **SD Card** | Leitor microSD | Slot push-push | — |
-| **Battery** | Conector bateria | JST 2 pinos | 2.0mm |
+| **Speaker** | Conector Áudio | JST 1.25mm 2p | 1.25mm |
 
 ---
 
@@ -74,12 +74,13 @@ Este documento é a referência completa de todos os pinos da placa **ESP32-2432
 | | MOSI | GPIO 32 | SoftSPI | Master Out |
 | | MISO | GPIO 39 | SoftSPI | Master In |
 | | IRQ | GPIO 36 | — | Interrupção |
-| **LED RGB** | Verde | GPIO 16 | — | LED integrado |
-| | Vermelho | GPIO 17 | — | LED integrado |
-| | Azul | GPIO 4 | — | Compartilha c/ OneWire |
-| **Buzzer** | Áudio | GPIO 26 | DAC | Speaker/gerador PWM |
-| **ADC Probes** | Probe principal | GPIO 35 | ADC1_CH7 | Entrada analógica |
-| | ZMPT AC | GPIO 34 | ADC1_CH6 | Entrada analógica |
+| **LED RGB** | Vermelho | GPIO 4 | — | LED integrado (Comp. OneWire) |
+| | Verde | GPIO 16 | — | LED integrado |
+| | Azul | GPIO 17 | — | LED integrado (Comp. Discharge) |
+| **Buzzer** | Áudio | GPIO 26 | DAC | AUDIO: IO26 |
+| **ADC Probes** | Probe 1 | GPIO 35 | ADC1_CH7 | Expansion IO1 |
+| | Probe 2 | GPIO 34 | ADC1_CH6 | Internal Solder |
+| | ZMPT AC | GPIO 36 | ADC1_CH0 | Shared with Touch IRQ |
 
 ### 2.2 Barramentos de Expansão
 
@@ -98,23 +99,21 @@ Este documento é a referência completa de todos os pinos da placa **ESP32-2432
 Header de 4 pinos para 连接传感器 e probes.
 
 ```
-CN1 (Vista Superior)
+IO1 (Vista Superior) - Perto do ESP32
 ┌─────────────────────────────┐
 │  1   │  2   │  3   │  4    │
-│ SINAL │ ZMPT │ GND  │ 5V/VIN│
+│ GND  │ IO35 │ IO22 │ IO21  │
 ├──────┼──────┼──────┼──────┤
-│ GPIO │ GPIO │     │      │
-│  35  │  34  │     │      │
-│  34  │     │     │      │
+│      │PROBE1│ SCL  │ BLIGHT│
 └─────────────────────────────┘
 ```
 
 | Pino | GPIO | Função | Tipo | Descrição |
 |:---:|:---:|:---|:---|:---|
-| 1 | GPIO 35 | Probe Signal | Entrada ADC | Sinal principal do probe |
-| 2 | GPIO 34 | ZMPT Output | Entrada ADC | Saída do sensor ZMPT |
-| 3 | GND | Terra |.Output | Terra comum |
-| 4 | 5V/VIN | Alimentação | Input | Entrada 5V ou 4.5-6V |
+| 1 | GND | Terra | Power | Terra comum |
+| 2 | GPIO 35 | Probe 1 | Entrada ADC | Sinal principal do probe |
+| 3 | GPIO 22 | I2C SCL | Output | Clock I2C |
+| 4 | GPIO 21 | Backlight | Output | Controle brilho (NÃO usar p/ dados) |
 
 > [!CAUTION]
 > O pino 4 (5V/VIN) **não** é regulado! Use fonte de 5V estável ou 4.5-6V DC.
@@ -124,22 +123,21 @@ CN1 (Vista Superior)
 Conector JST PH de 4 pinos para módulos I2C e OneWire.
 
 ```
-P3/J3 (Vista Superior - Face Traseira)
+IO2 (Vista Superior) - Perto do SD Card
 ┌─────────────────────────────┐
 │  1   │  2   │  3   │  4    │
-│ GND  │ SDA  │ SCL  │ DQ   │
+│ GND  │ IO22 │ IO27 │ 3.3V  │
 ├──────┼──────┼──────┼──────┤
-│      │GPIO │GPIO │GPIO │
-│      │ 27  │ 22  │  4  │
+│      │ SCL  │ SDA  │ PWR   │
 └─────────────────────────────┘
 ```
 
 | Pino | GPIO | Função | Tipo | Descrição |
 |:---:|:---:|:---|:---|:---|
-| 1 | GND | Terra | Output | Terra comum |
-| 2 | GPIO 27 | I2C SDA | bidirecional | Dados I2C (INA219) |
-| 3 | GPIO 22 | I2C SCL | Output | Clock I2C (INA219) |
-| 4 | GPIO 4 | OneWire DQ | bidirecional | Dados OneWire (DS18B20) |
+| 1 | GND | Terra | Power | Terra comum |
+| 2 | GPIO 22 | I2C SCL | Output | Clock I2C |
+| 3 | GPIO 27 | I2C SDA | bidirecional | Dados I2C (INA219) |
+| 4 | 3.3V | VCC | Power | Alimentação 3.3V |
 
 ### 3.3 Conector de Alimentação
 
@@ -167,27 +165,27 @@ P3/J3 (Vista Superior - Face Traseira)
 |:---:|:---|:---|:---|:---|
 | **GPIO 0** | BOOT button | Input | Pull-up | Botão integrado |
 | **GPIO 2** | TFT DC | Output | — | Display |
-| **GPIO 4** | OneWire DQ | IO | — | **Compartilha c/ LED azul** |
+| **GPIO 4** | OneWire / LED Red| IO | — | **Compartilhado** |
 | **GPIO 5** | SD CS | Output | — | SD Card |
 | **GPIO 12** | TFT MISO | Input | — | Display |
 | **GPIO 13** | TFT MOSI | Output | — | Display |
 | **GPIO 14** | TFT SCK | Output | — | Display |
 | **GPIO 15** | TFT CS | Output | — | Display |
 | **GPIO 16** | LED Verde | Output | — | LED RGB |
-| **GPIO 17** | LED Vermelho | Output | — | LED RGB |
+| **GPIO 17** | LED Azul / Discharge| Output | — | **Compartilhado** |
 | **GPIO 18** | SD SCK | Output | — | SD Card |
 | **GPIO 19** | SD MISO | Input | — | SD Card |
 | **GPIO 21** | Backlight PWM | Output | — | Display |
-| **GPIO 22** | I2C SCL | Output | — | I2C |
+| **GPIO 22** | I2C SCL | Output | — | Expansion IO1/IO2 |
 | **GPIO 23** | SD MOSI | Output | — | SD Card |
 | **GPIO 25** | Touch CLK | Output | — | Touchscreen |
-| **GPIO 26** | Buzzer/PWM | Output | DAC | Speaker |
-| **GPIO 27** | I2C SDA | IO | — | I2C |
+| **GPIO 26** | Audio / PWM | Output | DAC | AUDIO: IO26 |
+| **GPIO 27** | I2C SDA | IO | — | Expansion IO2 |
 | **GPIO 32** | Touch MOSI | Output | — | Touchscreen |
 | **GPIO 33** | Touch CS | Output | — | Touchscreen |
-| **GPIO 34** | ZMPT Input | **Input only** | — | Sensor AC |
-| **GPIO 35** | Probe Input | **Input only** | — | Teste Componentes |
-| **GPIO 36** | Touch IRQ | Input | — | Touchscreen |
+| **GPIO 34** | Probe 2 Input | **Input only** | — | Internal |
+| **GPIO 35** | Probe 1 Input | **Input only** | — | Expansion IO1 |
+| **GPIO 36** | ZMPT / Touch IRQ | Input | — | Shared |
 | **GPIO 39** | Touch MISO | Input | — | Touchscreen |
 
 ### 4.2 GPIOs Input-Only (Atenção!)
@@ -314,14 +312,14 @@ Os seguintes GPIOs são **entrada pura** no ESP32:
 ### 8.1 Mapeamento ZMPT101B
 
 ```
-┌─────────────────┐         ┌─────────────────────┐
-│    ZMPT101B      │         │   ESP32-CYD         │
-├─────────────────┤         ├─────────────────────┤
-│ VCC  ───────────┼─────────│ 5V (CN1 pino 4)    │
-│ GND ────────────┼─────────│ GND (CN1 pino 3)    │
-│ OUT ────────────┼─────────│ GPIO 34             │
-│        (10kΩ)  │         │ (pull-down para GND)│
-└─────────────────┘         └─────────────────────┘
+┌─────────────────┐         ┌──────────────────────────────┐
+│    ZMPT101B      │         │         ESP32-CYD            │
+├─────────────────┤         ├──────────────────────────────┤
+│ VCC  ───────────┼─────────│ 5V (CN1 pino 4) + Cap 10µF  │
+│ GND ────────────┼─────────│ GND (CN1 pino 3)            │
+│ OUT ────────────┼─────────│ GPIO 34 + Cap 100nF         │
+│                 │         │ (Resistor 10kΩ para GND)    │
+└─────────────────┘         └──────────────────────────────┘
 ```
 
 ### 8.2 Mapeamento INA219
@@ -356,8 +354,8 @@ Os seguintes GPIOs são **entrada pura** no ESP32:
 ┌─────────────────┐         ┌─────────────────────┐
 │      Probes     │         │   ESP32-CYD         │
 ├─────────────────┤         ├─────────────────────┤
-│ Probe Vermelho  ├─────────│ GPIO 35 (CN1 p1)   │
-│ Probe Preto    ├─────────│ GND (CN1 pino 3)   │
+│ Probe 1 (Red)   ├─────────│ GPIO 35 (IO1 p2)    │
+│ Probe 2 (Black) ├─────────│ GND (IO1 pino 1)    │
 └─────────────────┘         └─────────────────────┘
 ```
 

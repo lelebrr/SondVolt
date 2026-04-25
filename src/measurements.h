@@ -27,6 +27,7 @@ float measurements_get_last_value();
 ComponentStatus measurements_get_last_status();
 float measurements_get_raw_resistance();
 float measurements_get_raw_capacitance();
+void measurements_discharge_capacitor();
 
 // Medições Específicas
 float measurements_read_ac_rms();

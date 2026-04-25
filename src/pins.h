@@ -142,8 +142,8 @@
 // Sensor I2C de corrente com shunt resistor
 // ------------------------------------------------------------------------
 
-#define PIN_INA_SDA           22      // I2C SDA (GPIO22)
-#define PIN_INA_SCL           27      // I2C SCL (GPIO27)
+#define PIN_INA_SDA           27      // I2C SDA (GPIO27) - Expansion IO2
+#define PIN_INA_SCL           22      // I2C SCL (GPIO22) - Expansion IO1/IO2
 #define INA_I2C_PORT          I2C_NUM_0
 #define INA_I2C_ADDR          0x40        // Endereco I2C padrao
 #define INA_SHUNT_OHMS        0.1f       // Resistor shunt (ohms)
@@ -157,12 +157,15 @@
 // pinos de saida para indicadores visuais e sonoros
 // ------------------------------------------------------------------------
 
+#define PIN_LED_RED           4       // LED Vermelho (GPIO4) - Standard CYD
 #define PIN_LED_GREEN         16      // LED Verde (GPIO16)
-#define PIN_LED_RED           17      // LED Vermelho (GPIO17)
-#define PIN_LED_BLUE          GPIO_NUM_NC  // LED Azul (nao conectado)
+#define PIN_LED_BLUE          17      // LED Azul (GPIO17)
+
+// Controle de Descarga de Capacitor
+#define PIN_CAP_DISCHARGE     17      // GPIO17 (Compartilhado com LED Azul)
 
 // Buzzer ativo (oscilador interno)
-#define PIN_BUZZER            26      // Buzzer PWM (GPIO26)
+#define PIN_BUZZER            26      // Buzzer PWM (GPIO26) - AUDIO: IO26
 
 // ============================================================================
 // COMUNICACAO ONEWIRE (DS18B20)
@@ -170,7 +173,7 @@
 // Sensor de temperatura digital
 // ------------------------------------------------------------------------
 
-#define PIN_ONEWIRE           4       // OneWire bus (GPIO4)
+#define PIN_ONEWIRE           4       // OneWire bus (GPIO4) - Compartilhado com LED Vermelho
 #define ONEWIRE_MAX_DEVICES   3       // Maximo dispositivos
 #define DS18B20_FAMILY       0x28      // Familia DS18B20
 
@@ -180,8 +183,8 @@
 // Barramento I2C para sensores externos
 // ------------------------------------------------------------------------
 
-#define PIN_I2C_SDA           22      // I2C SDA (GPIO22)
-#define PIN_I2C_SCL           27      // I2C SCL (GPIO27)
+#define PIN_I2C_SDA           27      // I2C SDA (GPIO27) - Expansion IO2
+#define PIN_I2C_SCL           22      // I2C SCL (GPIO22) - Expansion IO1/IO2
 #define I2C_PORT             I2C_NUM_0
 #define I2C_FREQ             100000   // 100kHz padrao
 

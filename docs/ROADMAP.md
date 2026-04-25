@@ -1,6 +1,57 @@
-# Roadmap — Component Tester PRO v3.0
+# 🚀 Roadmap — Sondvolt v3.2
 
-Este documento apresenta o planejamento de funcionalidades futuras para o Component Tester PRO v3.0. As ideias estão organizadas por categoria e priorizadas conforme viabilidade técnica e demanda da comunidade.
+<p align="center">
+  <img src="../assets/hero.png" alt="Visão Futura do Sondvolt" width="400">
+</p>
+
+Este documento apresenta o planejamento de funcionalidades futuras para o **Sondvolt v3.2**. As ideias estão organizadas por categoria e priorizadas conforme viabilidade técnica e demanda da comunidade.
+
+---
+
+## 🎯 Visão de Longo Prazo
+
+O Sondvolt visa se tornar uma estação de teste completa e conectada. O objetivo é transformar o dispositivo de uma ferramenta de bancada isolada em um verdadeiro hub de diagnóstico IoT, com conectividade WiFi, Bluetooth, e integração com aplicativos móveis e serviços cloud.
+
+> 💡 **Nota:** Este roadmap é dinâmico e pode mudar conforme feedback da comunidade e avanços tecnológicos. Funcionalidades com ✅ já estão em desenvolvimento ou implementadas.
+
+---
+
+## 📋 Funcionalidades Futuras por Categoria
+
+### 1. 🌐 Conectividade e IoT
+
+| # | Funcionalidade | Descrição | Prioridade | Status |
+|:-|:---|:---|:---:|:---:|
+| 1.1 | **WiFi Client Mode** | Conecta o CYD a redes WiFi existentes para sincronização de dados | 🔴 Alta | 📋 Planejado |
+| 1.2 | **Web Server Embarcado** | Servidor web interno para acesso via navegador (sem necessidade de app) | 🔴 Alta | 📋 Planejado |
+| 1.3 | **OTA Atualizações** | Atualização de firmware via WiFi (Over-The-Air) | 🔴 Alta | ✅ Em Desenvolvimento |
+| 1.4 | **MQTT Client** | Publicação de medições em broker MQTT para automação residencial | 🟡 Média | 📋 Planejado |
+| 1.5 | **NTP Sync** | Sincronização automática de data/hora via NTP | 🟡 Média | 📋 Planejado |
+| 1.6 | **REST API** | Endpoints REST para integração com sistemas externos | 🟡 Média | 📋 Planejado |
+
+### 2. 📱 Interface e App Móvel
+
+| # | Funcionalidade | Descrição | Prioridade | Status |
+|:-|:---|:---|:---:|:---:|
+| 2.1 | **Web App** | Interface web responsiva para controle total via navegador | 🔴 Alta | 📋 Planejado |
+| 2.2 | **PWA Support** | Progressive Web App para instalação em Android/iOS | 🔴 Alta | 📋 Planejado |
+| 2.3 | **Dashboard IoT** | Visualização em tempo real de todas as medições | 🔴 Alta | 📋 Planejado |
+| 2.4 | **Notificações Push** | Alertas via web push para eventos críticos | 🟢 Baixa | 💡 Ideia |
+| 2.5 | **App Nativo (Opcional)** | Aplicativo dedicado para iOS/Android (depende de demanda) | 🟢 Baixa | 💡 Ideia |
+
+### 3. 📡 Comunicação Sem Fio
+
+| # | Funcionalidade | Descrição | Prioridade | Status |
+|:-|:---|:---|:---:|:---:|
+| 3.1 | **Bluetooth Classic** | Comunicação BLE com dispositivos móveis | 🟡 Média | 📋 Planejado |
+| 3.2 | **Bluetooth LE (BLE)** | Modo de baixo consumo para sensor remoto | 🟡 Média | 💡 Ideia |
+| 3.3 | **IR Remote Control** | Controle do dispositivo por controle remoto IR | 🟢 Baixa | 💡 Ideia |
+
+### 4. 📊 Modos de Medição Avançados
+
+| # | Funcionalidade | Descrição | Prioridade | Status |
+|:-|:---|:---|:---:|:---:|
+| 4.1 | **Teste de LED Automático** | Identificação automática de cor de LED | 🔴 Alta | 📝 Em Estudo |
 
 ---
 
@@ -50,13 +101,14 @@ O Component Tester PRO visa se tornar uma estação de teste completa e conectad
 | 4.1 | **Teste de LED Automático** | Identificação automática de cor de LED | Alta | Em Estudo |
 | 4.2 | **Medição de ESR** | Teste de Resistência Série em capacitores | Alta | Em Estudo |
 | 4.3 | **Teste de Capacitor Eletrolítico** | Verificação de ESR e vazamento | Alta | Em Estudo |
-| 4.4 | **Teste de Bateria** | Curves de carga/descarga, capacidade mAh | Alta | Em Estudo |
-| 4.5 | **Teste de MOSFET** | Curva característica Vgs vs Id | Média | Ideia |
-| 4.6 | **Teste de Bobinas/Indutores** | Medição de indutância e resistência DC | Média | Ideia |
-| 4.7 | **Medição de Frequência** |Contador de frequência via GPIO | Média | Ideia |
-| 4.8 | **Teste de cristal XTAL** | Teste de cristais e ressonadores | Baixa | Ideia |
-| 4.9 | **Gerador de Sinais** | Gerador de waveforms (sine, square, PWM) | Baixa | Ideia |
-| 4.10 | **Teste de LEDs de 7 segmentos** | Decodificação automática | Baixa | Ideia |
+| 4.4 | **Teste de Saúde de Bateria** | Curvas de carga/descarga, capacidade mAh e SoH | Alta | 📋 Planejado |
+| 4.5 | **Analista de Células Li-ion** | Teste específico para 18650 com medição de resistência interna | Alta | 📋 Planejado |
+| 4.6 | **Teste de MOSFET** | Curva característica Vgs vs Id | Média | 💡 Ideia |
+| 4.7 | **Teste de Bobinas/Indutores** | Medição de indutância e resistência DC | Média | 💡 Ideia |
+| 4.8 | **Medição de Frequência** |Contador de frequência via GPIO | Média | 💡 Ideia |
+| 4.9 | **Teste de cristal XTAL** | Teste de cristais e ressonadores | Baixa | 💡 Ideia |
+| 4.10 | **Gerador de Sinais** | Gerador de waveforms (sine, square, PWM) | Baixa | 💡 Ideia |
+| 4.11 | **Teste de LEDs de 7 segmentos** | Decodificação automática | Baixa | 💡 Ideia |
 
 ### 5. Armazenamento e Dados
 
@@ -91,11 +143,13 @@ O Component Tester PRO visa se tornar uma estação de teste completa e conectad
 
 | # | Funcionalidade | Descrição | Prioridade | Status |
 |:-|:---|:---|:---|:---|
-| 8.1 | **Shield de Expansão** | PCB shield com conectores e sensores adicionais | Alta | Em Estudo |
-| 8.2 | **Suporte a Displays Maiores** | Compatibilidade com displays de 3.5" e 4" | Média | Ideia |
-| 8.3 | **Módulo de Bateria** | Shield com bateria LiPO e carga USB-C | Média | Ideia |
-| 8.4 | **Sonda de Corrente AC** | Support para pinça amperimétrica | Média | Ideia |
-| 8.5 | **RTC Externo** | Módulo RTC com backup de bateria | Baixa | Ideia |
+| 8.1 | **Shield de Expansão Pro** | PCB shield com soquete ZIF e bornes de engate rápido | Alta | 📋 Planejado |
+| 8.2 | **Soquete ZIF Integrado** | Soquete de 14/20 pinos para teste rápido de componentes | Alta | 📋 Planejado |
+| 8.3 | **Sistema de Sockets Removíveis**| Conectores intercambiáveis para baterias AA, AAA e 18650 | Alta | 📋 Planejado |
+| 8.4 | **Módulo de Bateria 2S** | Alimentação via 2x 18650 com Buck Converter 5V e BMS | Alta | 📋 Planejado |
+| 8.5 | **Suporte a Displays Maiores** | Compatibilidade com displays de 3.5" e 4" | Média | 💡 Ideia |
+| 8.6 | **Sonda de Corrente AC** | Support para pinça amperimétrica | Média | 💡 Ideia |
+| 8.7 | **RTC Externo** | Módulo RTC com backup de bateria | Baixa | 💡 Ideia |
 
 ### 9. Integração e Automação
 
@@ -127,14 +181,15 @@ O Component Tester PRO visa se tornar uma estação de teste completa e conectad
 - [ ] Dashboard IoT via browser
 - [ ] Sincronização NTP
 
-### Versão 3.2 — "Smart Edition" (Q4 2026)
+### Versão 3.2 — "Safety & Precision Edition" (Abril 2026) ✅
 
-**Foco:** Interface inteligente e App móvel
+**Foco:** Segurança AC 220V e Precisão True RMS
 
-- [ ] Web App responsivo
-- [ ] PWA Support
-- [ ] Gráficos em tempo real
-- [ ] MQTT Client
+- [x] Motor de Cálculo True RMS (128 amostras)
+- [x] Sistema de Segurança Ativa (>50V Lockout)
+- [x] Detecção de Pico e Surtos [SURGE!]
+- [x] Circuito de Proteção Mandatório (Fusível/Varistor/TVS)
+- [x] Auditoria de Materiais (BOM Audit)
 
 ### Versão 3.3 — "Pro Edition" (Q1 2027)
 

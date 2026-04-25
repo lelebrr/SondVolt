@@ -1,4 +1,4 @@
-# Guias Passo a Passo - Component Tester PRO v3.0 (CYD Edition)
+# 📚 Guias Passo a Passo - Sondvolt v3.2 (CYD Edition)
 
 ## 1. Guia de Medição de Componentes (Modo Clássico)
 
@@ -23,13 +23,15 @@ Este guia cobre os 13 modos disponíveis no menu **Medir**.
 
 ## 2. Guia do Multímetro Profissional (Novo)
 
-### ⚡ Medindo Tensão AC (Rede Elétrica)
-1. Conecte o módulo **ZMPT101B** à rede elétrica (L/N).
-2. Conecte a saída do módulo ao **GPIO 34**.
-3. Acesse o menu **Multimetro**.
-4. O valor **True RMS** será exibido com uma barra de intensidade.
-5. > [!CAUTION]
-   > Nunca toque nos terminais AC enquanto o circuito estiver energizado.
+### ⚡ Medindo Tensão AC (Rede Elétrica 110V/220V)
+1. **Verificação de Proteção**: Certifique-se de que o circuito de entrada possui o **Fusível 5A**, **Varistor** e **TVS** instalados.
+2. **Conexão**: Conecte o módulo **ZMPT101B** à rede elétrica (L/N) via circuito de proteção.
+3. **Menu**: Acesse o menu **Multímetro**. Uma tela de segurança aparecerá; confirme a instalação dos componentes de hardware para prosseguir.
+4. **Leitura**: A tela exibirá o valor **True RMS** e o **Valor de Pico** simultaneamente.
+5. **Alerta de Surto**: Se o aviso `[SURGE!]` aparecer, desconecte as pontas; a rede apresenta transientes perigosos.
+
+> [!CAUTION]
+> **SEGURANÇA ATIVA**: O sistema bloqueará o equipamento se detectar >50V AC enquanto você estiver em outros menus. Nunca deixe as pontas conectadas à rede se não estiver no modo Multímetro.
 
 ### 🔋 Medindo Corrente e Potência DC
 1. Conecte o sensor **INA219** via barramento I2C (GPIO 27/22).
@@ -50,9 +52,9 @@ Este guia cobre os 13 modos disponíveis no menu **Medir**.
 ## 4. Guia de Calibração do Sistema
 
 1. Acesse o menu **Config**.
-2. Para calibar o ADC: Selecione `Calibrar` e garanta que os probes estão desconectados.
-3. Para calibrar o AC: Compare a leitura de `ZMPT` com um multímetro externo e ajuste o `Scale` no menu até os valores baterem.
-4. As configurações são salvas instantaneamente na memória **NVS**.
+3. **Calibração ADC**: Selecione `Calibrar` e garanta que os probes estão desconectados.
+4. **Calibração AC (Zero Offset)**: Sem tensão na entrada AC, ajuste o offset até que a leitura seja exatamente 0.0V.
+5. **Calibração AC (Escala)**: Com uma tensão conhecida (ex: 127V ou 220V), ajuste o `Scale` até que o valor True RMS coincida com seu multímetro de referência.
 
 ---
 

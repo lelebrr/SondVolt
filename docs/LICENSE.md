@@ -1,4 +1,4 @@
-# Licença — Sondvolt v3.1
+# 📜 Licença — Sondvolt v3.2
 
 Este documento estabelece os termos de licenciamento do projeto Sondvolt.
 
@@ -157,5 +157,5 @@ Para licenças diferentes da MIT (por exemplo, para uso em produtos proprietári
 ---
 
 <p align="center">
-<i>Última atualização: Abril de 2026 — Component Tester PRO Team</i>
+<i>📜 Última atualização: Abril de 2026 — Sondvolt Team v3.2</i>
 </p>

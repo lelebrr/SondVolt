@@ -9,32 +9,13 @@
 #include <Arduino.h>
 #include "config.h"
 
-// ============================================================================
-// ESTADO DA APLICACAO (maquina de estados)
-// ============================================================================
-enum AppState {
-    STATE_SPLASH           = 0,
-    STATE_MENU              = 1,
-    STATE_MEASURE_RESISTOR  = 10,
-    STATE_MEASURE_CAPACITOR = 11,
-    STATE_MEASURE_DIODE     = 12,
-    STATE_MEASURE_TRANSISTOR = 13,
-    STATE_MEASURE_INDUCTOR   = 14,
-    STATE_MEASURE_IC         = 15,
-    STATE_MEASURE_LED        = 16,
-    STATE_MEASURE_GENERIC   = 19,
-    STATE_MULTIMETER        = 20,
-    STATE_THERMAL_PROBE     = 30,
-    STATE_SCANNER           = 31,
-    STATE_CALIBRATION       = 32,
-    STATE_SETTINGS         = 40,
-    STATE_ABOUT             = 41,
-    STATE_HISTORY            = 42,
-    STATE_STATS              = 43
-};
-
 #include "types.h"
 #include "database.h"
+
+// Estado atual e anterior
+extern volatile AppState currentAppState;
+extern volatile AppState previousAppState;
+
 
 // ============================================================================
 // TIPOS DE ICONES — Definidos em types.h
@@ -49,10 +30,6 @@ enum AppState {
 // ============================================================================
 
 typedef ComponentStatus MeasurementStatus;
-
-// Estado atual e anterior
-extern volatile AppState currentAppState;
-extern volatile AppState previousAppState;
 
 // ============================================================================
 // CONTROLE DE TEMPO
@@ -70,6 +47,20 @@ extern float lastInductance;
 extern float lastVoltage;
 extern float lastCurrent;
 extern float lastTemperature;
+extern bool isDischarging;
+extern float dischargeProgress;            // 0.0 a 1.0
+
+// ============================================================================
+// MODO COMPARADOR
+// ============================================================================
+typedef struct {
+    float value;
+    ComponentType type;
+    char name[16];
+    bool isSet;
+} ComparatorRef;
+
+extern ComparatorRef referenceComp;
 
 // ============================================================================
 // ESTATISTICAS
@@ -162,5 +153,24 @@ typedef struct {
 } DeviceSettings;
 
 extern DeviceSettings deviceSettings;
+
+// ============================================================================
+// COMPONENTES RECENTES
+// ============================================================================
+extern LogEntry recentTests[6];
+void update_recent_tests(const char* name, float value, const char* status);
+
+// ============================================================================
+// SISTEMA DE CORES DINAMICAS
+// ============================================================================
+extern uint16_t clr_back;
+extern uint16_t clr_surf;
+extern uint16_t clr_text;
+extern uint16_t clr_dim;
+extern uint16_t clr_primary;
+
+void colors_update();
+
+
 
 #endif // GLOBALS_H

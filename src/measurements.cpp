@@ -6,6 +6,7 @@
 // Descrição: Lógica de leitura de sensores e análise de componentes
 // ============================================================================
 
+#include "buzzer.h"
 #include "measurements.h"
 #include "config.h"
 #include "database.h"
@@ -20,8 +21,32 @@ static ComponentStatus lastStatus = STATUS_UNKNOWN;
 void measurements_init() {
     analogReadResolution(12);
     pinMode(PIN_PROBE_1, INPUT);
-    pinMode(PIN_PROBE_2, INPUT); // Configurado como entrada/saída dinamicamente
+    pinMode(PIN_PROBE_2, INPUT); 
     pinMode(PIN_ZMPT_OUT, INPUT);
+    
+    // Configura Pino de Descarga (Usando GPIO 27 como padrão se disponível)
+    #define PIN_DISCHARGE 27
+    pinMode(PIN_DISCHARGE, OUTPUT);
+    digitalWrite(PIN_DISCHARGE, LOW);
+}
+
+void measurements_discharge_capacitor() {
+    isDischarging = true;
+    dischargeProgress = 0.0f;
+    buzzer_discharge(); // Som característico
+    
+    // Descarga gradual para feedback visual (Simulado em 1s)
+    for(int i=0; i<=100; i+=10) {
+        dischargeProgress = (float)i / 100.0f;
+        digitalWrite(PIN_CAP_DISCHARGE, HIGH); // Ativa MOSFET
+        delay(100);
+        // Opcional: Atualizar UI aqui se houver loop dedicado, senão a UI_update pega no próximo ciclo
+    }
+    
+    digitalWrite(PIN_CAP_DISCHARGE, LOW);
+    isDischarging = false;
+    dischargeProgress = 1.0f;
+    buzzer_success();
 }
 
 void measurements_update() {
@@ -81,6 +106,9 @@ float measurements_get_raw_resistance() {
 }
 
 float measurements_get_raw_capacitance() {
+    // DESCARGA AUTOMATICA (Removida do loop para evitar flickering)
+    // measurements_discharge_capacitor();
+    
     // Heurística de tempo de carga simplificada
     pinMode(PIN_PROBE_1, OUTPUT);
     digitalWrite(PIN_PROBE_1, LOW);

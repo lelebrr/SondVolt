@@ -1,6 +1,6 @@
 # 🔌 Guia de Ligação de Componentes (Wiring Guide)
 
-Este guia detalha a conexão de todos os componentes externos ao **Component Tester PRO v3.0** baseado na placa **ESP32-2432S028R (Cheap Yellow Display)**.
+Este guia detalha a conexão de todos os componentes externos ao **Sondvolt v3.2** baseado na placa **ESP32-2432S028R (Cheap Yellow Display)**.
 
 ---
 
@@ -40,9 +40,9 @@ Este guia detalha a conexão de todos os componentes externos ao **Component Tes
 │   ZMPT101B      │ │     INA219      │ │    DS18B20      │ │    Probes       │
 │  (Sensor AC)    │ │ (Medidor DC)    │ │  (Temperatura)  │ │  (Teste Compon) │
 │                 │ │                 │ │                 │ │                 │
-│  OUT → GPIO 34  │ │  SDA → GPIO 27  │ │  DQ → GPIO 4    │ │  P → GPIO 35    │
-│  VCC → 5V       │ │  SCL → GPIO 22  │ │  VCC → 3.3V    │ │  GND → GND     │
-│  GND → GND       │ │  VCC → 3.3V    │ │  GND → GND      │ │                 │
+│  OUT → GPIO 36  │ │  SDA → GPIO 27  │ │  DQ → GPIO 4    │ │  P1 → GPIO 35   │
+│  VCC → 5V       │ │  SCL → GPIO 22  │ │  VCC → 3.3V    │ │  P2 → GPIO 34   │
+│  GND → GND       │ │  VCC → 3.3V    │ │  GND → GND      │ │  GND → GND      │
 │                 │ │  GND → GND      │ │                 │ │                 │
 └─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
 ```
@@ -57,10 +57,10 @@ Conector de 4 pinos localizado na lateral esquerda da placa.
 
 | Pino | Função | GPIO | Descrição |
 |:---:|:---:|:---:|:---|
-| 1 | **Probe Signal** | GPIO 35 | Entrada analógica principal para teste de componentes |
-| 2 | **ZMPT Output** | GPIO 34 | Entrada do sensor de tensão AC |
+| 1 | **Probe 1** | GPIO 35 | Entrada analógica principal (Port IO1) |
+| 2 | **Probe 2 / ZMPT** | GPIO 36 | Entrada sensor AC (Shared with Touch IRQ) |
 | 3 | **GND** | — | Terra comum |
-| 4 | **5V / VIN** | — | Entrada de alimentação (4.5V - 6V) |
+| 4 | **5V / VIN** | — | Entrada de alimentação |
 
 ### 2.2 P3 / J3 — Conector Digital (I2C + OneWire)
 
@@ -80,9 +80,43 @@ Conector de 4 pinos para módulos digitais.
 
 ## 3. Ligação dos Módulos
 
-### 3.1 ZMPT101B — Sensor de Tensão AC
+### 3.1 ZMPT101B — Sensor de Tensão AC (COM PROTEÇÃO)
 
-Módulo transformador de correntee para medição de tensão alternate de 0-250V.
+Módulo transformador para medição de tensão alternada. O circuito abaixo é **obrigatório** para segurança em 220V.
+
+#### Esquema de Ligação Protegido
+
+```text
+ENTRADA AC (220V)                                MÓDULO ZMPT101B
+─────────────────                                ───────────────
+                                            ┌───────────┐
+FASE (L) ───[ FUSÍVEL 5A ]────┬─────────────┤ L         │
+                              │             │           │
+                              ▼             │           │
+                          [VARISTOR]        │           │
+                          [ 14D431 ]        │           │
+                              ▲             │           │
+                              │             │           │
+NEUTRO (N) ───────────────────┴─────────────┤ N         │
+                                            └───────────┘
+
+                                                 SAÍDA DC
+                                            ┌───────────┐
+      ESP32 CYD (5V) <──────────────────────┤ VCC       │
+                                            │           │
+      ESP32 CYD (GND) <────────┬────────────┤ GND       │
+                               │            │           │
+                               │            │           │
+      ESP32 CYD (GPIO 36) <────┼──┬─────────┤ OUT       │
+                               │  │         └───────────┘
+                               │  │
+                        [CAP 100nF] [RES 10kΩ]
+                               │  │
+      GND <────────────────────┴──┴─────────────────────
+```
+
+> [!CAUTION]
+> **PERIGO DE CHOQUE ELÉTRICO**: Nunca manipule o circuito de entrada (L/N) enquanto o equipamento estiver conectado à tomada. O Fusível e o Varistor devem ser acomodados em suporte isolado.
 
 #### Esquema de Ligação
 
@@ -91,7 +125,7 @@ ZMPT101B                    ESP32-2432S028R
 ────────                    ─────────────────
   VCC ────────────────────────► 5V (VIN)
   GND ────────────────────────► GND
-  OUT ────────────────────────► GPIO 34 (CN1 pino 2)
+  OUT ────────────────────────► GPIO 36 (CN1 pino 2)
                              ──► Resistor 10kΩ (pull-down)
                                  │
                                  ▼
@@ -112,7 +146,7 @@ ZMPT101B                    ESP32-2432S028R
 - Use Cabo Dupont macho-fêmea de 20cm
 - Fio vermelho: VCC → 5V
 - Fio preto: GND → GND
-- Fio amarelo: OUT → GPIO 34
+- Fio amarelo: OUT → GPIO 36
 
 > [!WARNING]
 > **Isolamento:** O ZMPT101B fornece isolação galvânica, mas manuseie com cuidado durante medições em alta tensão. Sempre desconecte a alimentação antes de manipular as conexões.
@@ -364,11 +398,11 @@ Adicione aqui uma imagem de diagrama de ligação visãoglobal.
 
 Antes de ligá-lo, verifique cada conexão:
 
-- [ ] ZMPT101B: VCC → 5V, GND → GND, OUT → GPIO 34
+- [ ] ZMPT101B: VCC → 5V, GND → GND, OUT → GPIO 36
 - [ ] INA219: VCC → 3.3V, GND → GND, SDA → 27, SCL → 22
 - [ ] DS18B20: VCC → 3.3V, GND → GND, DQ → GPIO 4 + resistor 4.7kΩ
-- [ ] Probe Principal: Sinal → GPIO 35, GND → GND
-- [ ] Resistor pull-down 10kΩ no GPIO 34 (ZMPT)
+- [ ] Probes: P1 → GPIO 35, P2 → GPIO 34
+- [ ] Resistor pull-down 10kΩ no GPIO 36 (ZMPT)
 - [ ] Verificar ausência de curto entre 5V e GND
 
 > [!DANGER]
@@ -380,7 +414,7 @@ Antes de ligá-lo, verifique cada conexão:
 
 | Problema | Causa Provável | Solução |
 |:---|:---|:---|
-| ZMPT não lê tensão | Pull-down ausente | Adicione resistor 10kΩ entre GPIO 34 e GND |
+| ZMPT não lê tensão | Pull-down ausente | Adicione resistor 10kΩ entre GPIO 36 e GND |
 | INA219 não responding | Endereço I2C conflito | Verifique endereços no barramento |
 | DS18B20 não detecta | Pull-up ausente | Adicione resistor 4.7kΩ entre DQ e 3.3V |
 | Leituras errôneas | Gnds não comuns | Use GND único para todas as referências |

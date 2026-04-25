@@ -16,7 +16,7 @@
 // 1. INFORMAÇÕES DO FIRMWARE
 // ============================================================================
 #define FW_NAME             "Sondvolt"
-#define FW_VERSION          "3.2.0"
+#define FW_VERSION          "3.2.1"
 #define FW_AUTHOR           "Eletrônica DIY"
 #define FW_YEAR             "2026"
 
@@ -29,13 +29,19 @@
 #define SCREEN_H            SCREEN_HEIGHT
 #define SCREEN_ROTATION     3   // Rotação Paisagem (Compatível com ILI9341_2)
 
-// Cores Modernas (RGB565) - Conjunto 1 (COLOR_*)
-#define COLOR_PRIMARY       0x07E0  // Verde
+// Cores Dinâmicas (RGB565) - Mapeadas para variáveis globais
+extern uint16_t clr_back;
+extern uint16_t clr_surf;
+extern uint16_t clr_text;
+extern uint16_t clr_dim;
+extern uint16_t clr_primary;
+
+#define COLOR_PRIMARY       clr_primary
 #define COLOR_ACCENT        0x001F  // Azul
-#define COLOR_BACKGROUND    0x0000  // Preto
-#define COLOR_SURFACE       0x1082  // Cinza Escuro
-#define COLOR_TEXT          0xFFFF  // Branco
-#define COLOR_TEXT_DIM      0xAD55  // Cinza Claro
+#define COLOR_BACKGROUND    clr_back
+#define COLOR_SURFACE       clr_surf
+#define COLOR_TEXT          clr_text
+#define COLOR_TEXT_DIM      clr_dim
 #define COLOR_GOOD          0x07E0  // Verde
 #define COLOR_SUSPECT       0xFFE0  // Amarelo
 #define COLOR_BAD           0xF800  // Vermelho
@@ -87,8 +93,8 @@
 #define ZMPT_ZERO_POINT         2048
 #define ZMPT_SAMPLE_RATE_US     500
 #define ZMPT_SCALE_FACTOR       1.0f
-#define ZMPT_NUM_SAMPLES        50
-#define TRUE_RMS_SAMPLES        50
+#define ZMPT_NUM_SAMPLES        128
+#define TRUE_RMS_SAMPLES        128
 
 #define MULTI_DC_RANGE_20V      20.0f
 #define MULTI_DC_RANGE_200V     200.0f

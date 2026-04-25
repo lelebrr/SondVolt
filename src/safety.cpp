@@ -48,7 +48,8 @@ void safety_init() {
     safetyStatus.state = SAFETY_STATE_SAFE;
     safetyStatus.hasFuseInstalled = false;
     safetyStatus.hasVaristorInstalled = false;
-    safetyStatus.safetyAcknowledged = true;
+    safetyStatus.safetyAcknowledged = false; // Exigir primeiro aceite
+    safetyCheckEnabled = true;
 
     pinMode(PIN_LED_RED, OUTPUT);
     pinMode(PIN_LED_GREEN, OUTPUT);
@@ -270,15 +271,15 @@ void safety_draw_confirm_screen() {
     tft.setTextColor(COLOR_TEXT);
     tft.setTextSize(1);
     tft.setCursor(10, 80);
-    tft.print("Para medir 220V AC, voce deve ter:");
+    tft.print("Para medir 220V AC com seguranca:");
 
     tft.setTextColor(COLOR_TEXT_DIM);
     tft.setCursor(10, 110);
-    tft.print("* Fusivel de protecao (1A)");
+    tft.print("* Fusivel Rapido 5A Instalado");
     tft.setCursor(10, 130);
-    tft.print("* Varistor (275V)");
+    tft.print("* Varistor 14D431 + TVS P6KE400A");
     tft.setCursor(10, 150);
-    tft.print("* Circuitos de protecao");
+    tft.print("* Filtro RC 100nF/10uF");
 
     tft.fillRoundRect(10, 180, SCREEN_WIDTH/2 - 15, 30, 4, COLOR_TEXT);
     tft.setTextColor(COLOR_BACKGROUND);

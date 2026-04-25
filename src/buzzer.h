@@ -39,5 +39,8 @@ void buzzer_alert();
 void buzzer_click();
 void buzzer_measure_start();
 void buzzer_measure_end();
+void buzzer_success();
+void buzzer_discharge();
+void buzzer_completion();
 
 #endif // BUZZER_H

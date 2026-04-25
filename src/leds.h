@@ -34,6 +34,14 @@ void led_off();
 
 // Cores predefinidas
 void led_set_color(uint8_t colorIndex);
+
+// Funções de Status Profissional
+void led_status_good();
+void led_status_bad();
+void led_status_working();
+void led_status_thermal();
+void led_status_danger();
+
 #define LEDC_RED     0
 #define LEDC_GREEN   1
 #define LEDC_BLUE    2

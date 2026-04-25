@@ -19,6 +19,7 @@ void graphics_draw_header(const char* title);
 void graphics_draw_button(int16_t x, int16_t y, int16_t w, int16_t h, const char* label, uint16_t color);
 void graphics_draw_splash();
 void graphics_draw_back_button();
+void graphics_draw_help_button();
 
 // Função Central de Ícones
 void draw_component_icon(IconType type, int16_t x, int16_t y, uint16_t color);
@@ -38,5 +39,6 @@ void draw_icon_temp(int16_t x, int16_t y, uint16_t size, uint16_t color);
 void draw_icon_history(int16_t x, int16_t y, uint16_t size, uint16_t color);
 void draw_icon_settings(int16_t x, int16_t y, uint16_t size, uint16_t color);
 void draw_icon_about(int16_t x, int16_t y, uint16_t size, uint16_t color);
+void draw_icon_continuity(int16_t x, int16_t y, uint16_t size, uint16_t color);
 
 #endif // GRAPHICS_H

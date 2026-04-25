@@ -1,4 +1,4 @@
-# Estrutura de Menus — Sondvolt v3.1
+# 📱 Estrutura de Menus — Sondvolt v3.2
 
 Este documento detalha a estrutura completa de menus e navegação da interface touchscreen do Sondvolt.
 
@@ -64,10 +64,15 @@ O menu de multímetro oferece duas categorias:
 | Leitura | Descrição |
 |:---|:---|
 | **V RMS** | Tensão eficaz (True RMS) |
-| **V Peak** | Tensão de pico |
+| **V Peak** | Tensão de pico máxima |
 | **Hz** | Frequência estimada |
+| **[SURGE!]** | Alerta visual de transientes |
 
-Selecione "AC" para activar o sensor ZMPT101B.
+**Fluxo de Segurança**:
+1. Toque em "AC" -> 
+2. Exibição de **Aviso de Hardware** -> 
+3. Usuário confirma instalação do Fusível/Varistor/TVS -> 
+4. Ativação do Sensor.
 
 ### Tensão DC (INA219)
 
@@ -146,10 +151,10 @@ Exibida no topo de todas as telas:
 
 | Campo | Descrição |
 |:---|:---|
-| **v3.0.0** | Versão do firmware |
+| **v3.2.0** | Versão do firmware |
 | **🌡️25°C** | Temperatura (se DS18B20 conectada) |
 | **💾** | SD Card OK (ou "✗" se erro) |
-| **⚡** | Status de energia |
+| **⚡ OK** | Status de Segurança (Verde/Amarelo/Vermelho) |
 
 ---
 
@@ -189,5 +194,5 @@ Se o touchscreen falhar, use os botões físicos:
 ---
 
 <p align="center">
-<i>Component Tester PRO v3.0 — Estrutura de Menus</i>
+<i>📱 Sondvolt v3.2 — Estrutura de Menus</i>
 </p>

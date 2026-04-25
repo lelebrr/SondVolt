@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <Arduino.h>
+#include "types.h"
 
 // ============================================================================
 // PINOS E CONFIGURAÇÕES DE HARDWARE
@@ -68,55 +69,24 @@
 // #define HIGH_VOLTAGE_THRESHOLD 50.0f   // Alerta de tensão alta (AC)
 
 // ============================================================================
-// MODOS DO MULTÍMETRO
-// ============================================================================
-
-enum MultimeterMode {
-    MMODE_DC_VOLTAGE = 0,      // Tensão DC (0-26V)
-    MMODE_AC_VOLTAGE = 1,      // Tensão AC (110V/220V)
-    MMODE_DC_CURRENT = 2,      // Corrente DC (0-3.2A)
-    MMODE_RESISTANCE = 3,      // Resistência (0-1MΩ)
-    MMODE_CONTINUITY = 4,     // Continuidade/curto
-    MMODE_POWER = 5           // Potência DC (calculada)
-};
-
-enum MeasurementRange {
-    RANGE_AUTO = 0,
-    RANGE_LOW = 1,
-    RANGE_MED = 2,
-    RANGE_HIGH = 3
-};
-
-// ============================================================================
-// ESTADO DO MULTÍMETRO
-// ============================================================================
-
-enum MultimeterState {
-    MSTATE_IDLE = 0,          // Em espera
-    MSTATE_MEASURING = 1,     // Medindo
-    MSTATE_ERROR = 2,         // Erro detectado
-    MSTATE_OVERLOAD = 3,      // Sobrecarga
-    MSTATE_SHORT = 4,         // Curto-circuito detectado
-    MSTATE_HIGH_VOLTAGE = 5     // Tensão alta detectada
-};
-
-// ============================================================================
-// RESULTADO DE MEDIÇÃO
+// RESULTADO DE MEDICAO
 // ============================================================================
 
 struct MultimeterReading {
-    float value;                  // Valor medido
-    float minValue;              // Valor mínimo (para estatísticas)
-    float maxValue;              // Valor máximo
-    float peakToPeak;            // Valor pico a pico (para AC)
+    float value;                  // Valor medido (RMS)
+    float peakValue;              // Valor de pico detectado
+    float minValue;               // Valor mínimo (para estatísticas)
+    float maxValue;               // Valor máximo
+    float peakToPeak;             // Valor pico a pico (para AC)
     const char* unit;             // String da unidade
-    const char* unitAbbrev;    // Abreviação da unidade
-    MultimeterMode mode;        // Modo atual
-    MultimeterState state;     // Estado do multímetro
-    MeasurementRange range;    // Range utilizado
-    bool valid;               // Leitura válida
-    unsigned long timestamp;   // Timestamp da leitura
-    uint16_t statusColor;     // Cor do status (para UI)
+    const char* unitAbbrev;       // Abreviação da unidade
+    MultimeterMode mode;          // Modo atual
+    MultimeterState state;        // Estado do multímetro
+    MeasurementRange range;       // Range utilizado
+    bool valid;                   // Leitura válida
+    bool surgeDetected;           // Se houve detecção de surto (pico repentino)
+    unsigned long timestamp;      // Timestamp da leitura
+    uint16_t statusColor;         // Cor do status (para UI)
 };
 
 // ============================================================================
