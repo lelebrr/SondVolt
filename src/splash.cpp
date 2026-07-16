@@ -52,7 +52,7 @@ void draw_splash_screen() {
         delay(25);
     }
     
-    draw_text_5x7(tft, SCREEN_WIDTH/2 - (15*6)/2, SCREEN_HEIGHT - 25, "v4.0 PRO - 2026", V_BG_HIGHLIGHT, 1);
+    draw_text_5x7(tft, SCREEN_WIDTH/2 - (15*6)/2, SCREEN_HEIGHT - 25, "v" FW_VERSION " PRO", V_BG_HIGHLIGHT, 1);
     
     UNLOCK_TFT();
     delay(400); 

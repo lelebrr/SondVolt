@@ -47,9 +47,6 @@ void set_both_leds(bool on) {
     set_red_led(on);
 }
 
-void update_leds() {
-}
-
 void flash_ok() {
     static unsigned long lastToggle = 0;
     static bool state = false;
@@ -140,7 +137,7 @@ void led_set_color(uint8_t colorIndex) {
         case LEDC_CYAN:    led_set_rgb(0, 255, 255); break;
         case LEDC_MAGENTA: led_set_rgb(255, 0, 255); break;
         case LEDC_WHITE:   led_set_rgb(255, 255, 255); break;
-        case 10:           led_set_rgb(128, 0, 128); break; // Purple for Thermal
+        case LEDC_PURPLE:  led_set_rgb(128, 0, 128); break; // Purple for Thermal
     }
 }
 

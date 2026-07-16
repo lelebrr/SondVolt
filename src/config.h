@@ -86,6 +86,21 @@ extern uint16_t clr_primary;
 #define ADC_REF_VOLT        3.3f
 #define ZMPT_CALIBRATION    1.0f
 
+// Resistência do pull-up para medição de resistência
+#define PULLUP_RESISTANCE       10000.0f
+// Limiares de tensão para julgamento de resistência
+#define ADC_OPEN_CIRCUIT_V      (ADC_REF_VOLT - 0.05f)
+#define ADC_SHORT_CIRCUIT_V     0.05f
+// Capacitor
+#define CAP_CHARGE_THRESHOLD    2600
+#define CAP_CHARGE_TIMEOUT_US   1000000
+// Temperatura
+#define THERMAL_WARNING_TEMP    70.0f
+#define THERMAL_CRITICAL_TEMP   90.0f
+// Multímetro
+#define SURGE_MULTIPLIER        1.414f  // sqrt(2)
+#define FILTER_ALPHA_DEFAULT    0.2f
+
 // ============================================================================
 // 4. PARÂMETROS DO MULTÍMETRO E SENSORES
 // ============================================================================
@@ -123,7 +138,7 @@ extern uint16_t clr_primary;
 #define DB_FILE_CSV         "/database.csv"
 
 // ============================================================================
-// 5. MACROS DE DEPURAÇÃO (Serial)
+// 6. MACROS DE DEPURAÇÃO (Serial)
 // ============================================================================
 #define LOG_SERIAL_F(x)      Serial.println(F(x))
 #define LOG_SERIAL_FMT(x, ...) Serial.printf(x, ##__VA_ARGS__)

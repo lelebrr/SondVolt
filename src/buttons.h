@@ -26,15 +26,6 @@ typedef struct {
 // ============================================================================
 #define HAS_PHYSICAL_BUTTONS 0   // Mude para 1 se soldou botões
 
-#if HAS_PHYSICAL_BUTTONS
-#define BTN_UP     0      // Botão "para cima"
-#define BTN_DOWN   35     // Botão "para baixo"
-#define BTN_LEFT   2     // Botão "esquerda"
-#define BTN_RIGHT  26     // Botão "direita"
-#define BTN_OK     32    // Botão "OK / CENTER"
-#define BTN_BACK   33    // Botão "voltar"
-#endif
-
 // Estados dos botões (para detecção de borda)
 typedef enum {
     BTN_STATE_IDLE = 0,   // Repouso (não pressionado)
@@ -63,7 +54,7 @@ bool btn_is_pressed(int btnId);
 bool btn_long_pressed(int btnId);
 bool btn_long_pressed_any();
 
-// Constantes dos botões
+// Constantes dos botões (índices lógicos)
 #define BTN_UP     0
 #define BTN_DOWN   1
 #define BTN_LEFT   2
@@ -79,5 +70,15 @@ bool btn_long_pressed_any();
 
 // Tempo para "long press" (ms)
 #define LONG_PRESS_MS 800
+
+// GPIO dos botões físicos (quando habilitados)
+#if HAS_PHYSICAL_BUTTONS
+#define PIN_BTN_UP     0
+#define PIN_BTN_DOWN   35
+#define PIN_BTN_LEFT   2
+#define PIN_BTN_RIGHT  26
+#define PIN_BTN_OK     32
+#define PIN_BTN_BACK   33
+#endif
 
 #endif // BUTTONS_H

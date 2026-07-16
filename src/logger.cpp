@@ -100,5 +100,4 @@ void logger_log(LogLevel level, const char* message) {
     Serial.printf("[%d] %s\n", level, message);
 }
 
-void logger_update() {}
 void logger_close() {}

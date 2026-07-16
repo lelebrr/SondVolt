@@ -165,18 +165,17 @@ void task_manager_delete_all() {
 // ============================================================================
 
 void task_manager_pause_all() {
-    // Verifica se as tarefas existem antes de suspender
     if (gMeasurementTaskHandle) vTaskSuspend(gMeasurementTaskHandle);
     if (gDisplayTaskHandle) vTaskSuspend(gDisplayTaskHandle);
+    if (gSafetyTaskHandle) vTaskSuspend(gSafetyTaskHandle);
     if (gLoggerTaskHandle) vTaskSuspend(gLoggerTaskHandle);
     if (gThermalTaskHandle) vTaskSuspend(gThermalTaskHandle);
-    // Safety nunca e pausada
 }
 
 void task_manager_resume_all() {
-    // Verifica se as tarefas existem antes de retomar
     if (gMeasurementTaskHandle) vTaskResume(gMeasurementTaskHandle);
     if (gDisplayTaskHandle) vTaskResume(gDisplayTaskHandle);
+    if (gSafetyTaskHandle) vTaskResume(gSafetyTaskHandle);
     if (gLoggerTaskHandle) vTaskResume(gLoggerTaskHandle);
     if (gThermalTaskHandle) vTaskResume(gThermalTaskHandle);
 }

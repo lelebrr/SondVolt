@@ -11,11 +11,11 @@
 // PROTÓTIPOS
 // ============================================================================
 
-// LEDs indicadores (verde/vermelho)
+// LEDs indicadores (verde/vermelho/azul)
 void leds_init();
-void update_leds();
 void set_green_led(bool on);
 void set_red_led(bool on);
+void set_blue_led(bool on);
 void set_both_leds(bool on);
 
 // Padrões de flashing
@@ -49,5 +49,6 @@ void led_status_danger();
 #define LEDC_CYAN    4
 #define LEDC_MAGENTA 5
 #define LEDC_WHITE   6
+#define LEDC_PURPLE  10
 
 #endif // LEDS_H

@@ -48,10 +48,6 @@ uint32_t badMeasurements = 0;
 float probeOffsetResistance = 0.0f;
 float probeOffsetCapacitance = 0.0f;
 
-// Variaveis de calibração para measurements.cpp
-float probeOffsetR = 0.0f;
-float probeOffsetC = 0.0f;
-
 // ============================================================================
 // SD CARD
 // ============================================================================

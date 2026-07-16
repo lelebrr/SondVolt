@@ -42,20 +42,13 @@ struct MenuButton {
 
 // Funções do Sistema de Menu
 void menu_init();
-void menu_render();
 void menu_handle_touch(int16_t x, int16_t y);
-void menu_change_state(UIState newState);
 void menu_draw();
 void menu_handle();
 void menu_refresh();
 void menu_scroll(int8_t direction);
 
 // Sub-telas de renderização
-void draw_main_menu();
-void draw_component_tester();
-void draw_multimeter_screen();
-void draw_thermal_screen();
-void draw_logs_screen();
 void draw_calibration_screen();
 
 #endif // MENU_H

@@ -94,7 +94,7 @@ SafetyCheckResult safety_check_voltage(float voltage) {
         result.isAcDanger = true;
         result.alertLevel = SAFETY_ALERT_MEDIUM;
         result.message = SAFETY_MSG_DANGER_HIGH;
-    } else if(voltage >= 50.0f) {
+    } else if(voltage >= SAFETY_VOLTAGE_DANGER_AC) {
         result.isAcDanger = true;
         result.alertLevel = SAFETY_ALERT_LOW;
         result.message = SAFETY_MSG_DANGER_HIGH;
@@ -220,7 +220,7 @@ void safety_draw_danger_screen(const char* message, float voltage) {
     tft.fillRoundRect(20, 160, SCREEN_WIDTH - 40, 30, 4, COLOR_TEXT);
     tft.setTextColor(COLOR_BACKGROUND);
     tft.setCursor(40, 168);
-    tft.print("CONTINUAR IGUALVEL");
+    tft.print("CONTINUAR MESMO ASSIM");
 
     tft.fillRoundRect(20, 200, SCREEN_WIDTH - 40, 30, 4, COLOR_SURFACE);
     tft.setTextColor(COLOR_TEXT);
@@ -535,7 +535,7 @@ SafetyCheckResult safety_detect_danger() {
 
     uint16_t adcValue = analogRead(PIN_ADC_ZMPT);
 
-    float voltage = (adcValue - ZMPT_ZERO_POINT) * ZMPT_SCALE_FACTOR / 2048.0f;
+    float voltage = (adcValue - ZMPT_ZERO_POINT) * ZMPT_SCALE_FACTOR / (float)ZMPT_ZERO_POINT;
     voltage = fabsf(voltage);
     
     vTaskDelay(1); // Pequeno yield para o sistema

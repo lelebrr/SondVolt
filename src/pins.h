@@ -63,8 +63,8 @@
 #define TOUCH_HSPI_HOST       HSPI_HOST
 #define TOUCH_PIN_NUM_MOSI    PIN_HSPI_MOSI
 #define TOUCH_PIN_NUM_MISO    PIN_HSPI_MISO
-#define TOUCH_PIN_NUM_CLK    PIN_HSPI_SCLK
-#define TOUCH_PIN_NUM_CS     PIN_TOUCH_CS
+#define TOUCH_PIN_NUM_CLK     PIN_HSPI_SCLK
+#define TOUCH_PIN_NUM_CS      PIN_TOUCH_CS
 
 // Configuracoes do touch (Calibradas para CYD - Versão Original)
 #define TOUCH_MIN_X           300     // Valor ADCmin X

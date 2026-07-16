@@ -32,9 +32,9 @@ float thermal_get_last() {
 }
 
 bool thermal_is_warning() {
-    return (lastTemp > 70.0f);
+    return (lastTemp > THERMAL_WARNING_TEMP);
 }
 
 bool thermal_is_critical() {
-    return (lastTemp > 90.0f);
+    return (lastTemp > THERMAL_CRITICAL_TEMP);
 }

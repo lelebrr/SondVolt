@@ -295,11 +295,3 @@ bool btn_long_pressed_any() {
     }
     return false;
 }
-
-// ============================================================================
-// UTILITARIOS
-// ============================================================================
-
-bool buzzer_enabled() {
-    return deviceSettings.soundEnabled;
-}

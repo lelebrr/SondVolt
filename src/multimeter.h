@@ -242,24 +242,6 @@ float multimeter_apply_filters(float rawValue);
 // Loop principal (chamar no loop do app)
 void multimeter_handle();
 
-// Atualiza display (chamar periodicamente)
-void multimeter_update_display();
-
-// Desenha tela completa do multímetro
-void multimeter_draw(const MultimeterReading* reading);
-
-// Desenha leitura grande (valor principal)
-void multimeter_draw_value(float value, const char* unit, uint16_t color);
-
-// Desenha indicadores de modo e range
-void multimeter_draw_indicators(MultimeterMode mode, MeasurementRange range);
-
-// Desenha alerta de segurança
-void multimeter_draw_alert(const char* message, uint16_t color);
-
-// Desenha histórico (gráfico ou lista)
-void multimeter_draw_history(const MeasurementHistory* history);
-
 // ============================================================================
 // PROTÓTIPOS — PROTEÇÃO / SEGURANÇA
 // ============================================================================

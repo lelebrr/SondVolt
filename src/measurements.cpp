@@ -21,13 +21,12 @@ static ComponentStatus lastStatus = STATUS_UNKNOWN;
 void measurements_init() {
     analogReadResolution(12);
     pinMode(PIN_PROBE_1, INPUT);
-    pinMode(PIN_PROBE_2, INPUT); 
+    pinMode(PIN_PROBE_2, INPUT);
     pinMode(PIN_ZMPT_OUT, INPUT);
-    
-    // Configura Pino de Descarga (Usando GPIO 27 como padrão se disponível)
-    #define PIN_DISCHARGE 27
-    pinMode(PIN_DISCHARGE, OUTPUT);
-    digitalWrite(PIN_DISCHARGE, LOW);
+
+    // Configura Pino de Descarga
+    pinMode(PIN_CAP_DISCHARGE, OUTPUT);
+    digitalWrite(PIN_CAP_DISCHARGE, LOW);
 }
 
 void measurements_discharge_capacitor() {
@@ -84,13 +83,13 @@ float measurements_read_ac_rms() {
     int samples = TRUE_RMS_SAMPLES;
     
     for (int i = 0; i < samples; i++) {
-        long val = analogRead(PIN_ZMPT_OUT) - 2048; // Offset do ZMPT (centro do ADC)
+        long val = analogRead(PIN_ZMPT_OUT) - ZMPT_ZERO_POINT; // Offset do ZMPT (centro do ADC)
         sumSquares += (val * val);
-        delayMicroseconds(500); // 2kHz sample rate
+        delayMicroseconds(ZMPT_SAMPLE_RATE_US); // 2kHz sample rate
     }
     
     float rms = sqrt(sumSquares / samples);
-    return rms * (MAX_VOLTAGE_AC / 2048.0f); // Calibração básica
+    return rms * (MAX_VOLTAGE_AC / (float)ZMPT_ZERO_POINT); // Calibração básica
 }
 
 float measurements_get_raw_resistance() {
@@ -98,10 +97,10 @@ float measurements_get_raw_resistance() {
     // R = R_pullup * (V_out / (V_in - V_out))
     uint16_t raw = analogRead(PIN_PROBE_1);
     float voltage = (float)raw * ADC_REF_VOLT / ADC_MAX_VAL;
-    if (voltage >= 3.25f) return 999999.0f; // Aberto
-    if (voltage <= 0.05f) return 0.0f;      // Curto
+    if (voltage >= ADC_OPEN_CIRCUIT_V) return RESISTANCE_MAX; // Aberto
+    if (voltage <= ADC_SHORT_CIRCUIT_V) return 0.0f;          // Curto
     
-    float resistance = 10000.0f * voltage / (ADC_REF_VOLT - voltage);
+    float resistance = PULLUP_RESISTANCE * voltage / (ADC_REF_VOLT - voltage);
     return resistance;
 }
 
@@ -116,7 +115,7 @@ float measurements_get_raw_capacitance() {
     pinMode(PIN_PROBE_1, INPUT);
     
     uint32_t start = micros();
-    while(analogRead(PIN_PROBE_1) < 2600 && (micros() - start < 1000000));
+    while(analogRead(PIN_PROBE_1) < CAP_CHARGE_THRESHOLD && (micros() - start < CAP_CHARGE_TIMEOUT_US));
     uint32_t duration = micros() - start;
     
     // C = t / (R * ln(2)) -> Aproximação linear para fins de UI
