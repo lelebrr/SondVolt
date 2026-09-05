@@ -1,114 +1,132 @@
 // ============================================================================
-// Sondvolt v3.0 — Buzzer (Implementação)
-// Hardware: ESP32-2432S028R (Cheap Yellow Display)
+// Sondvolt v4.0 - Buzzer / Audio
+// ============================================================================
+// Arquivo : buzzer.cpp
+//
+// Duas correcoes importantes em relacao a versao anterior:
+//   1. buzzer_init() nunca era chamado, entao o canal LEDC nunca era
+//      configurado e nenhum som saia da placa.
+//   2. buzzer_update() tambem nunca era chamado, entao o tom iniciado por
+//      buzzer_beep() ficava tocando para sempre. Agora o desligamento e
+//      garantido pela propria tarefa de interface.
+//
+// As sequencias de varios tons usam vTaskDelay em vez de delay() para nao
+// travar a tarefa que as chamou.
 // ============================================================================
 
 #include "buzzer.h"
+#include "hal.h"
 #include "config.h"
 #include "globals.h"
 
-static bool buzzerActive = false;
-static unsigned long buzzerStartTime = 0;
-static unsigned long buzzerDuration = 0;
+static bool     gInitialized  = false;
+static bool     gToneActive   = false;
+static uint32_t gToneStartMs  = 0;
+static uint32_t gToneDuration = 0;
 
-void buzzer_init() {
-    pinMode(PIN_BUZZER, OUTPUT);
-    // Usando LEDC para controle de tom no ESP32
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcAttach(PIN_BUZZER, 1000, 10);
-#else
-    ledcSetup(0, 1000, 10);
-    ledcAttachPin(PIN_BUZZER, 0);
-#endif
-    buzzer_no_tone();
+// Volume implementado como duty cycle: 50 % e o maximo de energia num
+// buzzer piezo; abaixo disso o som fica mais suave.
+static uint32_t duty_for_volume() {
+    const uint32_t full = (1UL << BUZZER_PWM_BITS) / 2;   // 50 %
+    return deviceSettings.strongBeep ? full : (full / 3);
 }
 
-void buzzer_beep(unsigned int freq, unsigned long durationMs) {
-    if (!deviceSettings.soundEnabled) return;
-    
-    buzzer_tone(freq);
-    buzzerStartTime = millis();
-    buzzerDuration = durationMs;
-    buzzerActive = true;
+void buzzer_init() {
+    if (gInitialized) return;
+    hal_pwm_attach(PIN_BUZZER, LEDC_CH_BUZZER, 1000, BUZZER_PWM_BITS);
+    hal_pwm_stop(PIN_BUZZER, LEDC_CH_BUZZER);
+    gInitialized = true;
+    LOG_SERIAL_F("[BUZ] Buzzer pronto");
+}
+
+static bool sound_allowed() {
+    return gInitialized && deviceSettings.soundEnabled && !deviceSettings.silentMode;
 }
 
 void buzzer_tone(unsigned int freq) {
-    if (!deviceSettings.soundEnabled) return;
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcWriteTone(PIN_BUZZER, freq);
-#else
-    ledcWriteTone(0, freq);
-#endif
+    if (!sound_allowed()) return;
+    hal_pwm_tone(PIN_BUZZER, LEDC_CH_BUZZER, freq);
+    hal_pwm_write(PIN_BUZZER, LEDC_CH_BUZZER, duty_for_volume());
 }
 
 void buzzer_no_tone() {
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-    ledcWrite(PIN_BUZZER, 0);
-#else
-    ledcWrite(0, 0);
-#endif
-    buzzerActive = false;
+    if (!gInitialized) return;
+    hal_pwm_stop(PIN_BUZZER, LEDC_CH_BUZZER);
+    gToneActive = false;
 }
 
+void buzzer_beep(unsigned int freq, unsigned long durationMs) {
+    if (!sound_allowed()) return;
+    buzzer_tone(freq);
+    gToneStartMs  = millis();
+    gToneDuration = durationMs;
+    gToneActive   = true;
+}
+
+// Chamada a cada ciclo da interface: e o que garante que o tom pare.
 void buzzer_update() {
-    if (buzzerActive) {
-        if (millis() - buzzerStartTime >= buzzerDuration) {
-            buzzer_no_tone();
-        }
+    if (!gToneActive) return;
+    if ((millis() - gToneStartMs) >= gToneDuration) {
+        buzzer_no_tone();
     }
 }
 
-// --- Funções de Feedback ---
+// Toca um tom de forma sincrona, cedendo o processador enquanto espera.
+static void blocking_tone(unsigned int freq, uint32_t ms) {
+    if (!sound_allowed()) return;
+    buzzer_tone(freq);
+    vTaskDelay(pdMS_TO_TICKS(ms));
+    buzzer_no_tone();
+}
+
+// ----------------------------------------------------------------------------
+// Vocabulario sonoro do aparelho
+// ----------------------------------------------------------------------------
+// Cada evento tem uma assinatura distinta para o tecnico reconhecer o
+// resultado sem tirar os olhos da placa.
+
+void buzzer_click() {
+    buzzer_beep(BUZZ_FREQ_CLICK, 25);
+}
 
 void buzzer_ok() {
-    // Som agudo e curto (ascendente para sucesso)
-    buzzer_beep(1200, 50);
-    delay(60);
-    buzzer_beep(1800, 80);
+    // Duas notas subindo: deu certo.
+    blocking_tone(1200, 45);
+    blocking_tone(1800, 70);
 }
 
 void buzzer_error() {
-    // Som grave e longo (descendente para erro)
-    buzzer_beep(400, 400);
+    // Nota grave e longa: deu errado.
+    blocking_tone(380, 350);
 }
 
 void buzzer_alert() {
-    // Sequência de 3 bips curtos
-    for(int i=0; i<3; i++) {
-        buzzer_beep(2000, 50);
-        delay(100);
+    // Tres bipes agudos: exige atencao imediata.
+    for (uint8_t i = 0; i < 3; i++) {
+        blocking_tone(2200, 60);
+        vTaskDelay(pdMS_TO_TICKS(70));
     }
 }
 
-void buzzer_click() {
-    buzzer_beep(BUZZ_FREQ_CLICK, 30);
-}
-
-void buzzer_measure_start() {
-    buzzer_beep(600, 50);
-}
-
-void buzzer_measure_end() {
-    buzzer_beep(1200, 80);
-}
+void buzzer_measure_start() { buzzer_beep(600, 40); }
+void buzzer_measure_end()   { buzzer_beep(1200, 60); }
 
 void buzzer_success() {
-    buzzer_beep(1500, 50);
-    delay(50);
-    buzzer_beep(2000, 100);
+    blocking_tone(1500, 50);
+    blocking_tone(2000, 90);
 }
 
 void buzzer_discharge() {
-    // Som descendente "sci-fi" para descarga
-    for(int f=2000; f>400; f-=100) {
+    // Varredura descendente enquanto o capacitor perde carga.
+    if (!sound_allowed()) return;
+    for (int f = 2000; f > 400; f -= 160) {
         buzzer_tone(f);
-        delay(30);
+        vTaskDelay(pdMS_TO_TICKS(25));
     }
     buzzer_no_tone();
 }
 
 void buzzer_completion() {
-    buzzer_beep(880, 100);
-    delay(50);
-    buzzer_beep(1320, 150);
+    blocking_tone(880, 90);
+    blocking_tone(1320, 130);
 }

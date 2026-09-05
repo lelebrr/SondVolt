@@ -1,5 +1,29 @@
-.pio
-.vscode/.browse.c_cpp.db*
+# ---- PlatformIO ----
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# ---- Editores e IDE ----
+.vscode/ipch/
 .vscode/c_cpp_properties.json
 .vscode/launch.json
-.vscode/ipch
+.cache/
+*.code-workspace
+
+# ---- Artefatos de build (nunca versionar) ----
+build_*.txt
+full_build_log*.txt
+compile_commands.json
+*.elf
+*.bin
+*.map
+*.hex
+
+# ---- Sistema operacional ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Python das ferramentas ----
+__pycache__/
+*.pyc

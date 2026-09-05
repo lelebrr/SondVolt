@@ -1,420 +1,210 @@
-# 📍 Referência Completa de Pinagem
+# Pinagem — ESP32-2432S028R (Cheap Yellow Display)
 
-<p align="center">
-  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
-</p>
-
-Este documento é a referência completa de todos os pinos da placa **ESP32-2432S028R (Cheap Yellow Display)** utilizada no **Sondvolt**.
+Este documento é a referência de fiação do Sondvolt. A fonte de verdade no código é `src/pins.h`, que contém `static_assert` verificando estas regras em tempo de compilação.
 
 ---
 
-## 1. Visão Geral da Placa
+## A regra que explica quase tudo
 
-### 1.1 Diagrama da Placa (Vista Traseira)
+> **GPIO 34, 35, 36, 37, 38 e 39 do ESP32 são ENTRADA APENAS.**
+>
+> Não possuem driver de saída nem resistores de pull internos. `pinMode(35, OUTPUT)` compila sem erro, executa sem erro e **não tem efeito algum**.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                    ESP32-2432S028R (Vista Traseira)                        │
-│                                                                             │
-│    ┌─────────────────────────────────────────────────────────────────┐     │
-│    │                                                                  │     │
-│    │   ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐        ┌─────────┐        │     │
-│    │   │ USB │  │BOOT │  │RST │  │ SD │        │  LDR    │        │     │
-│    │   │ C   │  │ BTN │  │    │  │card│        │ (Light) │        │     │
-│    │   └─────┘  └─────┘  └─────┘  └─────┘        └─────────┘        │     │
-│    │                                                                  │     │
-│    │   ┌─────────────────┐                    ┌────────────┐      │     │
-│    │   │ Expansion IO1   │                    │ Expansion IO2  │      │     │
-│    │   │  ┌──┬──┬──┬──┐ │                    │  ┌──┬──┬──┬──┐│      │     │
-│    │   │  │21│22│35│ G│ │                    │  │3V│27│22│ G││      │     │
-│    │   │  └──┴──┴──┴──┘ │                    │  └──┴──┴──┴──┘│      │     │
-│    │   └─────────────────┘                    └────────────┘      │     │
-│    │                                                                  │     │
-│    │                    ┌──────────────────────┐                    │     │
-│    │                    │   ESP32-WROOM-32      │                    │     │
-│    │                    │   (Módulo Principal)  │                    │     │
-│    │                    └──────────────────────┘                    │     │
-│    │                                                                  │     │
-│    │   ┌────────┐  ┌────────┐  ┌────────┐                             │     │
-│    │   │Speaker│  │RGB LED │  │Batt   │                             │     │
-│    │   │ Buzzer │  │   ●   │  │  conn │                             │     │
-│    │   └────────┘  └────────┘  └────────┘                             │     │
-│    │                                                                  │     │
-│    └─────────────────────────────────────────────────────────────────┘     │
-└──────────────────────────────────────────────────────────────────────────────┘
+A v3.2 tentava usar GPIO34 e GPIO35 como saída para excitar as pontas de prova. É por isso que resistência e capacitância nunca funcionaram, e é a razão de existir o circuito de excitação descrito abaixo.
+
+O código expressa essa regra em macros:
+
+```c
+#define IS_OUTPUT_CAPABLE_PIN(g)  ((g) >= 0 && (g) <= 33 && !((g) >= 6 && (g) <= 11))
+#define IS_INPUT_ONLY_PIN(g)      ((g) >= 34 && (g) <= 39)
+#define IS_ADC1_PIN(g)            ((g) >= 32 && (g) <= 39)
 ```
 
-### 1.2 Identificação dos Conectores
-
-| Conector | Função | Tipo | Pitch |
-|:---|:---|:---|:---|
-| **IO1** | Analógico/I2C (Probe 1/SCL) | JST 1.25mm 4p | 1.25mm |
-| **IO2** | I2C (SDA/SCL) | JST 1.25mm 4p | 1.25mm |
-| **USB-C** | Alimentação/Programação | USB-C | — |
-| **USB-micro**| Alimentação/Programação | USB-micro | — |
-| **SD Card** | Leitor microSD | Slot push-push | — |
-| **Speaker** | Conector Áudio | JST 1.25mm 2p | 1.25mm |
+GPIO6 a GPIO11 estão ligados à flash SPI interna e nunca devem ser usados.
 
 ---
 
-## 2. Mapeamento de GPIOs
+## Mapa completo (Rev A — fiação original)
 
-### 2.1 Periféricos Fixos ( pré-definidos)
+### Display TFT ILI9341
 
-| Periférico | Função | GPIO |Barramento| Observação |
-|:---|:---|:---|:---|:---|
-| **Display TFT** | CS | GPIO 15 | VSPI | Chip Select |
-| | DC | GPIO 2 | VSPI | Data/Command |
-| | SCK | GPIO 14 | VSPI | Clock |
-| | MOSI | GPIO 13 | VSPI | Master Out |
-| | MISO | GPIO 12 | VSPI | Master In |
-| **Backlight** | Brilho | GPIO 21 | PWM | Controle PWM |
-| **SD Card** | CS | GPIO 5 | HSPI | Chip Select |
-| | SCK | GPIO 18 | HSPI | Clock |
-| | MOSI | GPIO 23 | HSPI | Master Out |
-| | MISO | GPIO 19 | HSPI | Master In |
-| **Touchscreen** | CS | GPIO 33 | SoftSPI | Chip Select |
-| | CLK | GPIO 25 | SoftSPI | Clock |
-| | MOSI | GPIO 32 | SoftSPI | Master Out |
-| | MISO | GPIO 39 | SoftSPI | Master In |
-| | IRQ | GPIO 36 | — | Interrupção |
-| **LED RGB** | Vermelho | GPIO 4 | — | LED integrado (Comp. OneWire) |
-| | Verde | GPIO 16 | — | LED integrado |
-| | Azul | GPIO 17 | — | LED integrado (Comp. Discharge) |
-| **Buzzer** | Áudio | GPIO 26 | DAC | AUDIO: IO26 |
-| **ADC Probes** | Probe 1 | GPIO 35 | ADC1_CH7 | Expansion IO1 |
-| | Probe 2 | GPIO 34 | ADC1_CH6 | Internal Solder |
-| | ZMPT AC | GPIO 36 | ADC1_CH0 | Shared with Touch IRQ |
+| Sinal | GPIO | Observação |
+| :--- | :--- | :--- |
+| MOSI | 13 | fixo na placa |
+| MISO | 12 | fixo na placa |
+| SCK | 14 | fixo na placa |
+| CS | 15 | ativo baixo |
+| DC | 2 | 0 = comando, 1 = dado |
+| RST | 0 | reset por software |
+| BL | 21 | backlight por PWM, canal LEDC 0 |
 
-### 2.2 Barramentos de Expansão
+Estes pinos são consumidos pela TFT_eSPI através das `build_flags` do `platformio.ini`. Estão repetidos em `pins.h` apenas para consulta.
 
-| Função | GPIO | Barramento | Endereço |
-|:---|:---|:---|:---|
-| **I2C SDA** | GPIO 27 | I2C0 | 0x40 (INA219) |
-| **I2C SCL** | GPIO 22 | I2C0 | — |
-| **OneWire** | GPIO 4 | OneWire | — |
+### Touchscreen XPT2046
 
----
+| Sinal | GPIO | Observação |
+| :--- | :--- | :--- |
+| MOSI | 32 | barramento HSPI dedicado |
+| MISO | 39 | entrada apenas — correto para MISO |
+| SCK | 25 | |
+| CS | 33 | ativo baixo |
+| IRQ | 36 | **não usado** — veja conflitos |
 
-## 3. Detalhamento por Conector
+O firmware faz *polling* (`touch.touched()`) em vez de usar interrupção. Isso libera o GPIO36 para o ADC do ZMPT101B.
 
-### 3.1 CN1 — Conector Analógico
+### Cartão MicroSD
 
-Header de 4 pinos para 连接传感器 e probes.
+| Sinal | GPIO |
+| :--- | :--- |
+| MOSI | 23 |
+| MISO | 19 |
+| SCK | 18 |
+| CS | 5 |
 
-```
-IO1 (Vista Superior) - Perto do ESP32
-┌─────────────────────────────┐
-│  1   │  2   │  3   │  4    │
-│ GND  │ IO35 │ IO22 │ IO21  │
-├──────┼──────┼──────┼──────┤
-│      │PROBE1│ SCL  │ BLIGHT│
-└─────────────────────────────┘
-```
+> A documentação da v3.2 afirmava que o SD compartilhava barramento com a TFT e que era preciso desativar o CS do display antes de cada acesso. **Isso está errado** — o slot MicroSD da CYD tem pinos exclusivos. O mutex de SPI continua sendo usado, mas por causa da concorrência entre tarefas, não por compartilhamento de pinos.
 
-| Pino | GPIO | Função | Tipo | Descrição |
-|:---:|:---:|:---|:---|:---|
-| 1 | GND | Terra | Power | Terra comum |
-| 2 | GPIO 35 | Probe 1 | Entrada ADC | Sinal principal do probe |
-| 3 | GPIO 22 | I2C SCL | Output | Clock I2C |
-| 4 | GPIO 21 | Backlight | Output | Controle brilho (NÃO usar p/ dados) |
+O firmware tenta 10 MHz e cai automaticamente para 4 MHz em cartões que não aguentam.
 
-> [!CAUTION]
-> O pino 4 (5V/VIN) **não** é regulado! Use fonte de 5V estável ou 4.5-6V DC.
+### Entradas analógicas
 
-### 3.2 P3/J3 — Conector Digital
+Todas em **ADC1**. O ADC2 fica indisponível quando o WiFi está ativo, então nunca deve ser usado para medição.
 
-Conector JST PH de 4 pinos para módulos I2C e OneWire.
+| Função | GPIO | Canal |
+| :--- | :--- | :--- |
+| Ponta 1 (leitura) | 35 | ADC1_CH7 |
+| Ponta 2 (leitura) | 34 | ADC1_CH6 |
+| ZMPT101B (rede AC) | 36 | ADC1_CH0 |
 
-```
-IO2 (Vista Superior) - Perto do SD Card
-┌─────────────────────────────┐
-│  1   │  2   │  3   │  4    │
-│ GND  │ IO22 │ IO27 │ 3.3V  │
-├──────┼──────┼──────┼──────┤
-│      │ SCL  │ SDA  │ PWR   │
-└─────────────────────────────┘
-```
+### Excitação das pontas — novo na v4.0
 
-| Pino | GPIO | Função | Tipo | Descrição |
-|:---:|:---:|:---|:---|:---|
-| 1 | GND | Terra | Power | Terra comum |
-| 2 | GPIO 22 | I2C SCL | Output | Clock I2C |
-| 3 | GPIO 27 | I2C SDA | bidirecional | Dados I2C (INA219) |
-| 4 | 3.3V | VCC | Power | Alimentação 3.3V |
+| Função | GPIO | Resistor de referência |
+| :--- | :--- | :--- |
+| Drive faixa alta | 27 | 10 kΩ 1% |
+| Drive faixa baixa | 22 | 470 Ω 1% |
+| Descarga de capacitor | 17 | dreno de MOSFET |
 
-### 3.3 Conector de Alimentação
+Sem estes pinos não há como medir resistência nem capacitância. O esquema de ligação está em [WIRING.md](WIRING.md).
 
-```
-┌─────────────────────────────────────┐
-│         Conector USB-C              │
-├─────────────────────────────────────┤
-│  D+  │  D-  │  VBUS  │  GND   │
-│      │      │  5V   │       │
-└─────────────────────────────────────┘
-```
+### I²C
 
-| Pino | Função | Tensão | Corrente Máx |
-|:---|:---|:---|:---|
-| VBUS | 5V | 5V DC | 500mA (USB) |
-| GND | Terra | 0V | — |
+| Sinal | GPIO |
+| :--- | :--- |
+| SDA | 27 |
+| SCL | 22 |
+
+Frequência de 400 kHz. INA219 no endereço 0x40.
+
+### Saídas digitais
+
+| Função | GPIO | Observação |
+| :--- | :--- | :--- |
+| LED vermelho | 4 | **ânodo comum: LOW acende** |
+| LED verde | 16 | ânodo comum |
+| LED azul | 17 | ânodo comum |
+| Buzzer | 26 | PWM, canal LEDC 2 |
+| OneWire (DS18B20) | 4 | |
 
 ---
 
-## 4. Tabela Resumo de GPIO
+## Conflitos conhecidos (Rev A)
 
-### 4.1 Todos os GPIOs Utilizados
+Quatro pinos têm dois donos na fiação original. O firmware resolve todos em software, mas é importante saber que existem.
 
-| GPIO | Função | Tipo | Pull |備考 |
-|:---:|:---|:---|:---|:---|
-| **GPIO 0** | BOOT button | Input | Pull-up | Botão integrado |
-| **GPIO 2** | TFT DC | Output | — | Display |
-| **GPIO 4** | OneWire / LED Red| IO | — | **Compartilhado** |
-| **GPIO 5** | SD CS | Output | — | SD Card |
-| **GPIO 12** | TFT MISO | Input | — | Display |
-| **GPIO 13** | TFT MOSI | Output | — | Display |
-| **GPIO 14** | TFT SCK | Output | — | Display |
-| **GPIO 15** | TFT CS | Output | — | Display |
-| **GPIO 16** | LED Verde | Output | — | LED RGB |
-| **GPIO 17** | LED Azul / Discharge| Output | — | **Compartilhado** |
-| **GPIO 18** | SD SCK | Output | — | SD Card |
-| **GPIO 19** | SD MISO | Input | — | SD Card |
-| **GPIO 21** | Backlight PWM | Output | — | Display |
-| **GPIO 22** | I2C SCL | Output | — | Expansion IO1/IO2 |
-| **GPIO 23** | SD MOSI | Output | — | SD Card |
-| **GPIO 25** | Touch CLK | Output | — | Touchscreen |
-| **GPIO 26** | Audio / PWM | Output | DAC | AUDIO: IO26 |
-| **GPIO 27** | I2C SDA | IO | — | Expansion IO2 |
-| **GPIO 32** | Touch MOSI | Output | — | Touchscreen |
-| **GPIO 33** | Touch CS | Output | — | Touchscreen |
-| **GPIO 34** | Probe 2 Input | **Input only** | — | Internal |
-| **GPIO 35** | Probe 1 Input | **Input only** | — | Expansion IO1 |
-| **GPIO 36** | ZMPT / Touch IRQ | Input | — | Shared |
-| **GPIO 39** | Touch MISO | Input | — | Touchscreen |
+### GPIO4 — LED vermelho **e** barramento OneWire
 
-### 4.2 GPIOs Input-Only (Atenção!)
+**Sintoma sem tratamento:** com o LED vermelho aceso, o pino fica em nível alto e o DS18B20 não consegue responder. O sensor de temperatura "some" exatamente quando um alerta está ativo — o pior momento possível.
 
-```
-! (images/pinout_input_only.png)
-*[Destaque para GPIOs 34, 35, 36, 39 como entrada pura]*
-```
+**Tratamento:** `hal_bus_acquire(HAL_BUS_ONEWIRE)` apaga o LED, memoriza que ele estava aceso, empresta o pino, e `hal_bus_release()` restaura o LED ao estado anterior.
 
-Os seguintes GPIOs são **entrada pura** no ESP32:
+### GPIO17 — LED azul **e** descarga de capacitor
 
-| GPIO | Função | Advertência |
-|:---:|:---|:---|
-| **GPIO 34** | ADC1_CH6 | Não tem pull-up/down interno |
-| **GPIO 35** | ADC1_CH7 | Não tem pull-up/down interno |
-| **GPIO 36** | ADC1_CH0 | Não tem pull-up/down interno |
-| **GPIO 39** | ADC1_CH3 | Não tem pull-up/down interno |
+**Sintoma sem tratamento:** acender o LED azul aciona o MOSFET de descarga, aterrando a ponta 1 durante uma medição.
 
-> [!WARNING]
-> Estes GPIOs **não podem ser usados como saída**! Não tente controlar LEDs ou outros componentes com eles.
+**Tratamento:** mesma arbitragem, via `HAL_BUS_DISCHARGE`.
+
+### GPIO27 e GPIO22 — I²C **e** excitação das pontas
+
+**Sintoma sem tratamento:** acionar o drive das pontas no meio de uma transação com o INA219 corrompe os dois.
+
+**Tratamento:** `HAL_BUS_PROBE_DRIVE` e `HAL_BUS_I2C` se excluem mutuamente. Nunca acione o drive com uma leitura do INA219 em andamento.
+
+### GPIO36 — ZMPT101B **e** IRQ do touchscreen
+
+**Sintoma sem tratamento:** habilitar `attachInterrupt()` no touch tornaria as leituras do sensor AC inúteis.
+
+**Tratamento:** o firmware faz *polling* do touch. `TOUCH_IRQ_IS_USED` está definido como 0 em `pins.h` e não deve ser alterado na Rev A.
 
 ---
 
-## 5. Alimentação e Energia
+## Rev B — fiação recomendada para montagens novas
 
-### 5.1 Fontes de Alimentação
+Se você está montando do zero, não reproduza os conflitos. A Rev B move dois sinais para pinos livres:
 
-| Pino | Tensão | Uso Recomendado | Corrente Máx |
-|:---|:---|:---|:---|
-| **5V/VIN** | 4.5V - 6V | Módulos externos (ZMPT) | 500mA |
-| **3.3V** | 3.3V | Sensores I2C, DS18B20 | 500mA |
-| **GND** | 0V | Terra comum | — |
+| Sinal | Rev A | Rev B | Motivo |
+| :--- | :--- | :--- | :--- |
+| OneWire | 4 | 32 | libera o LED vermelho |
+| Descarga de capacitor | 17 | 16 | libera o LED azul |
 
-### 5.2 Diagrama de Alimentação
+Os conflitos de GPIO27/22 (I²C vs excitação) e GPIO36 (ZMPT vs IRQ) permanecem, porque são limitação dos conectores de expansão da própria CYD — mas ambos são inofensivos com a arbitragem em software.
 
+Para compilar na Rev B:
+
+```bash
+pio run -t upload -e cyd-revb
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      FONTES DE ALIMENTAÇÃO                    │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                          │
-│   USB-C (5V) ─────┬──► 5V/VIN ──► ZMPT101B           │
-│                  │                                       │
-│                  ├──► Regulador 3.3V ──► 3.3V ──► INA219│
-│                  │                         │         DS18B20   │
-│                  │                         │         Pull-ups │
-│                  │                         │                  │
-│                  │                         ▼                  │
-│                  │                      ┌──────────┐           │
-│                  │                      │   GND    │           │
-│                  │                      │   (0V)   │           │
-│                  └────────────────────┴──────────┘           │
-│                                                          │
-└──────────────────────────────────────────────────────────────┘
+
+Ou defina `-DSONDVOLT_HW_REV=1` nas suas próprias `build_flags`. O `pins.h` seleciona os pinos automaticamente:
+
+```c
+#if SONDVOLT_HW_REV >= 1
+  #define PIN_ONEWIRE         32
+  #define ONEWIRE_SHARED_WITH_LED 0
+#else
+  #define PIN_ONEWIRE         4
+  #define ONEWIRE_SHARED_WITH_LED 1
+#endif
 ```
+
+Com `SONDVOLT_HW_REV=1`, `hal_init()` registra os barramentos sem rival e a arbitragem vira uma operação de custo zero.
 
 ---
 
-## 6. Cores Recomendadas para Fios
+## Pinos livres
 
-### 6.1 Padrão de Cores
+Depois de tudo alocado, sobram poucos GPIOs na CYD:
 
-| Função | Cor Recomendada | Alternativa | Bitola |
-|:---|:---|:---|:---|
-| **5V / VCC** | Vermelho | Laranja | 24 AWG |
-| **3.3V** | Laranja | Amarelo | 26 AWG |
-| **GND** | Preto | Marrom | 24 AWG |
-| **Sinal Analógico** | Amarelo | Roxo | 26 AWG |
-| **I2C SDA** | Verde | Azul | 26 AWG |
-| **I2C SCL** | Azul | Verde | 26 AWG |
-| **OneWire DQ** | Branco | Cinzento | 26 AWG |
-| **Probe (+)** | Vermelho | — | 22 AWG |
-| **Probe (-)** | Preto | — | 22 AWG |
-| **LED/RGB** | Verde/VMelho/Azul | — | 26 AWG |
+| GPIO | Situação |
+| :--- | :--- |
+| 1, 3 | UART0 (serial de depuração) — evite |
+| 16 | livre na Rev A, usado na Rev B |
+| 32 | usado pelo touch (MOSI) na Rev A |
+| 34 | ponta 2, entrada apenas |
 
-### 6.2 Legenda Visual
-
-```
-! (images/pinout_wire_colors.png)
-*[Foto dos fios coloridos para cada função]*
-```
+Os conectores CN1 e P3 da CYD são o caminho prático para acessar os pinos de expansão.
 
 ---
 
-## 7. Tabela de Conflictos
+## Verificação em tempo de compilação
 
-### 7.1 Conflitos Conhecidos
+`pins.h` termina com asserções que quebram o build se a pinagem for reintroduzida de forma impossível:
 
-| GPIO | Conflito | Impacto | Solução |
-|:---|:---|:---|:---|
-| **GPIO 4** | LED Azul ↔ OneWire | LED pisca com dados | Use LED como indicador de dados |
-| **GPIO 26** | Buzzer ↔ PWM | Speaker toca ao gerar PWM | Desconecte speaker se necessário |
-| **GPIO 35** | Probe ↔ Button | — | — |
-| **GPIO 36** | Touch IRQ ↔ — | — | Usado internamente |
-
-### 7.2 Barramentos Compartilhados
-
+```c
+static_assert(IS_INPUT_ONLY_PIN(PIN_ADC_PROBE1),
+              "PIN_ADC_PROBE1 deve ser um pino de entrada do ADC1");
+static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_PROBE_DRIVE),
+              "PIN_PROBE_DRIVE precisa ter driver de saida");
+static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_CAP_DISCHARGE),
+              "PIN_CAP_DISCHARGE precisa ter driver de saida");
+static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_BUZZER),
+              "PIN_BUZZER precisa ter driver de saida");
+static_assert(IS_ADC1_PIN(PIN_ADC_ZMPT),
+              "O ZMPT101B precisa estar em um canal do ADC1");
 ```
-┌──────────────────────────────────────────────────────────┐
-│            BARRAMENTOS E COMPARTILHAMENTOS                │
-├──────────────────────────────────────────────────────────┤
-│                                                          │
-│  VSPI: GPIO 15(CS), 2(DC), 14(SCK), 13(MOSI), 12(MISO)  │
-│    └─ Display TFT                                         │
-│                                                          │
-│  HSPI: GPIO 5(CS), 18(SCK), 23(MOSI), 19(MISO)        │
-│    └─ SD Card                                             │
-│                                                          │
-│  SoftSPI: GPIO 33(CS), 25(CLK), 32(MOSI), 39(MISO),36   │
-│    └─ Touchscreen                                        │
-│                                                          │
-│  I2C0: GPIO 27(SDA), 22(SCL)                            │
-│    └─ INA219 (0x40) + outros dispositivos (0x??)        │
-│                                                          │
-│  OneWire: GPIO 4                                        │
-│    └─ DS18B20                                            │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-```
+
+Se você mudar a pinagem e o build falhar em uma destas linhas, o compilador está impedindo a repetição do bug que travou a v3.2.
 
 ---
 
-## 8. Pinout Detalhado por Módulo
+## Diagnóstico na tela
 
-### 8.1 Mapeamento ZMPT101B
-
-```
-┌─────────────────┐         ┌──────────────────────────────┐
-│    ZMPT101B      │         │         ESP32-CYD            │
-├─────────────────┤         ├──────────────────────────────┤
-│ VCC  ───────────┼─────────│ 5V (CN1 pino 4) + Cap 10µF  │
-│ GND ────────────┼─────────│ GND (CN1 pino 3)            │
-│ OUT ────────────┼─────────│ GPIO 34 + Cap 100nF         │
-│                 │         │ (Resistor 10kΩ para GND)    │
-└─────────────────┘         └──────────────────────────────┘
-```
-
-### 8.2 Mapeamento INA219
-
-```
-┌─────────────────┐         ┌─────────────────────┐
-│     INA219      │         │   ESP32-CYD         │
-├─────────────────┤         ├─────────────────────┤
-│ VCC  ───────────┼─────────│ 3.3V                │
-│ GND ────────────┼─────────│ GND                 │
-│ SDA ────────────┼─────────│ GPIO 27             │
-│ SCL ────────────┼─────────│ GPIO 22             │
-└─────────────────┘         └─────────────────────┘
-```
-
-### 8.3 Mapeamento DS18B20
-
-```
-┌─────────────────┐         ┌─────────────────────┐
-│    DS18B20      │         │   ESP32-CYD         │
-├─────────────────┤         ├──���─���────────────────┤
-│ VCC  ───────────┼─────────│ 3.3V                │
-│ GND ────────────┼─────────│ GND                 │
-│ DQ  ────────────┼─────────│ GPIO 4              │
-│        (4.7kΩ)  │         │ (pull-up para 3.3V)│
-└─────────────────┘         └─────────────────────┘
-```
-
-### 8.4 Mapeamento Probes
-
-```
-┌─────────────────┐         ┌─────────────────────┐
-│      Probes     │         │   ESP32-CYD         │
-├─────────────────┤         ├─────────────────────┤
-│ Probe 1 (Red)   ├─────────│ GPIO 35 (IO1 p2)    │
-│ Probe 2 (Black) ├─────────│ GND (IO1 pino 1)    │
-└─────────────────┘         └─────────────────────┘
-```
-
----
-
-## 9. Referência Rápida
-
-### 9.1 Pinagem Resumida
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    REFERÊNCIA RÁPIDA                           │
-├─────────────────┬──────────┬─────────────────────────────────┤
-│ Módulo          │ Pino CYD │ Função                          │
-├─────────────────┼──────────┼─────────────────────────────────┤
-│ Display TFT     │ 15,2,14, │ CS,DC,SCK,MOSI,MISO            │
-│                 │ 13,12   │                                 │
-│ Touchscreen     │ 33,25,32,│ CS,CLK,MOSI,MISO,IRQ           │
-│                 │ 39,36   │                                 │
-│ SD Card        │ 5,18,23, │ CS,SCK,MOSI,MISO              │
-│                 │ 19      │                                 │
-│ Backlight     │ 21       │ PWM                            │
-│ LED RGB       │ 16,17,4  │ Verde,Vermelho,Azul            │
-│ Buzzer        │ 26       │ DAC/PWM                        │
-│ ZMPT101B      │ 34       │ Entrada ADC                    │
-│ Probe        │ 35       │ Entrada ADC                   │
-│ INA219 (I2C) │ 27,22   │ SDA,SCL                      │
-│ DS18B20       │ 4       │ OneWire DQ                   │
-└─────────────────┴──────────┴───────────────────────────────┘
-```
-
-### 9.2 Imagem Resumo
-
-```
-! (images/pinout_cheatsheet.png)
-*[Imagem resumo paraimpressão]*
-```
-
----
-
-## 10. Notas Importantes
-
-> [!IMPORTANT]
-> 1. **GPIO 34/35** são entrada pura — não use como saída!
-> 2. **GPIO 4** controla LED azul E OneWire — pode haver interferência visual
-> 3. Não conecte dispositivos I2C com endereço **0x40** (INA219)
-> 4. Use **3.3V** para DS18B20 e INA219 — **não** 5V!
-> 5. O pino **5V/VIN** é direto — use fonte estável
-
----
-
-_Fim da Referência de Pinagem_
-
----
-
-> [!TIP]
-> Paravisualização interativa, consulte o diagrama interactivo em: `docs/INDEX.md`
-> Para troubleshooting, consulte `docs/TROUBLESHOOTING.md`
+`Mais > Diagnóstico` mostra o resultado do autoteste de cada subsistema. Se **Pontas de prova** aparecer como FALHA, o circuito de excitação não está montado ou está com problema — o firmware detecta isso alternando o nível de `PIN_PROBE_DRIVE` e verificando se a leitura da ponta 1 acompanha.

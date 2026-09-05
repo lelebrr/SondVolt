@@ -1,9 +1,19 @@
 // ============================================================================
-// Sondvolt v3.0 — Pinagem da Placa Cheap Yellow Display
+// Sondvolt v4.0 - Pinagem da Placa Cheap Yellow Display
 // Hardware: ESP32-2432S028R (CYD)
 // ============================================================================
-// Arquivo: pins.h
-// Descricao: Definicoes completas de pinagem para a CYD
+// Arquivo : pins.h
+// Objetivo: Fonte unica de verdade para TODA a pinagem do projeto.
+//
+// REGRA DE OURO DO ESP32
+// ----------------------
+//   GPIO 34, 35, 36, 37, 38, 39 sao ENTRADA APENAS (input-only).
+//   Eles NAO possuem driver de saida nem resistores de pull interno.
+//   Chamar pinMode(35, OUTPUT) / digitalWrite(35, x) NAO TEM EFEITO ALGUM.
+//   Toda excitacao de circuito precisa sair de um GPIO com driver de saida.
+//
+// Este arquivo declara explicitamente quais pinos podem acionar cargas
+// (IS_OUTPUT_CAPABLE_PIN) para que o firmware nunca tente o impossivel.
 // ============================================================================
 
 #ifndef PINS_H
@@ -12,266 +22,231 @@
 #include <driver/gpio.h>
 
 // ============================================================================
-// VERSAO E IDENTIFICACAO
+// 0. IDENTIFICACAO DA PLACA
 // ============================================================================
-#define BOARD_NAME           "ESP32-2432S028R (Cheap Yellow Display)"
-#define BOARD_VARIANT         "CYD 2.8\""
-#define BOARD_MANUFACTURER    "Makerfabs / ESP32-2432S028R"
+#define BOARD_NAME            "ESP32-2432S028R (Cheap Yellow Display)"
+#define BOARD_VARIANT         "CYD 2.8\" ILI9341 + XPT2046"
+#define BOARD_REVISION        "Rev A (fiacao original)"
 
-// ============================================================================
-// DISPLAY TFT ILI9341 (Barramento VSPI - Fixo na CYD)
-// ============================================================================
-// O display usa o barramento VSPI que e fixo no hardware da CYD
-// Pinosfisicos no ESP32:
-// ------------------------------------------------------------------------
+// Dimensoes do painel em pixels, na rotacao 3 (paisagem).
+#define SCREEN_W_PX           320
+#define SCREEN_H_PX           240
 
-// Barramento VSPI (Fixed hardware)
-#define PIN_VSPI_MOSI         13      // VSPI MOSI (GPIO13) - Dados para TFT
-#define PIN_VSPI_MISO         12      // VSPI MISO (GPIO12) - Leitura (nao usado)
-#define PIN_VSPI_SCLK         14      // VSPI Clock (GPIO14) - Clock SCK
-
-// Controle do TFT
-#define PIN_TFT_CS            15      // Chip Select (GPIO15) - ATIVO BAIXO
-#define PIN_TFT_DC            2       // Data/Command (GPIO2) - 0=comando, 1=dados
-#define PIN_TFT_RST           0       // Reset (GPIO0) - Controlado por software
-#define PIN_TFT_BL            21      // Backlight (GPIO21) - PWM controlavel
-
-// Configuracoes do barramento
-#define TFT_VSPI_HOST         VSPI_HOST
-#define TFT_DMA_CH            1
-#define TFT_PIN_NUM_MOSI      PIN_VSPI_MOSI
-#define TFT_PIN_NUM_MISO      PIN_VSPI_MISO
-#define TFT_PIN_NUM_CLK       PIN_VSPI_SCLK
-#define TFT_PIN_NUM_CS        PIN_TFT_CS
+// Selecione a revisao de hardware montada.
+//   0 = Rev A: fiacao original, pinos compartilhados (padrao, compativel)
+//   1 = Rev B: fiacao recomendada, sem compartilhamento (veja docs/PINOUT.md)
+#ifndef SONDVOLT_HW_REV
+#define SONDVOLT_HW_REV       0
+#endif
 
 // ============================================================================
-// TOUCH SCREEN XPT2046 (Barramento HSPI - Fixo na CYD)
+// 1. DISPLAY TFT ILI9341 - barramento SPI proprio da CYD
 // ============================================================================
-// O touch usa o barramento HSPI para n~ao conflitar com o TFT
-// ------------------------------------------------------------------------
+// Estes pinos sao fixos na placa e sao consumidos pela TFT_eSPI atraves das
+// build_flags do platformio.ini. Estao repetidos aqui apenas para consulta e
+// para as verificacoes de integridade em tempo de compilacao.
+#define PIN_TFT_MOSI          13      // VSPI MOSI
+#define PIN_TFT_MISO          12      // VSPI MISO
+#define PIN_TFT_SCLK          14      // VSPI SCK
+#define PIN_TFT_CS            15      // Chip Select (ativo baixo)
+#define PIN_TFT_DC            2       // Data/Command
+#define PIN_TFT_RST           0       // Reset por software
+#define PIN_TFT_BL            21      // Backlight (PWM via LEDC)
 
-// Barramento HSPI (Fixed hardware)
-#define PIN_HSPI_MOSI         32      // HSPI MOSI (GPIO32)
-#define PIN_HSPI_MISO         39      // HSPI MISO (GPIO39) - Leitura do touch
-#define PIN_HSPI_SCLK         25      // HSPI Clock (GPIO25)
+// Canal LEDC reservado para o backlight
+#define LEDC_CH_BACKLIGHT     0
+#define BACKLIGHT_PWM_FREQ    5000
+#define BACKLIGHT_PWM_BITS    8
+#define BACKLIGHT_PWM_MAX     255
 
-// Controle do Touch
-#define PIN_TOUCH_CS          33      // Chip Select (GPIO33) - ATIVO BAIXO
-#define PIN_TOUCH_IRQ         36      // IRQ (GPIO36 / SENSOR_VP)
-
-// Configuracoes do barramento
-#define TOUCH_HSPI_HOST       HSPI_HOST
-#define TOUCH_PIN_NUM_MOSI    PIN_HSPI_MOSI
-#define TOUCH_PIN_NUM_MISO    PIN_HSPI_MISO
-#define TOUCH_PIN_NUM_CLK     PIN_HSPI_SCLK
-#define TOUCH_PIN_NUM_CS      PIN_TOUCH_CS
-
-// Configuracoes do touch (Calibradas para CYD - Versão Original)
-#define TOUCH_MIN_X           300     // Valor ADCmin X
-#define TOUCH_MAX_X           3700    // Valor ADCmax X
-#define TOUCH_MIN_Y           600     // Valor ADCmin Y
-#define TOUCH_MAX_Y           3600    // Valor ADCmax Y
-#define TOUCH_MIN_PRESSURE    100     // Pressao minima valida
-#define TOUCH_MAX_PRESSURE    1000    // Pressao maxima
+// Aliases historicos
+#define PIN_VSPI_MOSI         PIN_TFT_MOSI
+#define PIN_VSPI_MISO         PIN_TFT_MISO
+#define PIN_VSPI_SCLK         PIN_TFT_SCLK
 
 // ============================================================================
-// CARTAO SD CARD (Barramento HSPI - Compartilhado com Touch!)
+// 2. TOUCHSCREEN XPT2046 - barramento SPI dedicado (HSPI)
 // ============================================================================
-// IMPORTANTE: O SD card usa os mesmos pinos fisicos do touch!
-// Para evitar conflitos, o CS do touch deve ser desabilitado quando usar SD
-// ------------------------------------------------------------------------
+#define PIN_HSPI_MOSI         32
+#define PIN_HSPI_MISO         39      // input-only, correto para MISO
+#define PIN_HSPI_SCLK         25
+#define PIN_TOUCH_CS          33
 
-// Pinos do SD (Barramento VSPI padrão na CYD para SD)
-#define PIN_SD_MOSI            23      // GPIO23
-#define PIN_SD_MISO           19      // GPIO19
-#define PIN_SD_SCLK           18      // GPIO18
+// ATENCAO: na CYD o pino IRQ do XPT2046 chega no GPIO36, que e o MESMO pino
+// usado pela entrada analogica do ZMPT101B. O firmware NAO usa a IRQ do touch
+// (faz polling via touch.touched()), portanto GPIO36 fica livre para o ADC.
+// Nunca habilite attachInterrupt(PIN_TOUCH_IRQ, ...) sem antes ler
+// docs/PINOUT.md, secao "Conflitos conhecidos".
+#define PIN_TOUCH_IRQ         36
+#define TOUCH_IRQ_IS_USED     0       // 0 = polling (obrigatorio na Rev A)
 
-// Controle do SD
-#define PIN_SD_CS             5       // Chip Select (GPIO5) - ATIVO BAIXO
-#define PIN_SD_DETECT         GPIO_NUM_NC  // Detect (nao conectado)
+// Limites brutos do ADC do touch, calibrados para a CYD em rotacao 3.
+#define TOUCH_RAW_X_MIN       200
+#define TOUCH_RAW_X_MAX       3700
+#define TOUCH_RAW_Y_MIN       240
+#define TOUCH_RAW_Y_MAX       3800
+#define TOUCH_MIN_PRESSURE    200     // Z minimo para considerar toque valido
+#define TOUCH_MAX_PRESSURE    4000
 
-// Configuracoes do barramento
-#define SD_SPI_HOST           VSPI_HOST  // Mesmo host do TFT
-#define SD_PIN_NUM_MOSI       PIN_SD_MOSI
-#define SD_PIN_NUM_MISO       PIN_SD_MISO
-#define SD_PIN_NUM_CLK        PIN_SD_SCLK
-#define SD_PIN_NUM_CS         PIN_SD_CS
-
-// Configuracoes do SD
-#define SD_FREQ_MAX           4000000 // 4MHz maximo (estavel)
-#define SD_FREQ_DEFAULT       2000000 // 2MHz default
-#define SD_MOUNT_POINT       "/sdcard"
-#define SD_MAX_FILES          10
+// Aliases historicos (mantidos para nao quebrar codigo antigo)
+#define TOUCH_MIN_X           TOUCH_RAW_X_MIN
+#define TOUCH_MAX_X           TOUCH_RAW_X_MAX
+#define TOUCH_MIN_Y           TOUCH_RAW_Y_MIN
+#define TOUCH_MAX_Y           TOUCH_RAW_Y_MAX
 
 // ============================================================================
-// MEDICOES ADC (Barramento ADC1)
+// 3. CARTAO MICROSD - barramento SPI proprio (NAO compartilhado com a TFT)
 // ============================================================================
-// O ESP32 tem 8 canais ADC1 (GPIO32-39) acessiveis
-// ------------------------------------------------------------------------
+// Ao contrario do que a documentacao antiga afirmava, na CYD o slot MicroSD
+// tem pinos exclusivos. Nao ha necessidade de desativar o CS da TFT antes de
+// acessar o cartao, embora o mutex de SPI continue sendo usado por seguranca.
+#define PIN_SD_MOSI           23
+#define PIN_SD_MISO           19
+#define PIN_SD_SCLK           18
+#define PIN_SD_CS             5
+#define SD_SPI_SPEED_MHZ      10      // 10 MHz e estavel com cabos curtos
+#define SD_SPI_SPEED_SAFE_MHZ 4       // fallback automatico se 10 MHz falhar
 
-// Pinos de entrada ADC
-#define PIN_ADC_PROBE1        35      // GPIO35 - Sonda 1 (ADC1_CH7)
-#define PIN_ADC_PROBE2         34      // GPIO34 - Sonda 2 (ADC1_CH6)
-#define PIN_ADC_ZMPT          36      // GPIO36 - Sensor AC ZMPT101B (ADC1_CH0)
+// ============================================================================
+// 4. ENTRADAS ANALOGICAS (todas em ADC1 - ADC2 conflita com WiFi)
+// ============================================================================
+#define PIN_ADC_PROBE1        35      // Ponta 1  - INPUT ONLY
+#define PIN_ADC_PROBE2        34      // Ponta 2  - INPUT ONLY
+#define PIN_ADC_ZMPT          36      // ZMPT101B - INPUT ONLY
 
-// Canais ADC
 #define ADC_CH_PROBE1         ADC1_CHANNEL_7
 #define ADC_CH_PROBE2         ADC1_CHANNEL_6
 #define ADC_CH_ZMPT           ADC1_CHANNEL_0
 
-// Configuracoes ADC
-#define ADC_WIDTH            ADC_WIDTH_12BIT  // 4095 valores (0-4095)
-#define ADC_ATTENUATION       ADC_ATTEN_DB_11  // 0-3.3V range
-#define ADC_TIMEOUT_MS       1000
+#define ADC_RESOLUTION_BITS   12
+#define ADC_MAX_COUNT         4095
 
 // ============================================================================
-// SENSOR DE TENSÃO AC (ZMPT101B)
+// 5. PINO DE EXCITACAO DAS PONTAS  (a correcao mais importante desta revisao)
 // ============================================================================
-// Modulo transformador de tens~ao AC
-// ------------------------------------------------------------------------
+// As pontas de prova estao em GPIO34/35, que sao input-only. Portanto o
+// firmware NAO consegue aplicar tensao nelas. Para medir resistencia e
+// capacitancia e obrigatorio um pino com driver de saida alimentando o
+// divisor atraves de um resistor de referencia conhecido.
+//
+//   +3V3 --[ PIN_PROBE_DRIVE ]--[ R_REF 10k 1% ]--+-- PROBE 1 (GPIO35, leitura)
+//                                                 |
+//                                            componente
+//                                                 |
+//                                                GND
+//
+// GPIO27 sai no conector de expansao P3 da CYD e possui driver completo.
+#define PIN_PROBE_DRIVE       27
+#define PROBE_REF_RESISTOR    10000.0f   // ohms, 1% recomendado
 
-#define PIN_ZMPT_OUT           PIN_ADC_ZMPT  // Saida analogica do ZMPT
-#define ZMPT_SAMPLE_RATE      1000        // Amostragens por ciclo
-#define ZMPT_NUM_SAMPLES     50          // Amostras para media
-#define ZMPT_CALIBRATION      1.0f       // Fator de calibra~ao
-#define ZMPT_TOLERANCE        5.0f        // Tolerancia (V)
+// Segundo pino de excitacao, usado nas faixas de baixa resistencia e no
+// teste de transistores. Opcional: se nao estiver soldado, o firmware desliga
+// automaticamente as funcoes que dependem dele (veja hal_probe_available()).
+#define PIN_PROBE_DRIVE_LOW   22
+#define PROBE_REF_RESISTOR_LOW 470.0f    // ohms, faixa de baixa impedancia
 
-// ============================================================================
-// SENSOR DE CORRENTE (INA219)
-// ============================================================================
-// Sensor I2C de corrente com shunt resistor
-// ------------------------------------------------------------------------
-
-#define PIN_INA_SDA           27      // I2C SDA (GPIO27) - Expansion IO2
-#define PIN_INA_SCL           22      // I2C SCL (GPIO22) - Expansion IO1/IO2
-#define INA_I2C_PORT          I2C_NUM_0
-#define INA_I2C_ADDR          0x40        // Endereco I2C padrao
-#define INA_SHUNT_OHMS        0.1f       // Resistor shunt (ohms)
-#define INA_MAX_AMPS          3.2f       // Corrente maxima (A)
-#define INA_CALIBRATION       1.0f       // Fator de calibraao
-#define INA_VBUS_MAX          32.0f      // Tensao maxima do bus (V)
-
-// ============================================================================
-// SAIDAS DIGITAIS (LEDs e Buzzer)
-// ============================================================================
-// pinos de saida para indicadores visuais e sonoros
-// ------------------------------------------------------------------------
-
-#define PIN_LED_RED           4       // LED Vermelho (GPIO4) - Standard CYD
-#define PIN_LED_GREEN         16      // LED Verde (GPIO16)
-#define PIN_LED_BLUE          17      // LED Azul (GPIO17)
-
-// Controle de Descarga de Capacitor
-#define PIN_CAP_DISCHARGE     17      // GPIO17 (Compartilhado com LED Azul)
-
-// Buzzer ativo (oscilador interno)
-#define PIN_BUZZER            26      // Buzzer PWM (GPIO26) - AUDIO: IO26
+// Descarga de capacitor: dreno de MOSFET/transistor que aterra a ponta 1.
+#if SONDVOLT_HW_REV >= 1
+  #define PIN_CAP_DISCHARGE   16        // Rev B: pino dedicado
+  #define CAP_DISCHARGE_SHARED_WITH_LED 0
+#else
+  #define PIN_CAP_DISCHARGE   17        // Rev A: compartilhado com LED azul
+  #define CAP_DISCHARGE_SHARED_WITH_LED 1
+#endif
 
 // ============================================================================
-// COMUNICACAO ONEWIRE (DS18B20)
+// 6. BARRAMENTO I2C (INA219, e futuramente MLX90640)
 // ============================================================================
-// Sensor de temperatura digital
-// ------------------------------------------------------------------------
+#define PIN_I2C_SDA           27
+#define PIN_I2C_SCL           22
+#define I2C_FREQ_HZ           400000
 
-#define PIN_ONEWIRE           4       // OneWire bus (GPIO4) - Compartilhado com LED Vermelho
-#define ONEWIRE_MAX_DEVICES   3       // Maximo dispositivos
-#define DS18B20_FAMILY       0x28      // Familia DS18B20
+#define INA219_ADDR           0x40
+#define INA219_SHUNT_OHMS     0.1f
+#define INA219_MAX_AMPS       3.2f
+#define INA219_VBUS_MAX       26.0f
 
-// ============================================================================
-// I2C EXPANSAO (FUTURO)
-// ============================================================================
-// Barramento I2C para sensores externos
-// ------------------------------------------------------------------------
+// Aliases historicos
+#define PIN_INA_SDA           PIN_I2C_SDA
+#define PIN_INA_SCL           PIN_I2C_SCL
+#define INA_I2C_ADDR          INA219_ADDR
+#define INA_SHUNT_OHMS        INA219_SHUNT_OHMS
+#define INA_MAX_AMPS          INA219_MAX_AMPS
+#define INA_VBUS_MAX          INA219_VBUS_MAX
 
-#define PIN_I2C_SDA           27      // I2C SDA (GPIO27) - Expansion IO2
-#define PIN_I2C_SCL           22      // I2C SCL (GPIO22) - Expansion IO1/IO2
-#define I2C_PORT             I2C_NUM_0
-#define I2C_FREQ             100000   // 100kHz padrao
-
-// ============================================================================
-// BOTOES (Direct wire to GPIO, sem divisor!)
-// ============================================================================
-// ATENCAO: A CYD tem botoes wired direct, sem resistores!
-// ------------------------------------------------------------------------
-
-// Mapeamento dos botoes (depende da biblioteca TFT_eSPI)
-// O Touch e usado para botoes virtuais na tela
-
-#define PIN_BTN_UP            GPIO_NUM_NC  // Nao conectado
-#define PIN_BTN_DOWN          GPIO_NUM_NC  // Nao conectado
-#define PIN_BTN_LEFT          GPIO_NUM_NC  // Nao conectado
-#define PIN_BTN_RIGHT         GPIO_NUM_NC  // Nao conectado
-#define PIN_BTN_OK            GPIO_NUM_NC  // Nao conectado
-#define PIN_BTN_BACK         GPIO_NUM_NC  // Nao conectado
+// NOTA DE CONFLITO: PIN_I2C_SDA (27) coincide com PIN_PROBE_DRIVE e
+// PIN_I2C_SCL (22) coincide com PIN_PROBE_DRIVE_LOW. Isso e intencional na
+// Rev A: os dois recursos compartilham o conector de expansao P3 e o firmware
+// faz arbitragem temporal (hal_bus_acquire / hal_bus_release em hal.h).
+// Nunca acione o drive das pontas com o INA219 no meio de uma transacao.
 
 // ============================================================================
-// PINOS NAO USADOS (Reserved)
+// 7. SAIDAS DIGITAIS - LEDs indicadores e buzzer
 // ============================================================================
-// Pinos reservados ou nao conectados
-// ------------------------------------------------------------------------
+#define PIN_LED_RED           4
+#define PIN_LED_GREEN         16
+#define PIN_LED_BLUE          17
 
-#define PIN_RESERVED_1       1       // UART0 TX (debug)
-#define PIN_RESERVED_2        3       // UART0 RX (debug)
-#define PIN_RESERVED_3        5       // SD CS (compartilhado!)
-// 9, 10, 11, 12 - Reserved for future use
-// 24, 28, 30, 31 - Nao disponiveis
+// Na CYD o LED RGB e de ANODO COMUM: nivel BAIXO acende.
+#define LED_ACTIVE_LEVEL      LOW
+#define LED_IDLE_LEVEL        HIGH
 
-// ============================================================================
-// MAPA DE INTERRUPÇÕES
-// ============================================================================
-// Definicoes de interrupcoes por evento
-// ------------------------------------------------------------------------
-
-#define IRQ_ADC_PROBE1        ADC1_CHANNEL_7
-#define IRQ_ADC_PROBE2        ADC1_CHANNEL_6
-#define IRQ_ADC_ZMPT          ADC1_CHANNEL_0
-#define IRQ_TOUCH             TOUCH_HSPI_HOST
+#define PIN_BUZZER            26
+#define LEDC_CH_BUZZER        2
+#define BUZZER_PWM_BITS       10
+#define PIN_SPEAKER           PIN_BUZZER
 
 // ============================================================================
-// VERIFICACOES DE HARDWARE
+// 8. ONEWIRE (DS18B20)
 // ============================================================================
-// Funcoes de validacao de pinagem
-// ------------------------------------------------------------------------
-
-// Verifica se pino e valido para ADC
-#define IS_ADC_PIN(gpio)      (((gpio) >= GPIO_NUM_32) && ((gpio) <= GPIO_NUM_39))
-
-// Verifica se pino e valido para saida
-#define IS_OUTPUT_PIN(gpio)   (((gpio) <= GPIO_NUM_27) && ((gpio) != GPIO_NUM_6) && \
-                             ((gpio) != GPIO_NUM_7) && ((gpio) != GPIO_NUM_8) && \
-                             ((gpio) != GPIO_NUM_9) && ((gpio) != GPIO_NUM_10))
-
-// Verifica pino pode ser CS
-#define IS_CS_PIN(gpio)       (((gpio) == 5) || ((gpio) == 15) || \
-                             ((gpio) == 33) || ((gpio) == 27))
+#if SONDVOLT_HW_REV >= 1
+  #define PIN_ONEWIRE         32        // Rev B: pino dedicado
+  #define ONEWIRE_SHARED_WITH_LED 0
+#else
+  #define PIN_ONEWIRE         4         // Rev A: compartilhado com LED vermelho
+  #define ONEWIRE_SHARED_WITH_LED 1
+#endif
+#define ONEWIRE_MAX_DEVICES   4
+#define DS18B20_FAMILY        0x28
+#define PIN_DS18B20           PIN_ONEWIRE
 
 // ============================================================================
-// COMPATIBILIDADE (Aliases para config.h)
+// 9. VERIFICACOES DE INTEGRIDADE
 // ============================================================================
-// Mantem compatibilidade com codigo existente
-// ------------------------------------------------------------------------
 
-// Display TFT
-#define PIN_TFT_CS_LEGACY    PIN_TFT_CS
-#define PIN_TFT_DC_LEGACY    PIN_TFT_DC
-#define PIN_TFT_MOSI         PIN_VSPI_MOSI
-#define PIN_TFT_SCLK         PIN_VSPI_SCLK
+// Verdadeiro apenas para GPIOs que possuem driver de saida no ESP32.
+#define IS_OUTPUT_CAPABLE_PIN(g)  ((g) >= 0 && (g) <= 33 && \
+                                   !((g) >= 6 && (g) <= 11))
 
-// Touch
-#define PIN_TOUCH_CS_LEGACY  PIN_TOUCH_CS
+// Verdadeiro para pinos que so aceitam leitura.
+#define IS_INPUT_ONLY_PIN(g)      ((g) >= 34 && (g) <= 39)
 
-// SD Card
-#define PIN_SD_CS_LEGACY     PIN_SD_CS
+// Verdadeiro para pinos ligados ao ADC1 (unico utilizavel com WiFi ativo).
+#define IS_ADC1_PIN(g)            (((g) >= 32 && (g) <= 39))
 
-// ADC
+// Aliases historicos
+#define IS_ADC_PIN(g)             IS_ADC1_PIN(g)
+#define IS_OUTPUT_PIN(g)          IS_OUTPUT_CAPABLE_PIN(g)
+
+// Falha o build cedo se alguem reintroduzir uma pinagem impossivel.
+static_assert(IS_INPUT_ONLY_PIN(PIN_ADC_PROBE1),
+              "PIN_ADC_PROBE1 deve ser um pino de entrada do ADC1");
+static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_PROBE_DRIVE),
+              "PIN_PROBE_DRIVE precisa ter driver de saida");
+static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_CAP_DISCHARGE),
+              "PIN_CAP_DISCHARGE precisa ter driver de saida");
+static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_BUZZER),
+              "PIN_BUZZER precisa ter driver de saida");
+static_assert(IS_ADC1_PIN(PIN_ADC_ZMPT),
+              "O ZMPT101B precisa estar em um canal do ADC1");
+
+// ============================================================================
+// 10. ALIASES DE COMPATIBILIDADE
+// ============================================================================
 #define PIN_PROBE_1           PIN_ADC_PROBE1
 #define PIN_PROBE_2           PIN_ADC_PROBE2
 #define PIN_ZMPT_AC           PIN_ADC_ZMPT
-
-// SD Card Aliases
+#define PIN_ZMPT_OUT          PIN_ADC_ZMPT
 #define SD_CS                 PIN_SD_CS
-
-// Thermal Sensor
-#define PIN_DS18B20           PIN_ONEWIRE
 
 #endif // PINS_H

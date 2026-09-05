@@ -1,519 +1,624 @@
 // ============================================================================
-// Sondvolt v3.x — Multímetro AC/DC com True RMS
-// Hardware: ESP32-2432S028R (Cheap Yellow Display)
+// Sondvolt v4.0 - Multimetro AC/DC com True RMS
 // ============================================================================
-// Arquivo: multimeter.cpp
-// Descricao: Implementacao completa do multimento AC/DC com ZMPT101B e INA219
+// Arquivo : multimeter.cpp
+//
+// Defeitos corrigidos nesta revisao
+// ---------------------------------
+//   1. FAIXA DC ERRADA POR PADRAO. A faixa inicial e RANGE_AUTO, mas o
+//      codigo antigo caia no ramo "else" e multiplicava a leitura por
+//      600/3.3 = 181. Uma bateria de 1.5 V aparecia como 272 V.
+//   2. INA219 SEM PROTOCOLO. As leituras chamavam requestFrom() sem antes
+//      escrever o ponteiro de registrador, e nao aplicavam os fatores de
+//      escala (4 mV/bit no barramento, 10 uV/bit no shunt). Os numeros eram
+//      aleatorios. Alem disso, o init do I2C rodava a cada leitura.
+//   3. FILTRO COMPARTILHADO ENTRE MODOS. O mesmo buffer de media movel
+//      atendia tensao, corrente e resistencia; ao trocar de modo a leitura
+//      nova era contaminada pela anterior por varios ciclos.
+//   4. RMS SEM REMOCAO DE OFFSET. O zero do ZMPT era assumido em 2048 fixo;
+//      qualquer desvio do trimpot virava tensao fantasma. Agora o offset e
+//      medido junto com o sinal.
 // ============================================================================
 
 #include "multimeter.h"
+#include "hal.h"
+#include "analysis.h"
 #include "config.h"
 #include "globals.h"
-#include "pins.h"
 #include "safety.h"
-#include "graphics.h"
 #include "buzzer.h"
-#include "display_globals.h"
-#include "display_mutex.h"
+#include "leds.h"
 #include <Wire.h>
+#include <Preferences.h>
+#include <math.h>
 
 // ============================================================================
-// VARIAVEIS GLOBAIS
+// REGISTRADORES DO INA219
+// ============================================================================
+static const uint8_t INA219_REG_CONFIG   = 0x00;
+static const uint8_t INA219_REG_SHUNT    = 0x01;
+static const uint8_t INA219_REG_BUS      = 0x02;
+static const uint8_t INA219_REG_CALIB    = 0x05;
+
+// 32 V, ganho /8 (+-320 mV no shunt), 12 bits com 128 amostras em media,
+// modo continuo de shunt e barramento.
+static const uint16_t INA219_CONFIG_32V_2A = 0x399F;
+
+// Escalas do datasheet
+static const float INA219_BUS_LSB_V    = 0.004f;    // 4 mV por bit
+static const float INA219_SHUNT_LSB_V  = 0.00001f;  // 10 uV por bit
+
+// ============================================================================
+// ESTADO
+// ============================================================================
+static MultimeterMode   gMode       = MMODE_DC_VOLTAGE;
+static MeasurementRange gRange      = RANGE_AUTO;
+static MultimeterState  gMeterState = MSTATE_IDLE;
+
+static MultimeterReading   gLastReading;
+static MeasurementHistory  gHistory;
+
+static uint32_t gLastUpdateMs = 0;
+
+static float gZmptGain       = ZMPT_DEFAULT_GAIN;  // volts por conta RMS
+static float gIna219Scale    = 1.0f;
+static float gShuntOhms      = INA219_SHUNT_OHMS;
+static float gDcDivider      = MULTI_DC_DIVIDER_11X;
+
+static bool  gIna219Present  = false;
+static float gLastPeakVolts  = 0.0f;
+
+static Preferences gPrefs;
+
+// ----------------------------------------------------------------------------
+// Um filtro independente por modo: trocar de modo nao contamina a leitura.
+// ----------------------------------------------------------------------------
+struct ModeFilter {
+    float   buffer[ZMPT_FILTER_SIZE];
+    uint8_t index;
+    uint8_t filled;
+    float   sum;
+    float   exponential;
+    bool    primed;
+};
+
+static ModeFilter gFilters[6];   // um por MultimeterMode
+
+static void filter_reset(ModeFilter& f) {
+    memset(&f, 0, sizeof(ModeFilter));
+}
+
+static float filter_apply(ModeFilter& f, float value) {
+    // Media movel para cortar ruido de banda larga...
+    f.sum -= f.buffer[f.index];
+    f.buffer[f.index] = value;
+    f.sum += value;
+    f.index = (uint8_t)((f.index + 1) % ZMPT_FILTER_SIZE);
+    if (f.filled < ZMPT_FILTER_SIZE) f.filled++;
+
+    float movingAvg = f.sum / (float)f.filled;
+
+    // ...seguida de um filtro exponencial para dar estabilidade ao display.
+    if (!f.primed) { f.exponential = movingAvg; f.primed = true; }
+    else {
+        f.exponential = FILTER_ALPHA_DEFAULT * movingAvg +
+                        (1.0f - FILTER_ALPHA_DEFAULT) * f.exponential;
+    }
+    return f.exponential;
+}
+
+// ============================================================================
+// I2C DE BAIXO NIVEL
 // ============================================================================
 
-static MultimeterMode currentMode = MMODE_DC_VOLTAGE;
-static MeasurementRange currentRange = RANGE_AUTO;
-static MultimeterState meterState = MSTATE_IDLE;
+static bool ina219_write_reg(uint8_t reg, uint16_t value) {
+    Wire.beginTransmission(INA219_ADDR);
+    Wire.write(reg);
+    Wire.write((uint8_t)(value >> 8));
+    Wire.write((uint8_t)(value & 0xFF));
+    return (Wire.endTransmission() == 0);
+}
 
-static MultimeterReading lastReading;
-static MeasurementHistory history;
+// Le um registrador de 16 bits. Devolve false se o dispositivo nao responder.
+static bool ina219_read_reg(uint8_t reg, uint16_t* out) {
+    Wire.beginTransmission(INA219_ADDR);
+    Wire.write(reg);
+    if (Wire.endTransmission(false) != 0) return false;   // repeated start
 
-static unsigned long lastUpdateMs = 0;
-static unsigned long measureStartMs = 0;
+    if (Wire.requestFrom((uint8_t)INA219_ADDR, (uint8_t)2) != 2) return false;
 
-static float zmptCalibration = ZMPT_CALIBRATION;
-static float ina219Calibration = INA_CALIBRATION;
-static float shuntResistance = INA_SHUNT_OHMS;
-
-static float filterBuffer[ZMPT_FILTER_SIZE];
-static uint8_t filterIndex = 0;
-static float filterSum = 0;
-
-static bool highVoltageAlert = false;
-static bool shortCircuitAlert = true;
-static bool soundEnabled = true;
-
-static TaskHandle_t acMeasureTaskHandle = nullptr;
+    uint16_t value = ((uint16_t)Wire.read() << 8);
+    value |= (uint16_t)Wire.read();
+    if (out) *out = value;
+    return true;
+}
 
 // ============================================================================
 // INICIALIZACAO
 // ============================================================================
 
-void multimeter_init(bool calibrate) {
-    memset(&lastReading, 0, sizeof(MultimeterReading));
-    memset(&history, 0, sizeof(MeasurementHistory));
+bool multimeter_ina219_init() {
+    // O barramento I2C divide pinos com o drive das pontas na Rev A.
+    if (!hal_bus_acquire(HAL_BUS_I2C, 200)) return false;
 
-    // Inicialização ADC básica (sempre funciona)
-    multimeter_adc_init();
+    Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+    Wire.setClock(I2C_FREQ_HZ);
 
-    // Tenta inicializar INA219 (opcional)
-    bool ina219Ok = multimeter_ina219_init();
-    if (!ina219Ok) {
-        LOG_SERIAL_F("[MULTI] INA219 não detectado, usando modo ADC apenas");
+    Wire.beginTransmission(INA219_ADDR);
+    bool present = (Wire.endTransmission() == 0);
+
+    if (present) {
+        ina219_write_reg(INA219_REG_CONFIG, INA219_CONFIG_32V_2A);
+        // Calibracao para LSB de corrente de 100 uA com shunt de 0.1 ohm:
+        //   cal = 0.04096 / (current_LSB * Rshunt)
+        uint16_t cal = (uint16_t)(0.04096f / (0.0001f * gShuntOhms));
+        ina219_write_reg(INA219_REG_CALIB, cal);
     }
 
-    // Carrega ou calibra
-    if(calibrate) {
-        multimeter_reset_calibration();
-    } else {
-        multimeter_load_calibration();
-    }
-
-    if(soundEnabled) {
-        buzzer_beep(BUZZER_FREQ_OK, 50);
-    }
+    hal_bus_release(HAL_BUS_I2C);
+    gIna219Present = present;
+    return present;
 }
 
 void multimeter_adc_init() {
-    pinMode(PIN_ADC_PROBE1, INPUT);
-    pinMode(PIN_ADC_PROBE2, INPUT);
-
-    analogReadResolution(12);
+    // Ja feito por hal_init(); mantido para compatibilidade de chamadas.
 }
 
-bool multimeter_ina219_init() {
-    Wire.begin(PIN_INA_SDA, PIN_INA_SCL);
-    Wire.setClock(400000);
+void multimeter_init(bool calibrate) {
+    memset(&gLastReading, 0, sizeof(gLastReading));
+    memset(&gHistory, 0, sizeof(gHistory));
+    for (uint8_t i = 0; i < 6; i++) filter_reset(gFilters[i]);
 
-    Wire.beginTransmission(INA_I2C_ADDR);
-    uint8_t error = Wire.endTransmission();
+    gMode  = MMODE_DC_VOLTAGE;
+    gRange = RANGE_AUTO;
 
-    if(error == 0) {
-        return true;
+    if (calibrate) multimeter_reset_calibration();
+    else           multimeter_load_calibration();
+
+    if (multimeter_ina219_init()) {
+        LOG_SERIAL_F("[MUL] INA219 detectado e calibrado");
+    } else {
+        LOG_SERIAL_F("[MUL] INA219 ausente: corrente e potencia desativadas");
     }
-    return false;
 }
 
 void multimeter_shutdown() {
-    if(acMeasureTaskHandle != nullptr) {
-        vTaskDelete(acMeasureTaskHandle);
-        acMeasureTaskHandle = nullptr;
-    }
-
     multimeter_save_calibration();
+    multimeter_clear_alerts();
 }
+
+bool multimeter_ina219_present() { return gIna219Present; }
 
 // ============================================================================
 // LEITURAS
 // ============================================================================
 
 float multimeter_read_dc_voltage() {
-    uint16_t adcValue = analogRead(PIN_ADC_PROBE1);
+    // A ponta 1 recebe a tensao atraves de um divisor externo. gDcDivider
+    // guarda a razao real desse divisor (1.0 se a medida for direta).
+    float v = hal_adc_read_volts(PIN_ADC_PROBE1, 24) * gDcDivider;
 
-    float voltage = (adcValue * ADC_REF_VOLT / ADC_MAX_VAL);
-
-    if(currentRange == RANGE_LOW) {
-        voltage *= MULTI_DC_RANGE_20V / 3.3f;
-    } else if(currentRange == RANGE_MED) {
-        voltage *= MULTI_DC_RANGE_200V / 3.3f;
-    } else {
-        voltage *= MULTI_DC_RANGE_600V / 3.3f;
+    // Auto-range: se o divisor de 11x estiver deixando a leitura muito baixa,
+    // avisa que o usuario pode passar para a entrada direta e ganhar
+    // resolucao. Nao ha rele para trocar sozinho.
+    if (gRange == RANGE_AUTO) {
+        gRange = (v < MULTI_DC_RANGE_3V) ? RANGE_LOW : RANGE_HIGH;
     }
 
-    return multimeter_apply_filters(voltage);
+    return filter_apply(gFilters[MMODE_DC_VOLTAGE], v);
 }
 
 float multimeter_read_dc_current() {
-    if(!multimeter_ina219_init()) {
-        return 0.0f;
-    }
+    if (!gIna219Present) return 0.0f;
+    if (!hal_bus_acquire(HAL_BUS_I2C, 100)) return gLastReading.value;
 
-    if (Wire.requestFrom(INA_I2C_ADDR, (uint8_t)4) == 4) {
-        uint16_t busVoltage = (uint16_t)Wire.read() << 8;
-        busVoltage |= (uint16_t)Wire.read();
-    }
+    uint16_t raw = 0;
+    bool ok = ina219_read_reg(INA219_REG_SHUNT, &raw);
+    hal_bus_release(HAL_BUS_I2C);
 
-    if (Wire.requestFrom(INA_I2C_ADDR, (uint8_t)2) == 2) {
-        uint16_t shuntVoltage = (uint16_t)Wire.read() << 8;
-        shuntVoltage |= (uint16_t)Wire.read();
-        float current = ((float)(int16_t)shuntVoltage / 1000.0f) / shuntResistance;
-        return multimeter_apply_filters(current);
-    }
-    return 0.0f;
+    if (!ok) { gIna219Present = false; return 0.0f; }
+
+    // O registrador de shunt e um inteiro com sinal em complemento de dois.
+    int16_t signedRaw = (int16_t)raw;
+    float shuntVolts  = (float)signedRaw * INA219_SHUNT_LSB_V;
+    float amps        = (shuntVolts / gShuntOhms) * gIna219Scale;
+
+    return filter_apply(gFilters[MMODE_DC_CURRENT], amps);
+}
+
+// Tensao do barramento medida pelo proprio INA219 (entrada V+).
+float multimeter_read_bus_voltage() {
+    if (!gIna219Present) return 0.0f;
+    if (!hal_bus_acquire(HAL_BUS_I2C, 100)) return 0.0f;
+
+    uint16_t raw = 0;
+    bool ok = ina219_read_reg(INA219_REG_BUS, &raw);
+    hal_bus_release(HAL_BUS_I2C);
+
+    if (!ok) { gIna219Present = false; return 0.0f; }
+
+    // Bits 15:3 carregam o valor; bit 0 sinaliza estouro de escala.
+    if (raw & 0x0001) { gMeterState = MSTATE_OVERLOAD; }
+    return (float)(raw >> 3) * INA219_BUS_LSB_V;
 }
 
 float multimeter_read_resistance() {
-    pinMode(PIN_ADC_PROBE2, OUTPUT);
-    digitalWrite(PIN_ADC_PROBE2, HIGH);
-
-    delayMicroseconds(100);
-
-    uint16_t adcValue = analogRead(PIN_ADC_PROBE1);
-
-    pinMode(PIN_ADC_PROBE2, INPUT);
-
-    float voltage = adcValue * ADC_REF_VOLT / ADC_MAX_VAL;
-    if (voltage >= 3.29f) return RESISTANCE_MAX;
-    float resistor = 10000.0f * voltage / (3.3f - voltage);
-
-    if(voltage < 0.01f) {
-        return 0.0f;
-    }
-
-    return multimeter_apply_filters(resistor);
-}
-
-static float lastPeakValue = 0.0f;
-
-float multimeter_read_ac_voltage_rms() {
-    int16_t samples[ZMPT_NUM_SAMPLES];
-    uint32_t sampleCount = 0;
-    int16_t maxSample = 0;
-
-    for(int i = 0; i < ZMPT_NUM_SAMPLES; i++) {
-        uint16_t adcValue = analogRead(PIN_ADC_ZMPT);
-        int16_t sample = (int16_t)adcValue - ZMPT_ZERO_POINT;
-        samples[sampleCount++] = sample;
-        
-        int16_t absSample = (sample < 0) ? -sample : sample;
-        if (absSample > maxSample) maxSample = absSample;
-
-        delayMicroseconds(ZMPT_SAMPLE_RATE_US);
-    }
-
-    float rms = multimeter_calculate_rms(samples, sampleCount);
-    float voltage = rms * ZMPT_SCALE_FACTOR * zmptCalibration / 2048.0f;
-    
-    // Calcula valor de pico real em Volts
-    lastPeakValue = (maxSample * ZMPT_SCALE_FACTOR * zmptCalibration / 2048.0f);
-
-    return multimeter_apply_filters(voltage);
+    // A medicao de resistencia usa o circuito de pontas, nao a entrada do
+    // multimetro. Delegar evita duas implementacoes divergentes.
+    float r = analysis_measure_resistance(PROBE_RANGE_AUTO);
+    return filter_apply(gFilters[MMODE_RESISTANCE], r);
 }
 
 float multimeter_calculate_rms(const int16_t* samples, uint16_t count) {
-    if(count == 0) return 0.0f;
+    if (!samples || count == 0) return 0.0f;
 
-    float sumSquares = 0.0f;
+    // Soma em double: 256 amostras de ate 2048 ao quadrado passam de 1e9 e
+    // perderiam precisao em float.
+    double sumSquares = 0.0;
+    for (uint16_t i = 0; i < count; i++) {
+        double s = (double)samples[i];
+        sumSquares += s * s;
+    }
+    return (float)sqrt(sumSquares / (double)count);
+}
 
-    for(uint16_t i = 0; i < count; i++) {
-        float sample = (float)samples[i];
-        sumSquares += sample * sample;
+float multimeter_read_ac_voltage_rms() {
+    static int16_t samples[ZMPT_NUM_SAMPLES];
+
+    // Passo 1: coleta bruta com intervalo fixo.
+    int32_t sum = 0;
+    uint16_t rawMin = ADC_MAX_COUNT, rawMax = 0;
+
+    for (uint16_t i = 0; i < ZMPT_NUM_SAMPLES; i++) {
+        uint16_t raw = hal_adc_read(PIN_ADC_ZMPT);
+        samples[i] = (int16_t)raw;
+        sum += raw;
+        if (raw < rawMin) rawMin = raw;
+        if (raw > rawMax) rawMax = raw;
+        delayMicroseconds(ZMPT_SAMPLE_RATE_US);
     }
 
-    float rms = sqrtf(sumSquares / (float)count);
+    // Passo 2: o zero e a MEDIA das amostras, nao um 2048 fixo. Assim um
+    // trimpot fora do centro nao vira tensao fantasma.
+    const int16_t zero = (int16_t)(sum / ZMPT_NUM_SAMPLES);
+    for (uint16_t i = 0; i < ZMPT_NUM_SAMPLES; i++) {
+        samples[i] = (int16_t)(samples[i] - zero);
+    }
 
-    return rms;
+    // Passo 3: RMS em contas de ADC, depois convertido pela calibracao.
+    float rmsCounts = multimeter_calculate_rms(samples, ZMPT_NUM_SAMPLES);
+    float volts = rmsCounts * gZmptGain;
+
+    // Piso de ruido: abaixo de ~2 contas RMS nao ha sinal, so ruido do ADC.
+    if (rmsCounts < 2.0f) volts = 0.0f;
+
+    // Pico real, util para detectar surtos e formas de onda distorcidas.
+    int16_t peakCounts = (int16_t)max((int)(rawMax - zero), (int)(zero - rawMin));
+    gLastPeakVolts = (float)peakCounts * gZmptGain;
+
+    return filter_apply(gFilters[MMODE_AC_VOLTAGE], volts);
 }
 
 bool multimeter_test_short() {
-    float resistance = multimeter_read_resistance();
-    return (resistance < SHORT_CIRCUIT_OHMS);
+    return (multimeter_read_resistance() < SHORT_CIRCUIT_OHMS);
 }
 
+// ============================================================================
+// LEITURA COMPLETA
+// ============================================================================
+
 MultimeterReading multimeter_read() {
-    MultimeterReading reading;
-    memset(&reading, 0, sizeof(MultimeterReading));
+    MultimeterReading r;
+    memset(&r, 0, sizeof(r));
+    r.mode      = gMode;
+    r.range     = gRange;
+    r.timestamp = millis();
+    r.valid     = true;
 
-    reading.mode = currentMode;
-    reading.range = currentRange;
-    reading.timestamp = millis();
-
-    switch(currentMode) {
+    switch (gMode) {
         case MMODE_AC_VOLTAGE:
-            reading.value = multimeter_read_ac_voltage_rms();
-            reading.peakValue = lastPeakValue;
-            reading.unit = "V AC";
-            reading.unitAbbrev = "V";
-            
-            // Detecção de surto (se o pico for > 20% maior que o RMS * 1.414)
-            if (reading.peakValue > (reading.value * 1.7f)) {
-                reading.surgeDetected = true;
+            r.value     = multimeter_read_ac_voltage_rms();
+            r.peakValue = gLastPeakVolts;
+            r.peakToPeak = gLastPeakVolts * 2.0f;
+            r.unit      = "V AC";
+            r.unitAbbrev = "V";
+            // Numa senoide limpa o pico e 1.414 vezes o RMS. Bem acima disso
+            // ha um transitorio ou uma forma de onda muito distorcida.
+            if (r.value > 5.0f && r.peakValue > (r.value * 1.75f)) {
+                r.surgeDetected = true;
             }
             break;
-            
+
         case MMODE_DC_VOLTAGE:
-            reading.value = multimeter_read_dc_voltage();
-            reading.unit = "V DC";
-            reading.unitAbbrev = "V";
+            // Se o INA219 estiver presente ele mede melhor que o ADC direto.
+            r.value = gIna219Present ? multimeter_read_bus_voltage()
+                                     : multimeter_read_dc_voltage();
+            r.unit      = "V DC";
+            r.unitAbbrev = "V";
             break;
 
         case MMODE_DC_CURRENT:
-            reading.value = multimeter_read_dc_current();
-            reading.unit = "A";
-            reading.unitAbbrev = "A";
+            if (!gIna219Present) {
+                r.valid = false;
+                r.state = MSTATE_ERROR;
+                r.unit  = "sem INA219";
+                r.unitAbbrev = "A";
+                gLastReading = r;
+                return r;
+            }
+            r.value      = multimeter_read_dc_current();
+            r.unit       = "A";
+            r.unitAbbrev = "A";
             break;
 
         case MMODE_RESISTANCE:
-            reading.value = multimeter_read_resistance();
-            reading.unit = "ohm";
-            reading.unitAbbrev = "O";
+            r.value      = multimeter_read_resistance();
+            r.unit       = "Ohm";
+            r.unitAbbrev = "R";
             break;
 
-        case MMODE_CONTINUITY:
-            reading.value = multimeter_read_resistance();
-            reading.valid = (reading.value < SHORT_CIRCUIT_OHMS);
-            reading.unit = reading.valid ? "OK" : "OL";
-            reading.unitAbbrev = reading.valid ? "OK" : "OL";
+        case MMODE_CONTINUITY: {
+            float res = multimeter_read_resistance();
+            r.value      = res;
+            bool closed  = (res < SHORT_CIRCUIT_OHMS);
+            r.unit       = closed ? "FECHADO" : "ABERTO";
+            r.unitAbbrev = closed ? "OK" : "OL";
+            // Apito continuo enquanto houver continuidade, como num
+            // multimetro de bancada.
+            if (closed) buzzer_beep(2000, 120);
             break;
-
-        case MMODE_POWER:
-            reading.value = multimeter_read_dc_voltage() * multimeter_read_dc_current();
-            reading.unit = "W";
-            reading.unitAbbrev = "W";
-            break;
-
-        default:
-            reading.state = MSTATE_ERROR;
-            reading.valid = false;
-            return reading;
-    }
-
-    if(reading.value < 0) {
-        reading.value = 0;
-    }
-
-    if(currentMode == MMODE_AC_VOLTAGE && reading.value > HIGH_VOLTAGE_THRESHOLD) {
-        reading.state = MSTATE_HIGH_VOLTAGE;
-        reading.statusColor = COLOR_BAD;
-    } else if(currentMode == MMODE_RESISTANCE && reading.value < SHORT_CIRCUIT_OHMS) {
-        reading.state = MSTATE_SHORT;
-        reading.statusColor = COLOR_WARNING;
-    } else {
-        reading.state = MSTATE_MEASURING;
-        reading.statusColor = COLOR_GOOD;
-    }
-
-    reading.valid = true;
-
-    if(highVoltageAlert && currentMode == MMODE_AC_VOLTAGE) {
-        safety_check_voltage(reading.value);
-    }
-
-    lastReading = reading;
-
-    return reading;
-}
-
-void multimeter_read_async_start() {
-    if(acMeasureTaskHandle != nullptr) {
-        vTaskDelete(acMeasureTaskHandle);
-    }
-
-    xTaskCreatePinnedToCore(
-        multimeter_read_ac_voltage_task,
-        "AC_Measure",
-        4096,
-        nullptr,
-        1,
-        &acMeasureTaskHandle,
-        0
-    );
-}
-
-void multimeter_read_ac_voltage_task(void* param) {
-    while(true) {
-        if(currentMode == MMODE_AC_VOLTAGE) {
-            lastReading.value = multimeter_read_ac_voltage_rms();
-            lastReading.mode = currentMode;
-            lastReading.timestamp = millis();
-            lastReading.valid = true;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(TIME_REFRESH_MEAS));
+        case MMODE_POWER: {
+            if (!gIna219Present) {
+                r.valid = false;
+                r.state = MSTATE_ERROR;
+                r.unit  = "sem INA219";
+                gLastReading = r;
+                return r;
+            }
+            float v = multimeter_read_bus_voltage();
+            float i = multimeter_read_dc_current();
+            r.value      = v * i;
+            r.unit       = "W";
+            r.unitAbbrev = "W";
+            break;
+        }
+
+        default:
+            r.valid = false;
+            r.state = MSTATE_ERROR;
+            gLastReading = r;
+            return r;
     }
+
+    // Corrente pode ser negativa (sentido invertido); as demais grandezas nao.
+    if (gMode != MMODE_DC_CURRENT && r.value < 0.0f) r.value = 0.0f;
+
+    // --- Estado e cor -------------------------------------------------------
+    if (gMode == MMODE_AC_VOLTAGE && r.value > HIGH_VOLTAGE_THRESHOLD) {
+        r.state       = MSTATE_HIGH_VOLTAGE;
+        r.statusColor = COLOR_BAD;
+        safety_check_voltage(r.value);
+    } else if (gMode == MMODE_AC_VOLTAGE && r.value > MAX_VOLTAGE_AC) {
+        r.state       = MSTATE_OVERLOAD;
+        r.statusColor = COLOR_BAD;
+    } else if ((gMode == MMODE_RESISTANCE || gMode == MMODE_CONTINUITY) &&
+               r.value < SHORT_CIRCUIT_OHMS) {
+        r.state       = MSTATE_SHORT;
+        r.statusColor = COLOR_SUSPECT;
+    } else {
+        r.state       = MSTATE_MEASURING;
+        r.statusColor = COLOR_GOOD;
+    }
+
+    gMeterState  = r.state;
+    gLastReading = r;
+    return r;
 }
 
-MultimeterReading multimeter_get_last_reading() {
-    return lastReading;
+MultimeterReading multimeter_get_last_reading() { return gLastReading; }
+
+void multimeter_handle() {
+    uint32_t now = millis();
+    if ((now - gLastUpdateMs) < TIME_REFRESH_MEAS) return;
+    gLastUpdateMs = now;
+
+    MultimeterReading r = multimeter_read();
+
+    // Alimenta as variaveis globais usadas pelas telas.
+    if (r.valid) {
+        switch (r.mode) {
+            case MMODE_AC_VOLTAGE:
+            case MMODE_DC_VOLTAGE: lastVoltage = r.value; break;
+            case MMODE_DC_CURRENT: lastCurrent = r.value; break;
+            case MMODE_RESISTANCE:
+            case MMODE_CONTINUITY: lastResistance = r.value; break;
+            default: break;
+        }
+        multimeter_history_add(r.value, r.mode);
+    }
 }
 
 // ============================================================================
-// MODO E RANGE
+// MODO E FAIXA
 // ============================================================================
 
 void multimeter_set_mode(MultimeterMode mode) {
-    currentMode = mode;
-
-    if(soundEnabled) {
-        buzzer_beep(BUZZER_FREQ_BTN, 30);
-    }
+    if (mode == gMode) return;
+    gMode = mode;
+    // Zera o filtro do modo novo para nao herdar leituras do modo anterior.
+    if (mode < 6) filter_reset(gFilters[mode]);
+    gRange = RANGE_AUTO;
+    buzzer_click();
 }
 
-MultimeterMode multimeter_get_mode() {
-    return currentMode;
-}
-
-void multimeter_set_range(MeasurementRange range) {
-    currentRange = range;
-
-    if(soundEnabled) {
-        buzzer_beep(BUZZER_FREQ_BTN, 30);
-    }
-}
-
-MeasurementRange multimeter_get_range() {
-    return currentRange;
-}
+MultimeterMode   multimeter_get_mode()  { return gMode; }
+void             multimeter_set_range(MeasurementRange r) { gRange = r; buzzer_click(); }
+MeasurementRange multimeter_get_range() { return gRange; }
+MultimeterState  multimeter_get_state() { return gMeterState; }
 
 void multimeter_auto_range() {
-    MeasurementRange suggested = multimeter_suggest_range(lastReading.value);
-    if(suggested != currentRange) {
-        currentRange = suggested;
-    }
+    gRange = multimeter_suggest_range(gLastReading.value);
 }
 
 MeasurementRange multimeter_suggest_range(float value) {
-    if(value < 0.2f) return RANGE_LOW;
-    if(value < 2.0f) return RANGE_MED;
+    float v = fabsf(value);
+    if (v < 3.0f)   return RANGE_LOW;
+    if (v < 30.0f)  return RANGE_MED;
     return RANGE_HIGH;
 }
 
+const char* multimeter_mode_name(MultimeterMode mode) {
+    switch (mode) {
+        case MMODE_DC_VOLTAGE: return "TENSAO DC";
+        case MMODE_AC_VOLTAGE: return "TENSAO AC";
+        case MMODE_DC_CURRENT: return "CORRENTE DC";
+        case MMODE_RESISTANCE: return "RESISTENCIA";
+        case MMODE_CONTINUITY: return "CONTINUIDADE";
+        case MMODE_POWER:      return "POTENCIA";
+        default:               return "?";
+    }
+}
+
+const char* multimeter_state_name(MultimeterState state) {
+    switch (state) {
+        case MSTATE_IDLE:         return "EM ESPERA";
+        case MSTATE_MEASURING:    return "MEDINDO";
+        case MSTATE_ERROR:        return "ERRO";
+        case MSTATE_OVERLOAD:     return "SOBRECARGA";
+        case MSTATE_SHORT:        return "CURTO";
+        case MSTATE_HIGH_VOLTAGE: return "TENSAO ALTA";
+        default:                  return "?";
+    }
+}
+
 // ============================================================================
-// CALIBRACAO
+// CALIBRACAO (persistida na NVS)
 // ============================================================================
 
 void multimeter_calibrate_zmpt(float realVoltage) {
-    float currentVoltage = multimeter_read_ac_voltage_rms();
-
-    if(currentVoltage > 0.1f) {
-        zmptCalibration = realVoltage / currentVoltage;
+    // Mede em contas puras, sem o ganho atual, para achar o ganho correto.
+    float measured = multimeter_read_ac_voltage_rms();
+    if (measured > 0.5f && realVoltage > 0.5f) {
+        gZmptGain *= (realVoltage / measured);
+        deviceSettings.zmptScaleFactor = gZmptGain;
+        multimeter_save_calibration();
+        LOG_SERIAL_FMT("[MUL] Ganho do ZMPT ajustado para %.5f V/conta\n", gZmptGain);
     }
 }
 
 void multimeter_calibrate_ina219(float realVoltage, float realCurrent) {
-    float measuredCurrent = multimeter_read_dc_current();
-
-    if(measuredCurrent > 0.01f) {
-        ina219Calibration = realCurrent / measuredCurrent;
+    (void)realVoltage;
+    float measured = multimeter_read_dc_current();
+    if (fabsf(measured) > 0.005f && fabsf(realCurrent) > 0.005f) {
+        gIna219Scale *= (realCurrent / measured);
+        multimeter_save_calibration();
     }
 }
 
+// Ajusta a razao do divisor externo de tensao DC.
+void multimeter_set_dc_divider(float ratio) {
+    if (ratio >= 1.0f && ratio <= 100.0f) {
+        gDcDivider = ratio;
+        multimeter_save_calibration();
+    }
+}
+
+float multimeter_get_dc_divider() { return gDcDivider; }
+float multimeter_get_zmpt_gain()  { return gZmptGain; }
+
 void multimeter_save_calibration() {
-    // NVS write would go here
+    if (!gPrefs.begin("mmcal", false)) return;
+    gPrefs.putFloat("zmpt",  gZmptGain);
+    gPrefs.putFloat("inasc", gIna219Scale);
+    gPrefs.putFloat("shunt", gShuntOhms);
+    gPrefs.putFloat("divdc", gDcDivider);
+    gPrefs.end();
 }
 
 void multimeter_load_calibration() {
-    // NVS read would go here
+    if (!gPrefs.begin("mmcal", true)) { multimeter_reset_calibration(); return; }
+    gZmptGain    = gPrefs.getFloat("zmpt",  ZMPT_DEFAULT_GAIN);
+    gIna219Scale = gPrefs.getFloat("inasc", 1.0f);
+    gShuntOhms   = gPrefs.getFloat("shunt", INA219_SHUNT_OHMS);
+    gDcDivider   = gPrefs.getFloat("divdc", MULTI_DC_DIVIDER_11X);
+    gPrefs.end();
+
+    // Rejeita valores absurdos vindos de uma gravacao corrompida.
+    if (gZmptGain    <= 0.0f || gZmptGain    > 10.0f)  gZmptGain    = ZMPT_DEFAULT_GAIN;
+    if (gIna219Scale <= 0.0f || gIna219Scale > 10.0f)  gIna219Scale = 1.0f;
+    if (gShuntOhms   <= 0.0f || gShuntOhms   > 10.0f)  gShuntOhms   = INA219_SHUNT_OHMS;
+    if (gDcDivider   <  1.0f || gDcDivider   > 100.0f) gDcDivider   = MULTI_DC_DIVIDER_11X;
 }
 
 void multimeter_reset_calibration() {
-    zmptCalibration = ZMPT_CALIBRATION;
-    ina219Calibration = INA_CALIBRATION;
-    shuntResistance = INA_SHUNT_OHMS;
+    gZmptGain    = ZMPT_DEFAULT_GAIN;
+    gIna219Scale = 1.0f;
+    gShuntOhms   = INA219_SHUNT_OHMS;
+    gDcDivider   = MULTI_DC_DIVIDER_11X;
+    multimeter_save_calibration();
 }
 
 // ============================================================================
-// FILTROS
+// FILTROS (interface publica mantida por compatibilidade)
 // ============================================================================
 
-float multimeter_filter_moving_average(float newValue) {
-    filterSum -= filterBuffer[filterIndex];
-    filterBuffer[filterIndex] = newValue;
-    filterSum += newValue;
-
-    filterIndex = (filterIndex + 1) % ZMPT_FILTER_SIZE;
-
-    return filterSum / ZMPT_FILTER_SIZE;
+float multimeter_filter_moving_average(float v) {
+    return filter_apply(gFilters[gMode], v);
 }
 
-float multimeter_filter_exponential(float newValue) {
-    static float lastFiltered = 0;
-    float alpha = 0.2f;
-
-    float filtered = alpha * newValue + (1.0f - alpha) * lastFiltered;
-    lastFiltered = filtered;
-
-    return filtered;
+float multimeter_filter_exponential(float v) {
+    return filter_apply(gFilters[gMode], v);
 }
 
-float multimeter_apply_filters(float rawValue) {
-    float filtered = multimeter_filter_moving_average(rawValue);
-    filtered = multimeter_filter_exponential(filtered);
-
-    return filtered;
+float multimeter_apply_filters(float v) {
+    return filter_apply(gFilters[gMode], v);
 }
 
 // ============================================================================
-// UI
-// ============================================================================
-
-void multimeter_handle() {
-    unsigned long now = millis();
-
-    if((now - lastUpdateMs) >= TIME_REFRESH_MEAS) {
-        lastReading = multimeter_read();
-        lastUpdateMs = now;
-    }
-}
-
-// ============================================================================
-// PROTECAO / SEGURANCA
+// PROTECAO
 // ============================================================================
 
 void multimeter_check_high_voltage(float voltage) {
-    if(voltage > HIGH_VOLTAGE_THRESHOLD) {
-        highVoltageAlert = true;
-        meterState = MSTATE_HIGH_VOLTAGE;
-
-        if(soundEnabled) {
-            buzzer_alert();
-        }
-
-        digitalWrite(PIN_LED_RED, HIGH);
-        digitalWrite(PIN_LED_GREEN, LOW);
+    if (voltage > HIGH_VOLTAGE_THRESHOLD) {
+        gMeterState = MSTATE_HIGH_VOLTAGE;
+        led_status_danger();
+        buzzer_alert();
     } else {
-        highVoltageAlert = false;
-        digitalWrite(PIN_LED_RED, LOW);
+        led_off();
     }
 }
 
 void multimeter_check_short_circuit(float resistance) {
-    if(resistance < SHORT_CIRCUIT_OHMS && shortCircuitAlert) {
-        meterState = MSTATE_SHORT;
-
-        if(soundEnabled) {
-            buzzer_beep(BUZZER_FREQ_WARNING, BUZZER_DURATION_WARNING);
-        }
+    if (resistance < SHORT_CIRCUIT_OHMS) {
+        gMeterState = MSTATE_SHORT;
+        buzzer_beep(BUZZER_FREQ_WARNING, BUZZER_DURATION_WARNING);
     }
 }
 
 void multimeter_alert_sound(uint8_t type) {
-    if(!soundEnabled) return;
-
-    switch(type) {
-        case 0:
-            buzzer_beep(BUZZER_FREQ_OK, BUZZER_DURATION_OK);
-            break;
-        case 1:
-            buzzer_beep(BUZZER_FREQ_WARNING, BUZZER_DURATION_WARNING);
-            break;
-        case 2:
-            buzzer_beep(BUZZER_FREQ_ERROR, BUZZER_DURATION_ERROR);
-            break;
+    switch (type) {
+        case 0: buzzer_ok();    break;
+        case 1: buzzer_alert(); break;
+        case 2: buzzer_error(); break;
+        default: break;
     }
 }
 
 void multimeter_alert_led(uint8_t type) {
-    switch(type) {
-        case 0:
-            digitalWrite(PIN_LED_GREEN, HIGH);
-            digitalWrite(PIN_LED_RED, LOW);
-            break;
-        case 1:
-            digitalWrite(PIN_LED_GREEN, LOW);
-            digitalWrite(PIN_LED_RED, HIGH);
-            break;
-        case 2:
-            digitalWrite(PIN_LED_GREEN, HIGH);
-            digitalWrite(PIN_LED_RED, HIGH);
-            break;
+    switch (type) {
+        case 0: led_status_good();   break;
+        case 1: led_status_bad();    break;
+        case 2: led_status_danger(); break;
+        default: led_off();          break;
     }
 }
 
 void multimeter_clear_alerts() {
-    highVoltageAlert = false;
-    digitalWrite(PIN_LED_GREEN, LOW);
-    digitalWrite(PIN_LED_RED, LOW);
+    led_off();
+    buzzer_no_tone();
+    gMeterState = MSTATE_IDLE;
 }
 
 // ============================================================================
@@ -521,52 +626,36 @@ void multimeter_clear_alerts() {
 // ============================================================================
 
 void multimeter_history_add(float value, MultimeterMode mode) {
-    uint8_t idx = history.index;
-    history.entries[idx].value = value;
-    history.entries[idx].mode = mode;
-    history.entries[idx].timestamp = millis();
-    history.entries[idx].valid = true;
+    MeasurementHistoryEntry& e = gHistory.entries[gHistory.index];
+    e.value     = value;
+    e.mode      = mode;
+    e.timestamp = millis();
+    e.valid     = true;
 
-    history.index = (history.index + 1) % HISTORY_SIZE;
-    if(history.count < HISTORY_SIZE) {
-        history.count++;
-    }
+    gHistory.index = (uint8_t)((gHistory.index + 1) % HISTORY_SIZE);
+    if (gHistory.count < HISTORY_SIZE) gHistory.count++;
 }
 
-void multimeter_history_clear() {
-    memset(&history, 0, sizeof(MeasurementHistory));
-}
+void multimeter_history_clear() { memset(&gHistory, 0, sizeof(gHistory)); }
 
-MeasurementHistory* multimeter_get_history() {
-    return &history;
-}
+MeasurementHistory* multimeter_get_history() { return &gHistory; }
 
 // ============================================================================
 // UTILITARIOS
 // ============================================================================
 
 void multimeter_format_value(float value, char* buffer, uint8_t maxLen) {
-    if(value < 0.01f) {
-        snprintf(buffer, maxLen, "0.00");
-    } else if(value < 1.0f) {
-        snprintf(buffer, maxLen, "%.3f", value);
-    } else if(value < 100.0f) {
-        snprintf(buffer, maxLen, "%.2f", value);
-    } else if(value < 10000.0f) {
-        snprintf(buffer, maxLen, "%.1f", value);
-    } else {
-        snprintf(buffer, maxLen, "%.0f", value);
-    }
+    if (!buffer || maxLen == 0) return;
+
+    float v = fabsf(value);
+    if (v < 0.001f)      snprintf(buffer, maxLen, "%.4f", value);
+    else if (v < 1.0f)   snprintf(buffer, maxLen, "%.3f", value);
+    else if (v < 100.0f) snprintf(buffer, maxLen, "%.2f", value);
+    else if (v < 10000.0f) snprintf(buffer, maxLen, "%.1f", value);
+    else                 snprintf(buffer, maxLen, "%.0f", value);
 }
 
 bool multimeter_detect_voltage_type(float voltage) {
-    if(voltage > 200.0f) {
-        return true;
-    }
-    return false;
+    // true = rede de 220 V, false = 127 V ou tensao baixa
+    return (voltage > 170.0f);
 }
-
-
-// End of file
-
-

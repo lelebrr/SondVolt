@@ -5,6 +5,12 @@
 #include "globals.h"
 
 // Inicialização e Ciclo de Vida
+// ui_boot_begin() desenha o logo e acende o backlight suavemente; deve ser
+// chamada ANTES do autoteste, para que ui_boot_progress() possa reportar o
+// andamento real de cada verificacao.
+void ui_boot_begin();
+void ui_boot_progress(uint8_t percent, const char* message);
+
 void ui_init();
 void ui_update();
 

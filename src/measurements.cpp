@@ -1,123 +1,190 @@
 // ============================================================================
-// Sondvolt v3.2 — Medições e Julgamento Inteligente
-// Hardware: ESP32-2432S028R (Cheap Yellow Display)
+// Sondvolt v4.0 - Camada de Medicao
 // ============================================================================
-// Arquivo: measurements.cpp
-// Descrição: Lógica de leitura de sensores e análise de componentes
+// Arquivo : measurements.cpp
+//
+// Este arquivo virou uma fachada fina sobre analysis.cpp. A versao anterior
+// tinha tres defeitos graves que valem registro:
+//
+//   1. Fazia pinMode(GPIO35, OUTPUT) para carregar o capacitor. GPIO34-39 do
+//      ESP32 sao entrada apenas: a chamada nao tinha efeito nenhum e a
+//      "capacitancia" medida era o tempo de leitura do ADC.
+//   2. Lia o ZMPT (rede eletrica) para julgar componentes, misturando a
+//      entrada de 220 V com a de bancada.
+//   3. measurements_discharge_capacitor() usava delay(100) onze vezes dentro
+//      de uma tarefa FreeRTOS, travando a medicao por mais de um segundo.
+//
+// Agora todas as leituras passam pela HAL e pelo motor de analise, que
+// conhecem a topologia real do circuito.
 // ============================================================================
 
-#include "buzzer.h"
 #include "measurements.h"
+#include "analysis.h"
+#include "hal.h"
+#include "buzzer.h"
+#include "leds.h"
 #include "config.h"
 #include "database.h"
-#include "thermal.h"
-#include "display_globals.h"
 #include "globals.h"
+#include "diagnostics.h"
 
-// Estado Global
-static float lastValue = 0;
-static ComponentStatus lastStatus = STATUS_UNKNOWN;
+static float           gLastValue  = 0.0f;
+static ComponentStatus gLastStatus = STATUS_UNKNOWN;
+static AnalysisResult  gLastResult;
 
 void measurements_init() {
-    analogReadResolution(12);
-    pinMode(PIN_PROBE_1, INPUT);
-    pinMode(PIN_PROBE_2, INPUT);
-    pinMode(PIN_ZMPT_OUT, INPUT);
+    // A configuracao de pinos e do ADC ja foi feita por hal_init().
+    analysis_init();
+    memset(&gLastResult, 0, sizeof(gLastResult));
+    gLastResult.type   = COMP_UNKNOWN;
+    gLastResult.status = STATUS_UNKNOWN;
 
-    // Configura Pino de Descarga
-    pinMode(PIN_CAP_DISCHARGE, OUTPUT);
-    digitalWrite(PIN_CAP_DISCHARGE, LOW);
+    if (!hal_probe_available()) {
+        LOG_SERIAL_F("[MED] Circuito de excitacao ausente: medicoes de "
+                     "componente desativadas");
+    }
 }
 
+// ----------------------------------------------------------------------------
+// Descarga de capacitor
+// ----------------------------------------------------------------------------
+// Executa em passos curtos, cedendo o processador entre eles, e acompanha a
+// tensao real em vez de esperar um tempo fixo.
+
 void measurements_discharge_capacitor() {
-    isDischarging = true;
-    dischargeProgress = 0.0f;
-    buzzer_discharge(); // Som característico
-    
-    // Descarga gradual para feedback visual (Simulado em 1s)
-    for(int i=0; i<=100; i+=10) {
-        dischargeProgress = (float)i / 100.0f;
-        digitalWrite(PIN_CAP_DISCHARGE, HIGH); // Ativa MOSFET
-        delay(100);
-        // Opcional: Atualizar UI aqui se houver loop dedicado, senão a UI_update pega no próximo ciclo
+    if (!hal_bus_acquire(HAL_BUS_DISCHARGE, 500)) {
+        LOG_SERIAL_F("[MED] Descarga ocupada");
+        return;
     }
-    
+
+    isDischarging    = true;
+    dischargeProgress = 0.0f;
+    led_status_working();
+
+    pinMode(PIN_CAP_DISCHARGE, OUTPUT);
+    digitalWrite(PIN_CAP_DISCHARGE, HIGH);
+
+    const uint16_t startRaw = hal_adc_read_avg(PIN_ADC_PROBE1, 4);
+    const uint32_t start    = millis();
+
+    while ((millis() - start) < CAP_DISCHARGE_MAX_MS) {
+        uint16_t raw = hal_adc_read_avg(PIN_ADC_PROBE1, 4);
+
+        // Progresso real: quanto ja caiu em relacao ao ponto de partida.
+        if (startRaw > 40) {
+            float done = 1.0f - ((float)raw / (float)startRaw);
+            dischargeProgress = (done < 0.0f) ? 0.0f : (done > 1.0f ? 1.0f : done);
+        }
+        if (raw < 40) break;                 // praticamente zero volt
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+
     digitalWrite(PIN_CAP_DISCHARGE, LOW);
-    isDischarging = false;
+    hal_bus_release(HAL_BUS_DISCHARGE);
+
     dischargeProgress = 1.0f;
+    isDischarging     = false;
+    led_off();
     buzzer_success();
 }
 
-void measurements_update() {
-    // Realiza múltiplas leituras para estabilizar
-    uint32_t sum = 0;
-    for(int i=0; i<10; i++) {
-        sum += analogRead(PIN_ZMPT_OUT);
-        delayMicroseconds(100);
-    }
-    uint16_t raw = sum / 10;
-    lastValue = (float)raw * ADC_REF_VOLT / ADC_MAX_VAL;
-    
-    // Análise de status baseada no banco de dados se disponível
-    if (componentDB.loaded && componentDB.count > 0) {
-        lastStatus = db_judge(COMP_GENERIC, lastValue);
-    } else {
-        // Fallback para lógica fixa
-        if (lastValue > 2.0f) lastStatus = STATUS_GOOD;
-        else if (lastValue > 1.0f) lastStatus = STATUS_SUSPECT;
-        else lastStatus = STATUS_BAD;
-    }
-}
-
-float measurements_get_last_value() {
-    return lastValue;
-}
-
-ComponentStatus measurements_get_last_status() {
-    return lastStatus;
-}
-
-// Implementação de True RMS para Tensão AC (ZMPT101B)
-float measurements_read_ac_rms() {
-    long sumSquares = 0;
-    int samples = TRUE_RMS_SAMPLES;
-    
-    for (int i = 0; i < samples; i++) {
-        long val = analogRead(PIN_ZMPT_OUT) - ZMPT_ZERO_POINT; // Offset do ZMPT (centro do ADC)
-        sumSquares += (val * val);
-        delayMicroseconds(ZMPT_SAMPLE_RATE_US); // 2kHz sample rate
-    }
-    
-    float rms = sqrt(sumSquares / samples);
-    return rms * (MAX_VOLTAGE_AC / (float)ZMPT_ZERO_POINT); // Calibração básica
-}
+// ----------------------------------------------------------------------------
+// Medicoes individuais
+// ----------------------------------------------------------------------------
 
 float measurements_get_raw_resistance() {
-    // Implementa divisor de tensão para medir resistência
-    // R = R_pullup * (V_out / (V_in - V_out))
-    uint16_t raw = analogRead(PIN_PROBE_1);
-    float voltage = (float)raw * ADC_REF_VOLT / ADC_MAX_VAL;
-    if (voltage >= ADC_OPEN_CIRCUIT_V) return RESISTANCE_MAX; // Aberto
-    if (voltage <= ADC_SHORT_CIRCUIT_V) return 0.0f;          // Curto
-    
-    float resistance = PULLUP_RESISTANCE * voltage / (ADC_REF_VOLT - voltage);
-    return resistance;
+    float r = analysis_measure_resistance(PROBE_RANGE_AUTO);
+    lastResistance = r;
+    return r;
 }
 
 float measurements_get_raw_capacitance() {
-    // DESCARGA AUTOMATICA (Removida do loop para evitar flickering)
-    // measurements_discharge_capacitor();
-    
-    // Heurística de tempo de carga simplificada
-    pinMode(PIN_PROBE_1, OUTPUT);
-    digitalWrite(PIN_PROBE_1, LOW);
-    delay(10);
-    pinMode(PIN_PROBE_1, INPUT);
-    
-    uint32_t start = micros();
-    while(analogRead(PIN_PROBE_1) < CAP_CHARGE_THRESHOLD && (micros() - start < CAP_CHARGE_TIMEOUT_US));
-    uint32_t duration = micros() - start;
-    
-    // C = t / (R * ln(2)) -> Aproximação linear para fins de UI
-    return (float)duration / 1000.0f; // Resultado em uF (escala arbitrária para teste)
+    float c = analysis_measure_capacitance();
+    lastCapacitance = c;
+    return c;
+}
+
+float measurements_get_esr() {
+    return analysis_measure_esr();
+}
+
+float measurements_get_inductance() {
+    float l = analysis_measure_inductance();
+    lastInductance = l;
+    return l;
+}
+
+float measurements_read_ac_rms() {
+    // Mantido por compatibilidade: a implementacao real vive em multimeter.cpp,
+    // que aplica a calibracao do ZMPT101B.
+    extern float multimeter_read_ac_voltage_rms();
+    return multimeter_read_ac_voltage_rms();
+}
+
+// ----------------------------------------------------------------------------
+// Identificacao automatica
+// ----------------------------------------------------------------------------
+
+void measurements_update() {
+    if (!hal_probe_available()) {
+        gLastValue  = 0.0f;
+        gLastStatus = STATUS_INVALID;
+        return;
+    }
+
+    gLastResult = analysis_identify();
+    gLastStatus = gLastResult.status;
+
+    // O "valor" exposto depende do que foi identificado.
+    switch (gLastResult.type) {
+        case COMP_CAPACITOR:
+        case COMP_CAPACITOR_CERAMIC:
+        case COMP_CAPACITOR_ELECTRO:
+            gLastValue      = gLastResult.capacitance;
+            lastCapacitance = gLastResult.capacitance;
+            break;
+        case COMP_INDUCTOR:
+            gLastValue     = gLastResult.inductance;
+            lastInductance = gLastResult.inductance;
+            break;
+        case COMP_DIODE:
+        case COMP_LED:
+        case COMP_ZENER:
+            gLastValue = gLastResult.forwardVoltage;
+            break;
+        case COMP_TRANSISTOR_NPN:
+        case COMP_TRANSISTOR_PNP:
+            gLastValue = gLastResult.gain;
+            break;
+        default:
+            gLastValue     = gLastResult.resistance;
+            lastResistance = gLastResult.resistance;
+            break;
+    }
+}
+
+float           measurements_get_last_value()  { return gLastValue; }
+ComponentStatus measurements_get_last_status() { return gLastStatus; }
+
+AnalysisResult measurements_get_last_result() { return gLastResult; }
+
+// Faz uma identificacao completa, registra nas estatisticas e devolve o
+// resultado. Usada pelo botao de teste automatico.
+AnalysisResult measurements_run_full_test() {
+    buzzer_measure_start();
+    led_status_working();
+
+    AnalysisResult r = analysis_identify();
+    gLastResult = r;
+    gLastStatus = r.status;
+    gLastValue  = r.resistance;
+
+    diag_count_measurement(r.status);
+
+    if (r.status == STATUS_GOOD)      { led_status_good(); buzzer_ok(); }
+    else if (r.status == STATUS_BAD ||
+             r.status == STATUS_SHORT) { led_status_bad();  buzzer_error(); }
+    else                               { led_off();         buzzer_measure_end(); }
+
+    return r;
 }

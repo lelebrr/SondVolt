@@ -1,270 +1,217 @@
-# 💻 Guia do Desenvolvedor — Sondvolt v3.2
+# Guia do desenvolvedor
 
-<p align="center">
-  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
-</p>
-
-Este guia é destinado a desenvolvedores que desejam modificar, estender ou contribuir para o firmware do Sondvolt.
+Arquitetura do firmware Sondvolt v4.0, para quem vai mexer no código.
 
 ---
 
-## 1. Arquitetura do Sistema
+## Estrutura de camadas
 
-O firmware v3.0 foi desenvolvido especificamente para o **ESP32 (CYD)**, aproveitando sua arquitetura dual-core de 240MHz e barramentos SPI dedicados para máxima performance.
-
-### Stack Tecnológico
-
-| Componente | Tecnologia |
-|:---|:---|
-| **Framework** | Arduino Framework para ESP32 |
-| **Display** | TFT_eSPI com DMA (ILI9341) |
-| **Touchscreen** | XPT2046 (resistivo) |
-| **Armazenamento** | SD Card via HSPI |
-| **Persistência** | NVS (Preferences) |
-| **Sensores** | I2C (INA219), OneWire (DS18B20), ADC (ZMPT101B) |
-
----
-
-## 2. Estrutura de Diretórios
+O projeto tem quatro camadas. A regra é que cada uma só conheça a de baixo.
 
 ```
-Component_Tester/
-├── src/
-│   ├── main.cpp              # Ponto de entrada, loop e splash
-│   ├── config.h              # Definições de pinagem e constantes
-│   ├── globals.h            # Estados da máquina e variáveis globais
-│   ├── menu.cpp/h            # Sistema de menu grid e navegação
-│   ├── measurements.cpp/h  # Rotinas de medição de componentes
-│   ├── multimeter.cpp/h     # Multímetro AC/DC (ZMPT + INA219)
-│   ├── database.cpp/h        # Gerenciamento SD e índice em RAM
-│   ├── drawings.cpp/h       # Primitivas gráficas e ícones
-│   ├── buttons.cpp/h        # Handler de toque e debouncing
-│   ├── buzzer.cpp/h         # Geração de tons
-│   ├── leds.cpp/h          # Controle do LED RGB
-│   ├── thermal.cpp/h        # Driver OneWire para DS18B20
-│   └── utils.cpp/h          # Funções matemáticas e calibração
-├── sd_files/
-│   └── COMPBD.CSV           # Banco de dados de componentes
-├── platformio.ini           # Configuração PlatformIO
-└── README.md               # Visão geral do projeto
+┌──────────────────────────────────────────────────────────┐
+│  APRESENTAÇÃO   ui.cpp · menu.cpp · uiwidgets.cpp        │
+│                 graphics.cpp · splash.cpp · help.cpp     │
+├──────────────────────────────────────────────────────────┤
+│  DOMÍNIO        analysis.cpp · multimeter.cpp            │
+│                 measurements.cpp · safety.cpp            │
+│                 database.cpp · calibration.cpp           │
+├──────────────────────────────────────────────────────────┤
+│  SERVIÇOS       logger.cpp · diagnostics.cpp             │
+│                 thermal.cpp · buzzer.cpp · leds.cpp      │
+├──────────────────────────────────────────────────────────┤
+│  HAL            hal.cpp · pins.h · display_globals.cpp   │
+└──────────────────────────────────────────────────────────┘
 ```
 
----
-
-## 3. Máquina de Estados
-
-O sistema opera em uma máquina de estados centralizada em `globals.h`:
-
-| Estado | Descrição |
-|:---|:---|
-| `STATE_MENU` | Menu principal grid |
-| `STATE_MEASURE` | Menu de medição de componentes |
-| `STATE_MULTIMETER` | Multímetro AC/DC |
-| `STATE_THERMAL` | Monitoramento de temperatura |
-| `STATE_SCANNER` | Auto-detecção contínua |
-| `STATE_HISTORY` | Visualização de logs |
-| `STATE_SETTINGS` | Configurações e calibração |
+Nenhum arquivo acima da HAL deve chamar `analogRead()`, `ledcWrite()` ou `digitalWrite()` diretamente em pino compartilhado. Se você precisar disso, a função pertence à HAL.
 
 ---
 
-## 4. Pinagem used by Firmware
+## Por que a HAL existe
 
-### Pinos Reservados
+Três motivos concretos, todos vindos de bugs reais:
 
-| Função | GPIO | Barramento | Notas |
-|:---|:---:|:---:|:---|
-| TFT_CS | 15 | VSPI | Chip Select |
-| TFT_DC | 2 | VSPI | Data/Command |
-| TFT_SCK | 14 | VSPI | Clock 40MHz |
-| TFT_MOSI | 13 | VSPI | Dados → Display |
-| SD_CS | 5 | HSPI | Chip Select |
-| Touch_CS | 33 | SoftSPI | Chip Select |
-| **Probes** | 35 | ADC | Probe de componentes |
-| **AC (ZMPT)** | 34 | ADC | Tensão AC |
-| **I2C SDA** | 27 | I2C | Dados |
-| **I2C SCL** | 22 | I2C | Clock |
-| **OneWire** | 4 | 1-Wire | DS18B20 |
-| **Buzzer** | 26 | DAC | Áudio |
+**1. A API do LEDC mudou entre os cores 2.x e 3.x do Arduino-ESP32.** No 2.x é `ledcSetup(canal, freq, bits)` + `ledcAttachPin(pino, canal)`. No 3.x virou `ledcAttach(pino, freq, bits)`. A v3.2 usava as duas APIs em arquivos diferentes — uma delas ia falhar em qualquer core que você escolhesse. `hal_pwm_*()` resolve com `#if ESP_ARDUINO_VERSION_MAJOR`.
 
----
+**2. Três pinos têm dois donos na Rev A.** Sem arbitragem, acender um LED corrompe a leitura de um sensor. `hal_bus_acquire()` / `hal_bus_release()` garantem exclusão mútua e restauram o estado anterior do pino.
 
-## 5. Sistema de Database (COMPBD.CSV)
+**3. Havia três conversões de coordenada de toque diferentes** — em `main.cpp`, `buttons.cpp` e `safety.cpp`, com constantes e orientações divergentes. Hoje só existe `hal_touch_read()`.
 
-### Carregamento no Boot
+### API da arbitragem
 
-1. O sistema abre `COMPBD.CSV` uma vez durante o boot
-2. Cada linha é parseada e os índices são armazenados em RAM
-3. Categorias são indexadas para busca rápida
-
-### Estrutura do Database em RAM
-
-```cpp
-struct ComponentEntry {
-    char type[8];        // NPN, PNP, DIODE, LED
-    uint16_t hFE_min;
-    uint16_t hFE_max;
-    float Vf_min;
-    float Vf_max;
-    char partNumber[16];
-};
-```
-
-### Busca de Componentes
-
-```cpp
-// Pseudocódigo de busca
-for (entry : database) {
-    if (entry.type == measured.type &&
-        entry.hFE_min <= measured.hFE && measured.hFE <= entry.hFE_max &&
-        entry.Vf_min <= measured.Vf && measured.Vf <= entry.Vf_max) {
-        return entry.partNumber;
-    }
+```c
+if (hal_bus_acquire(HAL_BUS_ONEWIRE, 300)) {   // timeout em ms
+    // o LED rival já foi apagado; o pino é seu
+    sensors.requestTemperatures();
+    hal_bus_release(HAL_BUS_ONEWIRE);          // LED restaurado ao estado anterior
 }
 ```
 
----
-
-## 6. Sensores Externos
-
-### ZMPT101B (Tensão AC True RMS)
-
-- **GPIO:** 34 (ADC)
-- **Cálculo:** `Vrms = LeituraADC × (EscalaZMPT / 4095) × 250`
-- **True RMS:** Implementado via algoritmo de integração numérica
-
-### INA219 (Tensão/Corrente DC)
-
-- **Endereço I2C:** 0x40
-- **Biblioteca:** `Adafruit_INA219`
-- **Cálculo:** `Potência = Tensão × Corrente`
-
-### DS18B20 (Temperatura)
-
-- **GPIO:** 4 (OneWire)
-- **Biblioteca:** `OneWire` + `DallasTemperature`
+Sempre trate o `false`. Um timeout significa que outro subsistema está usando o pino — devolva o último valor conhecido em vez de bloquear a tarefa.
 
 ---
 
-## 7. Logging no SD Card
-
-### Arquivo LOG.TXT
-
-Cada medição é logged no formato:
+## As duas tarefas
 
 ```
-[YYYY-MM-DD HH:MM:SS] Tipo: Valor [PartNumber]
-[2026-04-24 14:30:25] Resistor: 10kΩ
-[2026-04-24 14:31:10] Multímetro DC: V=5.02V I=0.45A P=2.26W
+TaskUI          prio 2 · período 20 ms · pilha 6 KB
+                toque → ui_handle_touch() → ui_update() → toast → buzzer/LEDs
+
+TaskMeasurement prio 1 · período 100 ms · pilha 4 KB
+                safety_update() → medição conforme o estado → diag → NVS
 ```
 
-### Implementação
+**Regra:** a tarefa de interface nunca faz medição lenta, e a tarefa de medição nunca desenha uma tela inteira.
 
-```cpp
-void logMeasurement(const char* type, const char* value) {
-    File logFile = SD.open("/LOG.TXT", FILE_APPEND);
-    logFile.print("[");
-    logFile.print(getTimestamp());
-    logFile.print("] ");
-    logFile.print(type);
-    logFile.print(": ");
-    logFile.println(value);
-    logFile.close();
+A v3.2 violava as duas: `safety_update()` redesenhava a tela de bloqueio a cada 100 ms a partir da tarefa de medição, e a descarga de capacitor bloqueava por 1,1 segundo com `delay()`.
+
+### Acesso ao display
+
+Um mutex **recursivo** protege o barramento SPI:
+
+```c
+LOCK_TFT();
+tft.fillRect(...);
+UNLOCK_TFT();
+```
+
+É recursivo de propósito — funções de desenho chamam outras funções de desenho. Mas cuidado ao chamar um widget de dentro de uma seção travada: os widgets de `uiwidgets.cpp` fazem seu próprio lock. O padrão é liberar antes:
+
+```c
+UNLOCK_TFT();
+widget_progress_bar(...);
+LOCK_TFT();
+```
+
+---
+
+## Máquina de estados
+
+`currentAppState` (enum `AppState`, em `types.h`) determina o que a tarefa de medição mede e o que a de interface desenha. É `volatile` porque as duas tarefas leem.
+
+Para adicionar uma tela:
+
+1. Novo valor no enum `AppState`
+2. Entrada no array de menu apropriado em `menu.cpp`
+3. `case` no `switch` de `ui_update()` chamando sua função de desenho
+4. `case` no `switch` de `TaskMeasurement` se a tela precisar de medição contínua
+5. Tratamento de toque em `ui_handle_touch()`
+
+---
+
+## Adicionando uma medição
+
+Toda medição nova vai em `analysis.cpp`. O contrato é:
+
+```c
+float analysis_measure_alguma_coisa() {
+    if (!hal_probe_available()) return 0.0f;                    // 1
+    if (!hal_bus_acquire(HAL_BUS_PROBE_DRIVE, 200)) return 0.0f; // 2
+
+    drive_high(PROBE_RANGE_LOW);                                 // 3
+    delayMicroseconds(500);
+    float v = hal_adc_read_volts(PIN_ADC_PROBE1, 24);
+    drive_idle();
+
+    hal_bus_release(HAL_BUS_PROBE_DRIVE);                        // 4
+
+    if (v < LIMIAR_MINIMO) return 0.0f;                          // 5
+    return converte(v);
 }
 ```
 
----
+1. Confirme que o hardware existe. Nunca devolva um número quando não há como medir.
+2. Tome o barramento e trate o timeout.
+3. Excite, espere estabilizar, leia, volte a alta impedância.
+4. **Sempre** libere, inclusive nos caminhos de erro.
+5. Rejeite leituras fora da faixa física em vez de propagar lixo.
 
-## 8. Otimizações ESP32
-
-### Gerenciamento de Memória
-
-- **Database Index:** Carregado uma vez no boot, índices em RAM
-- **Buffers:** 512 bytes para minimizar acessos SPI
-- **Heap:** Mínimo de 50KB reservado para medições
-
-### Performance Gráfica
-
-- **Driver:** TFT_eSPI configurado para VSPI 40MHz
-- **DMA:** Habilitado para transferência background
-- **Ícones:** Primitivas GFX (sem bitmaps)
-
-### Barramentos SPI Separados
-
-- **VSPI:** Display TFT (15, 2, 14, 13, 12)
-- **HSPI:** SD Card (5, 18, 23, 19)
-- **SoftSPI:** Touchscreen (33, 25, 32, 39)
+Depois exponha em `measurements.h` se a interface precisar, e adicione o caso em `analysis_identify()` se entrar na identificação automática.
 
 ---
 
-## 9. Adicionando Novos Modos de Medição
+## Banco de dados
 
-### Passo 1: Adicionar ao Menu
+Duas fontes, propósitos diferentes:
 
-Edite `menu.cpp` para incluir o novo modo:
+**Catálogo interno** (`kCatalog` em `database.cpp`) — 50 componentes reais em flash, sempre disponíveis. É o que alimenta `db_judge()`. Para adicionar:
 
-```cpp
-const char* modes[] = {
-    "Resistor",
-    "Capacitor",
-    "NovoModo",  // Novo modo aqui
-    // ...
-};
+```c
+{ "BC547", COMP_TRANSISTOR_NPN, 300, 110, 800, 0.70f, "hFE", "E-B-C",
+  "NPN 45V 100mA uso geral" },
+//  nominal ─┘   mínimo ─┘  máximo ─┘  param2 ─┘
 ```
 
-### Passo 2: Implementar a Função
+**Cartão SD** (`COMPBD.CSV`) — 5.726 registros consultados por varredura sob demanda. Nunca é carregado inteiro na RAM. Use `db_sd_find()`, `db_sd_find_by_value()` ou `db_sd_find_equivalents()`.
 
-Em `measurements.cpp`:
+Formato do CSV:
 
-```cpp
-float measureNovoModo() {
-    // Sua lógica de medição aqui
-    return result;
-}
+```
+nome,tipo,nominal,minimo,maximo,param2,p1,p2,p3,descricao,categoria,flag
 ```
 
-### Passo 3: Integrar ao Handler
+Os códigos de tipo estão no enum `DbCsvType`.
 
-Em `measurements_handle()`:
+---
 
-```cpp
-case MODE_NOVO:
-    value = measureNovoModo();
-    break;
+## Persistência
+
+| Namespace NVS | Conteúdo | Módulo |
+| :--- | :--- | :--- |
+| `sondvolt` | `DeviceSettings` + `UsageStats` | `diagnostics.cpp` |
+| `calib` | offsets das pontas | `calibration.cpp` |
+| `mmcal` | ganho do ZMPT, escala do INA219, divisor DC | `multimeter.cpp` |
+
+As configurações usam número mágico (`0x53564C54`) e versão de formato (`kSettingsVersion`). **Ao alterar o layout de `DeviceSettings`, incremente a versão** — assim uma gravação antiga é descartada em vez de lida errado.
+
+A gravação é adiada 8 segundos por `settings_mark_dirty()` / `settings_flush_if_needed()`, para não escrever na flash a cada toque na tela.
+
+---
+
+## Compilando
+
+```bash
+pio run                    # Rev A
+pio run -e cyd-revb        # Rev B
+pio run -t upload
+pio device monitor
 ```
 
----
+O `-w` foi removido do `platformio.ini`. O projeto compila **sem nenhum aviso** com `-Wall -Wextra` nas duas revisões. Se a sua alteração gerar um aviso, ele é real — a flag `-w` da v3.2 escondia macros redefinidas com valores conflitantes.
 
-## 10. Contribuição
+### Verificação sem hardware
 
-### Boas Práticas
-
-1. **Modularidade:** Mantenha cada funcionalidade em seu próprio arquivo
-2. **Documentação:** Comente funções exportadas
-3. **Testes:** Teste em hardware real antes de submeter
-4. **Estilo:** Siga o padrão do código existente
-
-### Como Contribuir
-
-1. Fork o repositório
-2. Crie uma branch: `git checkout -b feature/nova-funcao`
-3. Faça commit das alterações
-4. Envie para revisão
+Não é preciso ter a placa para validar sintaxe, tipos e símbolos. Um harness de compilação no host com stubs das bibliotecas Arduino compila e **linka** todas as unidades de tradução, o que pega a grande maioria dos erros antes do upload.
 
 ---
 
-## Especificações Técnicas (Resumo)
+## Convenções
 
-| Recurso | Valor |
-|:---|:---|
-| **Clock** | 240MHz |
-| **RAM** | 520KB |
-| **Flash** | 4MB |
-| **ADC** | 12-bit (4095 níveis) |
-| **SPI Display** | 40MHz |
-| **SPI SD** | 20MHz |
+**Nomes.** `modulo_acao()` para funções públicas (`analysis_measure_esr`), `snake_case` estático para internas, `gNome` para estado global de arquivo, `kNome` para constantes.
+
+**Comentários.** Explique *por quê*, não *o quê*. `// incrementa i` não ajuda ninguém; `// A ordem importa: o primeiro ramo capturava tudo acima de 50 V` evita que alguém reintroduza o bug.
+
+**Acentuação.** O código-fonte usa ASCII puro nos comentários. A documentação em Markdown usa português com acentos normalmente.
+
+**Buffers.** `snprintf()` sempre, `sprintf()` nunca. Cheque o tamanho do destino.
+
+**Ponto flutuante.** `float` no ESP32 tem unidade em hardware; `double` é emulado e lento. Use `double` só onde a precisão exige — a soma de quadrados do RMS, por exemplo, onde 256 amostras de 2048² passam de 1e9.
 
 ---
 
-<p align="center">
-<i>💻 Sondvolt v3.2 — Guia do Desenvolvedor</i>
-</p>
+## Onde estão as coisas
+
+| Preciso mexer em... | Arquivo |
+| :--- | :--- |
+| pinagem | `pins.h` |
+| constante de medição, cor, tempo | `config.h` |
+| algoritmo de medição | `analysis.cpp` |
+| multímetro, ZMPT, INA219 | `multimeter.cpp` |
+| proteção elétrica | `safety.cpp` |
+| catálogo de componentes | `database.cpp` |
+| tela | `ui.cpp` |
+| menu | `menu.cpp` |
+| widget reutilizável | `uiwidgets.cpp` |
+| autoteste, saúde, NVS | `diagnostics.cpp` |
+| acesso a pino, PWM, ADC, toque | `hal.cpp` |

@@ -1,429 +1,181 @@
-# 🔌 Guia de Ligação de Componentes (Wiring Guide)
+# Esquema de ligação
 
-<p align="center">
-  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
-</p>
-
-Este guia detalha a conexão de todos os componentes externos ao **Sondvolt v3.2** baseado na placa **ESP32-2432S028R (Cheap Yellow Display)**.
+Este documento descreve o circuito externo que o Sondvolt v4.0 precisa. A parte mais importante é o **circuito de excitação das pontas**, que não existia nas versões anteriores e sem o qual medir resistência e capacitância é impossível.
 
 ---
 
-## 1. Visão Geral das Conexões
+## Por que existe um circuito de excitação
 
-### Diagrama de Blocos
+As pontas de prova estão ligadas a GPIO35 e GPIO34. Esses pinos do ESP32 são **entrada apenas** — não conseguem aplicar tensão em nada. Para medir um componente passivo é preciso injetar uma corrente conhecida e observar a queda de tensão, e essa injeção precisa vir de um pino com driver de saída.
 
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         ESP32-2432S028R (CYD)                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
-│  │   Display  │  │   Touch    │  │  SD Card   │  │  Speaker   │      │
-│  │   TFT      │  │   Screen   │  │           │  │   (Buzzer) │      │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘      │
-│         │                │                │                │              │
-│    ┌────┴────┐     ┌────┴────┐     ┌────┴────┐     ┌────┴────┐        │
-│    │  VSPI   │     │ SoftSPI │     │  HSPI   │     │   DAC   │        │
-│    │ GPIO   │     │ GPIO    │     │ GPIO    │     │ GPIO 26 │        │
-│    │15/2/14/ │     │33/25/32/│     │ 5/18/23│     │        │        │
-│    │13/12   │     │39/36    │     │  /19    │     │        │        │
-│    └─────────┘     └─────────┘     └─────────┘     └─────────┘        │
-│                                                                      │
-│  ┌───────────────────────────────────────────────────────────────┐   │
-│  │                      BARRAMENTOS DE EXPANSÃO                    │   │
-│  │                                                                │   │
-│  │   CN1 (Analógico)     P3/J3 (Digital)      питаção               │   │
-│  │   ┌────┬────┐       ┌────┬────┬────┐      ┌────┬────┬────┐    │   │
-│  │   │ 35 │ 34 │       │ GND│ 27 │ 22 │ 4  │   │ GND│ 5V │3.3V│    │   │
-│  │   │    │    │       │    │ SDA│ SCL│ OW │    │    │    │    │    │   │
-│  │   └────┴────┘       └────┴────┴────┘      └────┴────┴────┘    │   │
-│  └───────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────┘
-
-         │                  │                  │                  │
-         ▼                  ▼                  ▼                  ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│   ZMPT101B      │ │     INA219      │ │    DS18B20      │ │    Probes       │
-│  (Sensor AC)    │ │ (Medidor DC)    │ │  (Temperatura)  │ │  (Teste Compon) │
-│                 │ │                 │ │                 │ │                 │
-│  OUT → GPIO 36  │ │  SDA → GPIO 27  │ │  DQ → GPIO 4    │ │  P1 → GPIO 35   │
-│  VCC → 5V       │ │  SCL → GPIO 22  │ │  VCC → 3.3V    │ │  P2 → GPIO 34   │
-│  GND → GND       │ │  VCC → 3.3V    │ │  GND → GND      │ │  GND → GND      │
-│                 │ │  GND → GND      │ │                 │ │                 │
-└─────────────────┘ └─────────────────┘ └─────────────────┘ └─────────────────┘
-```
+A v3.2 tentava fazer isso direto pelo GPIO35 e a chamada simplesmente não surtia efeito. O resultado eram números que variavam com o ruído ambiente.
 
 ---
 
-## 2. Conectores da Placa
+## Circuito de medição de componentes
 
-### 2.1 CN1 — Conector Analógico (Probes)
+```
+                 GPIO27  (drive faixa alta)
+                    │
+                  ┌─┴─┐
+                  │10k│  R1  1%  ← referência para 1 kΩ a 2 MΩ
+                  └─┬─┘
+                    │
+                 GPIO22  (drive faixa baixa)
+                    │
+                  ┌─┴─┐
+                  │470│  R2  1%  ← referência para 0,5 Ω a 2 kΩ
+                  └─┬─┘
+                    │
+     GPIO35 ────────┼──────────────► PONTA 1  (jaque banana vermelho)
+    (leitura)       │
+                    │
+                 COMPONENTE
+                    │
+     GPIO34 ────────┼──────────────► PONTA 2  (jaque banana preto)
+    (leitura)       │
+                    │
+                  ┌─┴─┐
+       GPIO17 ───►│ Q1│  MOSFET canal N (2N7000 ou BS170)
+    (descarga)    └─┬─┘  dreno na ponta 1, fonte no GND
+                    │
+                   GND
+```
 
-Conector de 4 pinos localizado na lateral esquerda da placa.
+### Como o firmware usa isso
 
-| Pino | Função | GPIO | Descrição |
-|:---:|:---:|:---:|:---|
-| 1 | **Probe 1** | GPIO 35 | Entrada analógica principal (Port IO1) |
-| 2 | **Probe 2 / ZMPT** | GPIO 36 | Entrada sensor AC (Shared with Touch IRQ) |
-| 3 | **GND** | — | Terra comum |
-| 4 | **5V / VIN** | — | Entrada de alimentação |
+**Resistência.** Aplica nível alto no drive escolhido e lê a tensão na ponta 1. O componente forma um divisor com o resistor de referência:
 
-### 2.2 P3 / J3 — Conector Digital (I2C + OneWire)
+```
+Rx = Rref × V / (Vcc − V)
+```
 
-Conector de 4 pinos para módulos digitais.
+Com auto-range: começa no resistor de 10 kΩ, e se o resultado ficar abaixo de 2 kΩ repete no de 470 Ω, onde a resolução é melhor.
 
-| Pino | Função | GPIO | Descrição |
-|:---:|:---:|:---:|:---|
-| 1 | **GND** | — | Terra comum |
-| 2 | **I2C SDA** | GPIO 27 | Dados I2C (INA219) |
-| 3 | **I2C SCL** | GPIO 22 | Clock I2C (INA219) |
-| 4 | **OneWire DQ** | GPIO 4 | Dados OneWire (DS18B20) |
+**Capacitância.** Descarrega pelo MOSFET, aplica o drive e cronometra até a tensão chegar a 63,2% da alimentação. Nesse ponto `t = R × C`, então `C = t / R`.
 
-> [!INFO]
-> O conector P3/J3 utiliza um plugue JST PH de 4 pinos (pitch 2.0mm).
+**ESR.** Um capacitor descarregado se comporta como curto no primeiro instante. A tensão que sobra imediatamente após um pulso de 25 µs é a queda na resistência série. Usa o resistor de 470 Ω e uma leitura única, sem média — a média destruiria o transitório.
+
+**Tensão direta.** Com o resistor de 470 Ω circulam cerca de 5 mA, corrente de teste típica para uma junção de silício. A tensão lida na ponta 1 é o Vf.
+
+**hFE.** Base pelo resistor de 10 kΩ (Ib ≈ 0,26 mA), coletor pelo de 470 Ω. Mede a tensão do coletor com a base ativa e sem ela; a diferença entre os dois estados é a assinatura de um dispositivo com ganho.
+
+### Lista de peças deste bloco
+
+| Qtd | Componente | Valor | Observação |
+| :-- | :--- | :--- | :--- |
+| 1 | Resistor | 10 kΩ 1% | referência da faixa alta — a precisão dele é a precisão do aparelho |
+| 1 | Resistor | 470 Ω 1% | referência da faixa baixa |
+| 1 | MOSFET canal N | 2N7000 ou BS170 | descarga de capacitor |
+| 1 | Resistor | 100 kΩ | pull-down do gate do MOSFET |
+| 2 | Jaque banana 4 mm | vermelho e preto | pontas de prova |
+
+> [!TIP]
+> Use resistores de 1% ou melhor. Um resistor de 5% no lugar do de referência limita a precisão de todas as medições a 5%, por melhor que seja o firmware.
+
+### Verificação
+
+O firmware testa esse circuito sozinho no boot: alterna `PIN_PROBE_DRIVE` entre alto e baixo e verifica se a leitura da ponta 1 acompanha. Se a diferença for menor que 500 contas de ADC, conclui que o divisor não está montado e desabilita as medições de componente — mostrando "Circuito de pontas ausente" em vez de números inventados.
+
+Confira em `Mais > Diagnóstico`, linha **Pontas de prova**.
 
 ---
 
-## 3. Ligação dos Módulos
+## Sensor de tensão AC (ZMPT101B)
 
-### 3.1 ZMPT101B — Sensor de Tensão AC (COM PROTEÇÃO)
-
-Módulo transformador para medição de tensão alternada. O circuito abaixo é **obrigatório** para segurança em 220V.
-
-#### Esquema de Ligação Protegido
-
-```text
-ENTRADA AC (220V)                                MÓDULO ZMPT101B
-─────────────────                                ───────────────
-                                            ┌───────────┐
-FASE (L) ───[ FUSÍVEL 5A ]────┬─────────────┤ L         │
-                              │             │           │
-                              ▼             │           │
-                          [VARISTOR]        │           │
-                          [ 14D431 ]        │           │
-                              ▲             │           │
-                              │             │           │
-NEUTRO (N) ───────────────────┴─────────────┤ N         │
-                                            └───────────┘
-
-                                                 SAÍDA DC
-                                            ┌───────────┐
-      ESP32 CYD (5V) <──────────────────────┤ VCC       │
-                                            │           │
-      ESP32 CYD (GND) <────────┬────────────┤ GND       │
-                               │            │           │
-                               │            │           │
-      ESP32 CYD (GPIO 36) <────┼──┬─────────┤ OUT       │
-                               │  │         └───────────┘
-                               │  │
-                        [CAP 100nF] [RES 10kΩ]
-                               │  │
-      GND <────────────────────┴──┴─────────────────────
 ```
-
-> [!CAUTION]
-> **PERIGO DE CHOQUE ELÉTRICO**: Nunca manipule o circuito de entrada (L/N) enquanto o equipamento estiver conectado à tomada. O Fusível e o Varistor devem ser acomodados em suporte isolado.
-
-#### Esquema de Ligação
-
-```text
-ZMPT101B                    ESP32-2432S028R
-────────                    ─────────────────
-  VCC ────────────────────────► 5V (VIN)
-  GND ────────────────────────► GND
-  OUT ────────────────────────► GPIO 36 (CN1 pino 2)
-                             ──► Resistor 10kΩ (pull-down)
-                                 │
-                                 ▼
-                               GND
+  REDE 127V/220V
+       │
+       ├──► [ FUSÍVEL RÁPIDO 5A ] ──► [ CHAVE LIGA/DESLIGA ]
+       │                                        │
+       │        ┌───────────────────────────────┴────┐
+       │        │      BLOCO DE PROTEÇÃO             │
+       │        │   [VARISTOR 14D431]                │
+       │        │   [DIODO TVS P6KE400A]             │
+       │        └───────────────┬────────────────────┘
+       │                        │
+       └────────────────────────┴──► ENTRADA DO ZMPT101B
+                                            │
+                                     saída analógica
+                                            │
+                                         GPIO36
 ```
-
-#### Especificações
-
-| Parâmetro | Valor |
-|:---|:---|
-| Tensão de entrada | 0 - 250V AC |
-| Tensão de saída | 0 - 3.3V AC (offset 1.65V) |
-| Frequência de operação | 50-60Hz |
-| Alimentação | 5V DC |
-
-#### Cabo Recomendado
-
-- Use Cabo Dupont macho-fêmea de 20cm
-- Fio vermelho: VCC → 5V
-- Fio preto: GND → GND
-- Fio amarelo: OUT → GPIO 36
 
 > [!WARNING]
-> **Isolamento:** O ZMPT101B fornece isolação galvânica, mas manuseie com cuidado durante medições em alta tensão. Sempre desconecte a alimentação antes de manipular as conexões.
+> O fusível, o varistor e o diodo TVS **não são opcionais**. Solde o varistor e o TVS diretamente nos terminais de entrada do módulo ZMPT101B, com as pernas o mais curtas possível — a indutância parasita de um fio longo anula a proteção contra transientes rápidos.
+
+### Ajuste do trimpot
+
+Com a entrada AC desconectada, ajuste o trimpot do ZMPT101B até que a saída DC fique em **1,65 V** (meia escala do ADC de 3,3 V). O autoteste verifica isso: em `Mais > Diagnóstico`, a linha **Sensor AC** mostra "ajustar trimpot" se a leitura de repouso estiver fora da faixa de 1500 a 2600 contas.
+
+### Calibração de ganho
+
+O ganho padrão (`ZMPT_DEFAULT_GAIN`, 0,3707 V por conta) serve como ponto de partida. Para calibrar de verdade, meça a rede com um multímetro de referência e use `multimeter_calibrate_zmpt(tensaoReal)`. O valor fica gravado na NVS.
 
 ---
 
-### 3.2 INA219 — Medidor de Tensão/Corrente DC
+## Sensor de corrente (INA219)
 
-Sensor I2C para medição de tensão (0-26V), corrente (até 3.2A) e potência.
-
-#### Esquema de Ligação
-
-```text
-INA219                       ESP32-2432S028R
-──────                       ─────────────────
-  VCC ────────────────────────► 3.3V
-  GND ────────────────────────► GND
-  SDA ────────────────────────► GPIO 27 (P3 pino 2)
-  SCL ────────────────────────► GPIO 22 (P3 pino 3)
-  A+ (V+) ───────────────────► (+) Carga/Bateria
-  A- (V-) ───────────────────► (-) Carga/Bateria
+```
+   FONTE ──► [ Vin+ ]  INA219  [ Vin− ] ──► CARGA
+                          │
+                   SDA ── GPIO27
+                   SCL ── GPIO22
+                   VCC ── 3V3
+                   GND ── GND
 ```
 
-#### Diagrama de Conexão em Série
+O shunt padrão dos módulos comerciais é de 0,1 Ω, o que dá alcance de ±3,2 A. O firmware configura o registrador de calibração para um LSB de corrente de 100 µA.
 
-```text
-         ┌─────────────────────────────────────┐
-         │           FONTE/BATERIA              │
-         │           (+)    (-)               │
-         └──────────┬────────────────────────┘
-                    │                         │
-                    ▼                         │
-              ┌─────────┐                    │
-              │  INA219 │◄────────────┐       │
-              │ A+   A- │             │       │
-              └───┬�─────┘             │       │
-                  │                   │       │
-                  │   ┌───────────────┘       │
-                  │   │                       │
-                  ▼   ▼                    ┌──┘
-              ┌─────────┐                  │
-              │ CARGA/  │◄──────────────────┘
-              │ DISPO-  │
-              │ Sitivo  │
-              └─────────┘
-```
+Endereço I²C: **0x40** (todos os jumpers A0/A1 abertos).
 
-#### Especificações
-
-| Parâmetro | Valor |
-|:---|:---|
-| Tensão máxima (Vbus) | 26V DC |
-| corrente máxima | 3.2A ( shunt 0.1Ω ) |
-| Resolução | 12-bit (4mA) |
-| Endereço I2C | 0x40 |
-|shunt Resistor | 0.1Ω (1W) integrado |
-
-#### Cabo Recomendado
-
-- Use Cabo JST PH de 4 vias ou Dupont
-- Configure Pull-ups internos: ativados no firmware
-
-> [!INFO]
-> O INA219 utiliza endereçamento I2C fixo em **0x40**. Não conecte outros dispositivos no barramento I2C com mesmo endereço.
+> [!NOTE]
+> O barramento I²C compartilha pinos com a excitação das pontas. Isso é intencional: os dois saem pelo conector P3. O firmware faz arbitragem temporal e nunca aciona os dois ao mesmo tempo.
 
 ---
 
-### 3.3 DS18B20 — Sonda Térmica Digital
+## Sonda térmica (DS18B20)
 
-Sensor de temperatura OneWire à prova d'água.
-
-#### Esquema de Ligação
-
-```text
-DS18B20                     ESP32-2432S028R
-───────                     ─────────────────
-  VCC (Vermelho) ────────────► 3.3V
-  GND (Preto)   ────────────► GND
-  DQ (Amarelo/ ────────────► GPIO 4 (P3 pino 4)
-  Branco)                │
-                        │
-                        ▼ Resistor 4.7kΩ pull-up
-                        │
-                        ▼
-                       3.3V
+```
+   3V3 ──┬──[ 4k7 ]──┬── DQ ── GPIO4  (Rev A)  ou  GPIO32 (Rev B)
+         │           │
+       VDD          DS18B20
+         │           │
+        GND ────────GND
 ```
 
-#### Especificações
+O resistor de pull-up de 4,7 kΩ é obrigatório no barramento OneWire.
 
-| Parâmetro | Valor |
-|:---|:---|
-| Faixa de temperatura | -55°C a +125°C |
-| Precisão | ±0.5°C (-10°C a +85°C) |
-| Resolução | 9-12 bit (configurável) |
-| Protocolo | Dallas OneWire |
-
-#### Cabo Recomendado
-
-- Cabo de 3 vias com connectors JST ou Dupont
-- Comprimento máximo: até 100 metros (cabos torcidos)
-- Importante: resistor pull-up de 4.7kΩ entre DQ e 3.3V
-
-> [!WARNING]
-> O GPIO 4 é **compartilhado** com o LED azul integrado da CYD. Durante comunicação OneWire, o LED pode apresentar comportamentos inesperados (piscar/aceso). Isso é normal e não afeta a leitura.
+Na Rev A o GPIO4 é compartilhado com o LED vermelho. O firmware apaga o LED antes de cada leitura e o restaura depois — mas se você estiver montando do zero, use a Rev B e evite o problema.
 
 ---
 
-## 4. Sistema de Probes
+## Alimentação e cores de fio
 
-### 4.1 Probe de Teste de Componentes
+| Barramento | Cor | Bitola | Uso |
+| :--- | :--- | :--- | :--- |
+| Fase AC | Marrom | 18 AWG | entrada de energia |
+| Neutro AC | Azul claro | 18 AWG | retorno |
+| +5 V | Vermelho | 22 AWG | alimentação de sensores |
+| +3,3 V | Laranja | 24 AWG | OneWire, lógica |
+| GND | Preto | 22 AWG | referência comum |
+| I²C SDA | Amarelo | 26 AWG | dados |
+| I²C SCL | Verde | 26 AWG | clock |
+| Analógico | Roxo | 26 AWG | sinais de medição |
 
-Sistema de pontas de prova para teste de resistores, capacitores, diodos, transistores, etc.
-
-#### Conexão padrão
-
-```text
-Probes                       ESP32-2432S028R
-───────                      ─────────────────
-  Probe Vermelho (Sinal) ────► GPIO 35 (CN1 pino 1)
-  Probe Preto (GND)    ────► GND (CN1 pino 3)
-```
-
-#### Configuração de Teste
-
-| Componente | Probe Vermelho | Probe Preto |
-|:---|:---:|:---:|
-| Resistor | Uma ponta | Outra ponta |
-| Capacitor | Pino + | Pino - |
-| Diodo | Ânodo (+) | Cátodo (-) |
-| LED | Ânodo (+) | Cátodo (-) |
-| Transistor (NPN) | Coletor | Emissor |
-
-> [!IMPORTANT]
-> **Descarge capacitores** antes de testar! Capacitores eletrolíticos armazename energia dangerous. Use uma resistor de descarga ou espere tempo suficiente.
+Use par trançado nas linhas SDA/SCL para reduzir interferência, e mantenha os fios analógicos longe dos de rede elétrica.
 
 ---
 
-## 5. Botões de Controle
+## Checklist de montagem
 
-### 5.1 Botões Integrados (se instalados)
-
-A CYD possui 2 botões de usuário (GPIO 0 e GPIO 35) acessíveis via furos na placa.
-
-| Botão | GPIO | Função |
-|:---:|:---:|:---|
-| BOOT | GPIO 0 | Boot / Reset |
-| GPIO 35 | GPIO 35 | Button (definido pelo usuário) |
-
-### 5.2 Botões Externos (opcional)
-
-Conecte botões tactis externos ao GPIO appropriate com resistor pull-down de 10kΩ.
-
-```text
-Botão externo              ESP32-2432S028R
-────────────              ─────────────────
-  Pino 1 ─────────────────► GPIO (ex: 13)
-  Pino 2 ─────────────────► GND
-  
-  ┌─────────────────────────────────────┐
-  │           Resistor 10kΩ              │
-  │           (pull-down)               │
-  └─────────────────────────────────────┘
-```
-
----
-
-## 6. Buzzer / Speaker
-
-### 6.1 Buzzer Integrado
-
-A CYD possui um buzzer/speaker conectado ao GPIO 26.
-
-| Componente | GPIO | Função |
-|:---|:---:|:---|
-| Speaker | GPIO 26 | Áudio e alertas sonoros |
-
-> [!INFO]
-> O GPIO 26 também pode ser usado como **saída PWM** para gerador de sinais. Desconecte o speaker se necessário.
-
----
-
-## 7. LED RGB Integrado
-
-### 7.1 LED de Status
-
-A CYD possui um LED RGB (na verdade, 2 LEDs: verde e vermelho — azul é opcional).
-
-| Cor | GPIO | Observação |
-|:---:|:---:|:---|
-| Verde | GPIO 16 | LED verde |
-| Vermelho | GPIO 17 | LED vermelho |
-| Azul | GPIO 4 | Compartilhado com OneWire (ver nota) |
-
-> [!WARNING]
-> O **LED azul** compartilha o GPIO 4 com barramento OneWire da DS18B20. Ao usar a sonda, o LED azul pode apresentar comportamento inesperado.
-
----
-
-## 8. Tabela Resumo de Conexões
-
-### Resumo Geral
-
-| Módulo | Pino Signal | Pino Alimentação | Pino Terra | Conector |
-|:---|:---:|:---:|:---:|:---|
-| **ZMPT101B** | GPIO 34 | 5V | GND | CN1 |
-| **INA219** | GPIO 27 (SDA) / 22 (SCL) | 3.3V | GND | P3 |
-| **DS18B20** | GPIO 4 | 3.3V | GND | P3 |
-| **Probe Principal** | GPIO 35 | — | GND | CN1 |
-| **Buzzer/Speaker** | GPIO 26 | — | GND | — |
-| **LED RGB** | GPIO 16 / 17 | — | GND | — |
-
----
-
-## 9. Imagens de Referência
-
-### 9.1 Diagrama de Ligação (Visão Superior)
-
-Adicione aqui uma imagem de diagrama de ligação visãoglobal.
-
-```
-! (images/wiring_overview.png)
-*[Adicione uma foto/diagrama mostrando todos os módulos conectados]
-```
-
-### 9.2 Detalhe do Conector CN1
-
-```
-! (images/wiring_cn1_detail.png)
-*[Detalhe do conector CN1 com ZMPT e Probe conectados]
-```
-
-### 9.3 Detalhe do Conector P3
-
-```
-! (images/wiring_p3_detail.png)
-*[Detalhe do conector P3 com INA219 e DS18B20 conectados]
-```
-
-### 9.4 Foto da Montagem Completa
-
-```
-! (images/wiring_full_setup.png)
-*[Foto da montagem completa com todos os módulos]
-```
-
----
-
-## 10. Checklist de Conexões
-
-Antes de ligá-lo, verifique cada conexão:
-
-- [ ] ZMPT101B: VCC → 5V, GND → GND, OUT → GPIO 36
-- [ ] INA219: VCC → 3.3V, GND → GND, SDA → 27, SCL → 22
-- [ ] DS18B20: VCC → 3.3V, GND → GND, DQ → GPIO 4 + resistor 4.7kΩ
-- [ ] Probes: P1 → GPIO 35, P2 → GPIO 34
-- [ ] Resistor pull-down 10kΩ no GPIO 36 (ZMPT)
-- [ ] Verificar ausência de curto entre 5V e GND
-
-> [!DANGER]
-> **Nunca** inverta as conexões de alimentação! 5V no pino 3.3V pode danificar permanentemente a placa.
-
----
-
-## 11. Troubleshooting de Conexões
-
-| Problema | Causa Provável | Solução |
-|:---|:---|:---|
-| ZMPT não lê tensão | Pull-down ausente | Adicione resistor 10kΩ entre GPIO 36 e GND |
-| INA219 não responding | Endereço I2C conflito | Verifique endereços no barramento |
-| DS18B20 não detecta | Pull-up ausente | Adicione resistor 4.7kΩ entre DQ e 3.3V |
-| Leituras errôneas | Gnds não comuns | Use GND único para todas as referências |
-| Display não inicia | Bot BOOT pressionado | Não segure BOOT ao ligar |
-
----
-
-_Fim do Guia de Ligação_
+- [ ] Resistores de referência de 10 kΩ e 470 Ω são de 1% ou melhor
+- [ ] MOSFET de descarga com pull-down de 100 kΩ no gate
+- [ ] Fusível de 5 A instalado e testado
+- [ ] Varistor e TVS soldados direto no ZMPT, pernas curtas
+- [ ] Pull-up de 4,7 kΩ no barramento OneWire
+- [ ] Capacitor de 100 nF de desacoplamento junto a cada módulo
+- [ ] Isolação mínima de 10 mm entre bornes AC e bornes DC
+- [ ] Trimpot do ZMPT ajustado para 1,65 V em repouso
+- [ ] Cartão MicroSD formatado em FAT32 com `COMPBD.CSV` na raiz
+- [ ] `Mais > Diagnóstico` sem nenhuma linha em FALHA

@@ -31,13 +31,13 @@ MenuCard MAIS_MENU[] = {
     { "LED",        STATE_MEASURE_LED,       ICON_LED,           V_NEON_GREEN    },
     { "Transistor", STATE_MEASURE_TRANSISTOR,ICON_TRANSISTOR_NPN, V_VIBRANT_PURPLE},
     { "Indutor",    STATE_MEASURE_INDUCTOR,  ICON_INDUCTOR,      V_WARNING       },
-    { "IC / CI",    STATE_MEASURE_IC,        ICON_SETTINGS,      V_CYAN_ELECTRIC },
+    { "CI / IC",    STATE_MEASURE_IC,        ICON_SETTINGS,      V_CYAN_ELECTRIC },
     { "Scanner",    STATE_SCANNER,           ICON_AUTO,          V_VIBRANT_PURPLE},
     { "Temperatura", STATE_SUBMENU_TEMP,      ICON_TEMP,          V_WARNING       },
     { "Calibrar",   STATE_CALIBRATION,       ICON_RESISTOR,      V_NEON_GREEN    },
     { "Historico",  STATE_HISTORY,           ICON_HISTORY,       V_TEXT_SUB      },
     { "Ajustes",    STATE_SETTINGS,          ICON_SETTINGS,      V_PURE_WHITE    },
-    { "CPU Info",   STATE_STATS,             ICON_ABOUT,         V_CYAN_ELECTRIC },
+    { "Diagnostico",STATE_STATS,             ICON_WARNING,       V_CYAN_ELECTRIC },
     { "Sobre",      STATE_ABOUT,             ICON_ABOUT,         V_NEON_GREEN    }
 };
 

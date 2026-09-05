@@ -17,11 +17,18 @@ typedef struct {
 
 extern CalibrationData currentCal;
 
-// Protótipos
+// Carrega os offsets gravados na NVS. Chamar no setup().
 void calibration_init();
+
+// Rotina guiada em duas etapas (pontas em curto, depois abertas).
+// Devolve false e restaura a calibracao anterior se algo sair errado.
 bool calibration_run_auto();
+
 void calibration_save();
 void calibration_load();
 void calibration_reset();
+
+// Verdadeiro se ha uma calibracao valida e com checksum correto.
+bool calibration_is_valid();
 
 #endif // CALIBRATION_H

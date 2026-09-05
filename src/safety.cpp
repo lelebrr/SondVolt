@@ -1,5 +1,9 @@
 #include "safety.h"
 #include "config.h"
+#include "hal.h"
+#include "leds.h"
+#include "multimeter.h"
+#include "diagnostics.h"
 #include "pins.h"
 #include "graphics.h"
 #include "buzzer.h"
@@ -18,24 +22,13 @@ bool safetySoundEnabled = true;
 bool safetyLedEnabled = true;
 bool safetyAutoLockoutEnabled = true;
 
-static TaskHandle_t safetyTaskHandle = nullptr;
 static bool alertActive = false;
 
-static bool map_touch_to_screen_safe(const TS_Point& raw, uint16_t& outX, uint16_t& outY) {
-    if (raw.z < TOUCH_MIN_PRESSURE || raw.z > TOUCH_MAX_PRESSURE) {
-        return false;
-    }
-
-    if (raw.x < TOUCH_MIN_X || raw.x > TOUCH_MAX_X || raw.y < TOUCH_MIN_Y || raw.y > TOUCH_MAX_Y) {
-        return false;
-    }
-
-    int32_t mx = map(raw.x, TOUCH_MIN_X, TOUCH_MAX_X, SCREEN_WIDTH, 0);
-    int32_t my = map(raw.y, TOUCH_MIN_Y, TOUCH_MAX_Y, 0, SCREEN_HEIGHT);
-
-    outX = (uint16_t)constrain(mx, 0, SCREEN_WIDTH - 1);
-    outY = (uint16_t)constrain(my, 0, SCREEN_HEIGHT - 1);
-    return true;
+// A conversao de coordenadas do toque agora e unica no projeto (hal.cpp).
+// Esta funcao existia com constantes e orientacao DIFERENTES das usadas na
+// interface, entao os botoes das telas de seguranca ficavam espelhados.
+static bool map_touch_to_screen_safe(uint16_t& outX, uint16_t& outY) {
+    return hal_touch_read(&outX, &outY);
 }
 
 // ============================================================================
@@ -51,13 +44,12 @@ void safety_init() {
     safetyStatus.safetyAcknowledged = false; // Exigir primeiro aceite
     safetyCheckEnabled = true;
 
-    pinMode(PIN_LED_RED, OUTPUT);
-    pinMode(PIN_LED_GREEN, OUTPUT);
+    // Os LEDs da CYD sao de anodo comum; a HAL cuida da polaridade e do
+    // compartilhamento do GPIO4 com o barramento OneWire.
+    hal_led_write(PIN_LED_RED, false);
+    hal_led_write(PIN_LED_GREEN, true);
 
-    digitalWrite(PIN_LED_RED, LOW);
-    digitalWrite(PIN_LED_GREEN, HIGH);
-
-    LOG_SERIAL_F("Sistema de seguranca inicializado");
+    LOG_SERIAL_F("[SEG] Sistema de seguranca inicializado");
 }
 
 void safety_reset() {
@@ -66,8 +58,8 @@ void safety_reset() {
     safetyStatus.state = SAFETY_STATE_SAFE;
     safetyStatus.safetyAcknowledged = true;
 
-    digitalWrite(PIN_LED_RED, LOW);
-    digitalWrite(PIN_LED_GREEN, HIGH);
+    hal_led_write(PIN_LED_RED, false);
+    hal_led_write(PIN_LED_GREEN, true);
 
     safety_alert_stop();
 }
@@ -82,15 +74,20 @@ SafetyCheckResult safety_check_voltage(float voltage) {
 
     result.detectedVoltage = voltage;
 
-    if(voltage >= SAFETY_VOLTAGE_DANGER_AC) {
+    // ATENCAO A ORDEM. Na versao anterior o primeiro ramo capturava tudo
+    // acima de 50 V como CRITICO, deixando os ramos de 220 V e 127 V
+    // inalcancaveis: o aparelho nunca distinguia uma rede normal de um surto.
+    // Agora os limiares sao testados do maior para o menor.
+    if(voltage > SAFETY_VOLTAGE_220V_MAX) {
+        // Acima da tensao maxima de rede: surto ou ponta na fase errada.
         result.isAcDanger = true;
         result.alertLevel = SAFETY_ALERT_CRITICAL;
-        result.message = SAFETY_MSG_DANGER_220V;
-    } else if(voltage >= SAFETY_VOLTAGE_220V_MIN && voltage <= SAFETY_VOLTAGE_220V_MAX) {
+        result.message = SAFETY_MSG_DANGER_HIGH;
+    } else if(voltage >= SAFETY_VOLTAGE_220V_MIN) {
         result.isAcDanger = true;
         result.alertLevel = SAFETY_ALERT_HIGH;
         result.message = SAFETY_MSG_DANGER_220V;
-    } else if(voltage >= SAFETY_VOLTAGE_110V_MIN && voltage <= SAFETY_VOLTAGE_110V_MAX) {
+    } else if(voltage >= SAFETY_VOLTAGE_110V_MIN) {
         result.isAcDanger = true;
         result.alertLevel = SAFETY_ALERT_MEDIUM;
         result.message = SAFETY_MSG_DANGER_HIGH;
@@ -152,7 +149,7 @@ void safety_trigger_alert(SafetyAlertLevel level) {
         }
 
         if(safetyLedEnabled) {
-            digitalWrite(PIN_LED_RED, HIGH);
+            hal_led_write(PIN_LED_RED, true);
         }
 
     } else {
@@ -162,14 +159,10 @@ void safety_trigger_alert(SafetyAlertLevel level) {
 }
 
 void safety_alert_led_flash(bool enable) {
-    if(enable) {
-        digitalWrite(PIN_LED_RED, HIGH);
-        vTaskDelay(pdMS_TO_TICKS(SAFETY_LED_FLASH_FAST));
-        digitalWrite(PIN_LED_RED, LOW);
-        vTaskDelay(pdMS_TO_TICKS(SAFETY_LED_FLASH_FAST));
-    } else {
-        digitalWrite(PIN_LED_RED, LOW);
-    }
+    // Antes esta funcao bloqueava a tarefa por 200 ms a cada chamada. Agora
+    // apenas configura o padrao; quem anima e leds_update().
+    if(enable) led_status_danger();
+    else       led_off();
 }
 
 void safety_alert_sound_danger() {
@@ -187,8 +180,8 @@ void safety_alert_sound_confirm() {
 
 void safety_alert_stop() {
     alertActive = false;
-    digitalWrite(PIN_LED_RED, LOW);
-    digitalWrite(PIN_LED_GREEN, HIGH);
+    led_off();
+    hal_led_write(PIN_LED_GREEN, true);
 }
 
 // ============================================================================
@@ -323,14 +316,15 @@ void safety_activate_lockout() {
         safetyStatus.state = SAFETY_STATE_LOCKOUT;
         safetyStatus.lockoutEndTime = millis() + SAFETY_LOCKOUT_MS;
 
-        digitalWrite(PIN_LED_GREEN, LOW);
-        digitalWrite(PIN_LED_RED, HIGH);
+        hal_led_write(PIN_LED_GREEN, false);
+        led_status_danger();
+        diag_count_lockout();
 
         if(safetySoundEnabled) {
             safety_alert_sound_danger();
         }
 
-        LOG_SERIAL_F("Bloqueio de seguranca ativado");
+        LOG_SERIAL_F("[SEG] Bloqueio de seguranca ativado");
     }
 }
 
@@ -338,14 +332,14 @@ void safety_deactivate_lockout() {
     safetyStatus.state = SAFETY_STATE_SAFE;
     safetyStatus.lockoutEndTime = 0;
 
-    digitalWrite(PIN_LED_GREEN, HIGH);
-    digitalWrite(PIN_LED_RED, LOW);
+    led_off();
+    hal_led_write(PIN_LED_GREEN, true);
 
     if(safetySoundEnabled) {
         buzzer_beep(SAFETY_BEEP_OK, 200);
     }
 
-    LOG_SERIAL_F("Bloqueio de seguranca desativado");
+    LOG_SERIAL_F("[SEG] Bloqueio de seguranca desativado");
 }
 
 bool safety_is_locked_out() {
@@ -463,14 +457,12 @@ bool safety_confirm_electrical_measurement() {
     uint32_t startTime = millis();
 
     while(millis() - startTime < TIME_CONFIRM_TIMEOUT) {
-        if(touch.touched()) {
-            TS_Point raw = touch.getPoint();
+        {
             uint16_t tx = 0;
             uint16_t ty = 0;
 
-            if (!map_touch_to_screen_safe(raw, tx, ty)) {
-                delay(50);
-                vTaskDelay(pdMS_TO_TICKS(1));
+            if (!map_touch_to_screen_safe(tx, ty)) {
+                vTaskDelay(pdMS_TO_TICKS(30));
                 continue;
             }
 
@@ -496,8 +488,7 @@ bool safety_confirm_electrical_measurement() {
             }
         }
 
-        delay(50);
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(30));
     }
 
     return false;
@@ -512,16 +503,31 @@ void safety_update() {
         return;
     }
 
+    // A tela de bloqueio e desenhada UMA vez, e o contador e atualizado a
+    // cada segundo. A versao anterior redesenhava a tela inteira a cada
+    // ciclo de 100 ms, a partir da tarefa de medicao, brigando com a tarefa
+    // de interface pelo barramento SPI.
+    static bool     lockoutScreenDrawn = false;
+    static uint32_t lastCountdown = 0;
+
     if(safety_is_locked_out()) {
-        safety_draw_lockout_screen(safetyStatus.lockoutEndTime - millis());
+        uint32_t now = millis();
+        uint32_t remaining = (safetyStatus.lockoutEndTime > now)
+                           ? (safetyStatus.lockoutEndTime - now) : 0;
+
+        if(!lockoutScreenDrawn || (now - lastCountdown) >= 1000) {
+            safety_draw_lockout_screen(remaining);
+            lockoutScreenDrawn = true;
+            lastCountdown = now;
+        }
+    } else {
+        lockoutScreenDrawn = false;
     }
 
+    // O pisca-pisca do LED e responsabilidade de leds_update(); aqui apenas
+    // garantimos que o padrao certo esteja armado.
     if(alertActive && safetyLedEnabled) {
-        static unsigned long lastFlash = 0;
-        if(millis() - lastFlash > SAFETY_LED_FLASH_FAST) {
-            digitalWrite(PIN_LED_RED, !digitalRead(PIN_LED_RED));
-            lastFlash = millis();
-        }
+        led_status_danger();
     }
 }
 
@@ -533,12 +539,21 @@ SafetyCheckResult safety_detect_danger() {
     SafetyCheckResult result;
     memset(&result, 0, sizeof(SafetyCheckResult));
 
-    uint16_t adcValue = analogRead(PIN_ADC_ZMPT);
-
-    float voltage = (adcValue - ZMPT_ZERO_POINT) * ZMPT_SCALE_FACTOR / (float)ZMPT_ZERO_POINT;
-    voltage = fabsf(voltage);
-    
-    vTaskDelay(1); // Pequeno yield para o sistema
+    // ------------------------------------------------------------------
+    // ESTE ERA O BUG MAIS PERIGOSO DO FIRMWARE
+    // ------------------------------------------------------------------
+    // A versao anterior calculava:
+    //     voltage = (adc - 2048) * ZMPT_SCALE_FACTOR / 2048
+    // com ZMPT_SCALE_FACTOR igual a 1.0, ou seja, um numero normalizado
+    // entre 0 e 1. Esse valor era entao comparado com limiares de 50 V,
+    // 180 V e 250 V. Como 1.0 nunca chega a 50, safety_check_voltage()
+    // SEMPRE devolvia "seguro" e o bloqueio automatico jamais disparava.
+    // O sistema de protecao existia no papel e nao fazia nada.
+    //
+    // Agora usamos o mesmo motor True RMS calibrado do multimetro, que
+    // devolve volts de verdade.
+    // ------------------------------------------------------------------
+    float voltage = multimeter_read_ac_voltage_rms();
 
     safetyStatus.lastDetectedVoltage = voltage;
     safetyStatus.lastCheckTime = millis();
@@ -548,6 +563,7 @@ SafetyCheckResult safety_detect_danger() {
     if(!result.isSafe) {
         safetyStatus.dangerCount++;
 
+        // Tres leituras perigosas seguidas: nao e ruido, e a rede.
         if(safetyStatus.dangerCount >= 3) {
             safety_activate_lockout();
         }
@@ -556,6 +572,24 @@ SafetyCheckResult safety_detect_danger() {
     }
 
     return result;
+}
+
+// Tensao perigosa medida na ultima verificacao, em volts.
+float safety_get_last_voltage() {
+    return safetyStatus.lastDetectedVoltage;
+}
+
+// Texto curto do estado atual, para a barra de status.
+const char* safety_state_text() {
+    switch(safetyStatus.state) {
+        case SAFETY_STATE_SAFE:         return "SEGURO";
+        case SAFETY_STATE_CHECKING:     return "VERIFICANDO";
+        case SAFETY_STATE_DANGER:       return "PERIGO";
+        case SAFETY_STATE_LOCKOUT:      return "BLOQUEADO";
+        case SAFETY_STATE_CONFIRMATION: return "CONFIRMANDO";
+        case SAFETY_STATE_WARNING:      return "ATENCAO";
+        default:                        return "?";
+    }
 }
 
 // ============================================================================

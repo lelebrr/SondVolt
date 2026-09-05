@@ -13,6 +13,9 @@
 
 // LEDs indicadores (verde/vermelho/azul)
 void leds_init();
+
+// Avanca os padroes de pisca-pisca. Chamar a cada ciclo da interface.
+void leds_update();
 void set_green_led(bool on);
 void set_red_led(bool on);
 void set_blue_led(bool on);

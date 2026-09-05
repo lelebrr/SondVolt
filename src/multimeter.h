@@ -9,64 +9,20 @@
 #include <stdint.h>
 #include <Arduino.h>
 #include "types.h"
+#include "config.h"
 
 // ============================================================================
-// PINOS E CONFIGURAÇÕES DE HARDWARE
+// NOTA SOBRE CONSTANTES
+// ============================================================================
+// Toda a pinagem vive em pins.h e todos os limites de medicao vivem em
+// config.h. Este cabecalho nao redefine nada: a versao anterior duplicava
+// dezenas de macros (ZMPT_*, INA219_*, HISTORY_SIZE) com valores diferentes
+// dos de config.h, e qual valor prevalecia dependia da ordem dos includes.
 // ============================================================================
 
-// Pinos do ADC (ESP32)
-#define MULTIMETER_ADC_PIN       34      // ZMPT101B conectado aqui
-#define MULTIMETER_ADC_CHANNEL    ADC1_CHANNEL_6
-
-// Pinos de controle
-#define MULTIMETER_BUZZER_PIN     26      // Buzzer para alertas
-#define MULTIMETER_LED_GREEN      16      // LED verde (OK)
-#define MULTIMETER_LED_RED         17      // LED vermelho (alerta)
-
-// Pinos do relé de medição (opcional)
-#define MULTIMETER_RELAY_PIN      27      // Relé para isolar
-
-// ============================================================================
-// CONSTANTES DO ZMPT101B (Transformador de Tensão)
-// ============================================================================
-
-#define ZMPT_SAMPLES_PER_CYCLE   64      // Amostras por ciclo (60Hz)
-#define ZMPT_ZERO_VOLTAGE        2048    // Zero ideal do ADC (12-bit)
-#define ZMPT_VOLTS_PER_COUNT      0.146f  // Fator de conversão (220V / 1507 contagens)
-
-// ============================================================================
-// CONSTANTES DO INA219 (Sensor de Corrente/Tensão)
-// ============================================================================
-
-#define INA219_I2C_ADDR          0x40    // Endereço I2C padrão
-#define INA219_SHUNT_OHMS        0.1f    // Resistência do shunt
-#define INA219_MAX_AMPS          3.2f    // Corrente máxima
-#define INA219_MAX_VOLTS        26.0f   // Tensão máxima (32V - 0.4V)
-#ifndef INA219_CALIBRATION
-#define INA219_CALIBRATION        4096    // Valor de calibração
-#endif
-
-// ============================================================================
-// CONSTANTES DE MEDIÇÃO
-// ============================================================================
-
-// Faixas de tensão DC
-#define DC_VOLTAGE_RANGE_LOW      0.0f    // 0-5V
-#define DC_VOLTAGE_RANGE_MED     5.0f    // 0-15V  
-#define DC_VOLTAGE_RANGE_HIGH    15.0f   // 0-26V
-
-// Faixas de tensão AC
-#define AC_VOLTAGE_RANGE_110    110.0f  // 110V nominal
-#define AC_VOLTAGE_RANGE_220   220.0f  // 220V nominal
-#define AC_VOLTAGE_MAX        250.0f  // Máximo aceito (com margem)
-
-// Faixas de corrente
-#define CURRENT_RANGE_MA       1000.0f // 0-1A
-#define CURRENT_RANGE_A         3.2f    // 0-3.2A
-
-// Resistência
-// Limiares de segurança (já definidos em config.h se necessário)
-// #define HIGH_VOLTAGE_THRESHOLD 50.0f   // Alerta de tensão alta (AC)
+// Faixas nominais de rede, usadas apenas para rotular a tela.
+#define AC_VOLTAGE_RANGE_127    127.0f
+#define AC_VOLTAGE_RANGE_220    220.0f
 
 // ============================================================================
 // RESULTADO DE MEDICAO
@@ -90,10 +46,8 @@ struct MultimeterReading {
 };
 
 // ============================================================================
-// HISTÓRICO DE MEDIÇÕES
+// HISTORICO DE MEDICOES  (HISTORY_SIZE vem de config.h)
 // ============================================================================
-
-#define HISTORY_SIZE              20      // Número de medições salvas
 
 struct MeasurementHistoryEntry {
     float value;               // Valor medido
@@ -281,7 +235,34 @@ MeasurementHistory* multimeter_get_history();
 // Formata valor para string
 void multimeter_format_value(float value, char* buffer, uint8_t maxLen);
 
-// Detecta tipo de tensão (110V ou 220V)
+// Detecta se a tensao medida corresponde a uma rede de 220 V.
 bool multimeter_detect_voltage_type(float voltage);
+
+// ============================================================================
+// NOVIDADES DA v4.0
+// ============================================================================
+
+// Le a tensao do barramento pelo proprio INA219 (mais preciso que o ADC).
+float multimeter_read_bus_voltage();
+
+// Le a tensao AC eficaz do ZMPT101B com remocao automatica de offset.
+float multimeter_read_ac_voltage_rms();
+
+// Verdadeiro se o INA219 respondeu no barramento I2C.
+bool multimeter_ina219_present();
+
+// Estado interno do instrumento.
+MultimeterState multimeter_get_state();
+
+// Nomes legiveis para a interface.
+const char* multimeter_mode_name(MultimeterMode mode);
+const char* multimeter_state_name(MultimeterState state);
+
+// Razao do divisor externo de tensao DC (1.0 = medida direta, 11.0 = 10:1).
+void  multimeter_set_dc_divider(float ratio);
+float multimeter_get_dc_divider();
+
+// Ganho de calibracao do ZMPT101B, em volts por conta de ADC.
+float multimeter_get_zmpt_gain();
 
 #endif // MULTIMETER_H

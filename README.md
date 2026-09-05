@@ -1,186 +1,209 @@
-# Sondvolt Component Tester PRO v3.2
+# Sondvolt v4.0
 
 ![Logo](assets/logo.png)
-![Hero Image](assets/hero.png)
 
 <p align="center">
-  <a href="https://github.com/lelebrr/SondVolt/releases">
-    <img src="https://img.shields.io/badge/Version-v3.2.1-blue.svg" alt="Versão">
-  </a>
-  <a href="https://github.com/lelebrr/SondVolt/blob/main/docs/LICENSE.md">
-    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="Licença">
-  </a>
-  <a href="https://github.com/lelebrr/SondVolt">
-    <img src="https://img.shields.io/badge/Platform-ESP32-orange.svg" alt="Plataforma">
-  </a>
-  <a href="https://github.com/lelebrr/SondVolt/actions">
-    <img src="https://img.shields.io/badge/Status-Active-brightgreen.svg" alt="Status">
-  </a>
+  <img src="https://img.shields.io/badge/Vers%C3%A3o-v4.0.0-blue.svg" alt="Versão">
+  <img src="https://img.shields.io/badge/Licen%C3%A7a-MIT-green.svg" alt="Licença">
+  <img src="https://img.shields.io/badge/Plataforma-ESP32-orange.svg" alt="Plataforma">
+  <img src="https://img.shields.io/badge/Build-limpo%20com%20--Wall%20--Wextra-brightgreen.svg" alt="Build">
 </p>
 
 <p align="center">
-  <strong>Um testador profissional de componentes eletrônicos construído para ESP32-2432S028R (Cheap Yellow Display)</strong>
+  <strong>Testador de componentes e multímetro de bancada para ESP32-2432S028R (Cheap Yellow Display)</strong>
 </p>
 
 ---
 
-## 📋 Tabela de Conteúdo
+## O que mudou na v4.0
 
-- [🚀 Features](#-features)
-- [🛠 Hardware Configuration](#-hardware-configuration)
-- [📖 Como Usar](#-como-usar)
-- [⚠️ Informações de Segurança](#-informações-de-segurança)
-- [🔧 Instalação](#-instalação)
-- [📚 Documentação Completa](#-documentação-completa)
-- [🤝 Contribuição](#-contribuição)
-- [📄 Licença](#-licença)
+A v4.0 não é uma versão de features — é a versão em que o aparelho passou a **funcionar de verdade**. A v3.2 tinha o código de som, LEDs, banco de dados, calibração e histórico todo escrito e correto, mas **nenhum deles era inicializado**. Além disso, várias medições eram fisicamente impossíveis com a pinagem publicada, e alguns valores exibidos na tela eram texto fixo, não medição.
 
----
+O [CHANGELOG](docs/CHANGELOG.md) tem a lista completa. Os quatro mais graves:
 
-## 🚀 Features
+| # | Problema na v3.2 | Efeito para quem usava |
+| :-- | :--- | :--- |
+| 1 | `pinMode(GPIO35, OUTPUT)` para excitar as pontas | GPIO34–39 são **entrada apenas** no ESP32. Resistência e capacitância nunca foram medidas de verdade |
+| 2 | Proteção elétrica comparava um número de 0 a 1 com limiares em volts | O bloqueio automático **jamais disparava**. A proteção existia no papel |
+| 3 | Faixa DC padrão multiplicava a leitura por 181 | Uma pilha de 1,5 V aparecia como 272 V |
+| 4 | `buzzer_init()`, `leds_init()`, `db_init()`, `calibration_init()` nunca chamados | Sem som, sem LEDs, banco vazio, calibração perdida a cada boot |
 
-### 🧩 Teste de Componentes
-- **Identificação Automática**: Detecção automática de resistores, capacitores, diodos, transistores (NPN/PNP), indutores e mais.
-- **Precisão Avançada**: Calibração automática para medições de baixa resistência e capacitância.
-- **Interface Intuitiva**: Touch screen com navegação intuitiva e feedback visual.
-
-### 📊 Multímetro Digital Profissional
-- **True RMS Certificado**: Medição de tensão AC (0-250V) com algoritmo de 128 amostras e detecção de **Tensão de Pico**.
-- **Detecção de Surto**: Monitoramento em tempo real de transientes e picos de tensão da rede elétrica.
-- **Medição DC Precisa**: Tensão (0-26V) e Corrente (0-3A) via sensor INA219.
-
-### 🎯 Funcionalidades Avançadas
-- **Histórico de Medições**: Salva automaticamente as últimas 100 medições em formato CSV no MicroSD.
-- **Interface Rica**:
-  - Tela de Splash animada
-  - Navegação por toque intuitiva
-  - Diminuição automática do backlight (45s para economia de energia)
-  - Sistema de erros amigável
-- **Feedback Sonoro**: Tons profissionais para sucesso, erro e status de medição.
-
-### 🎨 Interface Visual
-![Interface Showcase](assets/ui_collage.png)
-![Component Showcase](assets/components_showcase.png)
+Também foram removidos os **valores falsos** que a interface exibia como se fossem medidos: `ESR: 0.12 Ohms`, `hFE: 245`, `Vbe: 642mV`, `Q: 4.2 @ 1kHz`. Eram strings constantes. Hoje, o que não pode ser medido aparece como `---` com o motivo.
 
 ---
 
-## 🛠 Hardware Configuration (CYD Pinout)
+## Recursos
 
-| Periférico | Pino | Descrição |
+### Identificação automática de componentes
+
+Encoste o componente nas pontas e o aparelho decide o que ele é: resistor, capacitor cerâmico ou eletrolítico, diodo de silício ou Schottky, LED (com estimativa de cor pela tensão direta), transistor NPN, MOSFET canal N, indutor ou fio em curto.
+
+### Medições
+
+- **Resistência** — 0,5 Ω a 2 MΩ, auto-range entre dois resistores de referência
+- **Capacitância** — 1 nF a 4700 µF pelo método da constante de tempo RC
+- **ESR** — resistência série do capacitor, o sintoma que denuncia eletrolítico ressecado
+- **Tensão direta (Vf)** — de diodos e LEDs, a 5 mA
+- **hFE** — ganho de corrente de transistores bipolares
+- **Indutância** — 100 µH a 100 mH pela constante de tempo L/R
+- **Frequência e ciclo de trabalho** — de sinais lógicos e PWM
+- **Resistência interna de bateria**
+
+### Multímetro
+
+- **Tensão AC True RMS** — 256 amostras, com remoção automática do offset do ZMPT101B e detecção de surto
+- **Tensão e corrente DC** — via INA219, com o protocolo I²C correto e as escalas do datasheet
+- **Continuidade** com apito, resistência e potência
+
+### Engenharia aplicada
+
+- Código de cores de resistor desenhado na tela a partir do valor medido
+- Valor comercial mais próximo nas séries E6, E12 e E24, com o desvio percentual
+- Tolerância sugerida (1%, 2%, 5%, 10% ou 20%)
+- Notação de engenharia com prefixo SI em todas as telas
+
+### Banco de dados
+
+- **50 componentes reais** em flash, sempre disponíveis, com parâmetros de datasheet: BC547, 2N2222, TIP120, IRFZ44N, 1N4148, 1N4007, LM7805, NE555 e outros
+- Consulta ao `COMPBD.CSV` do cartão SD por varredura sob demanda — **5.726 registros sem gastar RAM**
+- Busca por valor e sugestão de equivalentes
+
+### Segurança elétrica
+
+- Vigilância contínua da tensão nas pontas fora do modo multímetro
+- Bloqueio automático de 10 s após três detecções perigosas seguidas
+- Tela de confirmação obrigatória de fusível, varistor e TVS antes do modo multímetro
+- Tela de alerta em tela cheia (que na v3.2 existia mas nunca era exibida)
+
+### Diagnóstico
+
+- Autoteste de 10 subsistemas no boot, alimentando a barra de progresso real
+- Monitoramento contínuo de heap, pilha das tarefas e temperatura do chip
+- Estatísticas de uso persistidas na NVS
+
+---
+
+## Hardware
+
+### Pinagem (CYD Rev A)
+
+| Periférico | Pinos | Observação |
 | :--- | :--- | :--- |
-| **TFT CS/DC/RST** | 15, 2, 0 | Fixed Hardware |
-| **TFT BL** | 21 | Backlight (PWM) |
-| **Touch CS/IRQ** | 33, 36 | XPT2046 Interface |
-| **SD CS** | 5 | MicroSD Interface |
-| **Audio** | 26 | AUDIO: IO26 (Amplified) |
-| **Probe 1** | 35 | Analog (IO35 / Port IO1) |
-| **Probe 2** | 34 | Analog (Internal / Port IO2) |
-| **ZMPT AC** | 36 | Analog (Shared with IRQ) |
-| **I2C SDA/SCL** | 27, 22 | Expansion Ports (INA219) |
-| **OneWire** | 4 | Thermal (Shared with LED Red) |
-
-<p align="center">
-  <img src="assets/hardware_layout.png" alt="Layout do Hardware" width="400">
-</p>
-
----
-
-## 📖 Como Usar
-
-1. **Inicialização**: Ligue o dispositivo. Aguarde a animação de splash terminar.
-2. **Calibração**: Vá para `Menu > Calibração`. Curto-circuite as pontas quando solicitado e siga as instruções na tela.
-3. **Medição**: Conecte qualquer componente na Probe 1 e Probe 2. O sistema detectará automaticamente e exibirá o tipo e valor.
-4. **Histórico**: Veja medições passadas em `Menu > Histórico`. Elas são sincronizadas com o `measurements.csv` no seu cartão SD.
-5. **Configurações**: Ajuste brilho e preferências de som no menu `Configurações`.
-
----
-
-## ⚠️ Informações de Segurança e Proteção Robustas
+| TFT ILI9341 | MOSI 13, MISO 12, SCK 14, CS 15, DC 2, RST 0, BL 21 | fixo na placa |
+| Touch XPT2046 | MOSI 32, MISO 39, SCK 25, CS 33 | barramento HSPI dedicado |
+| MicroSD | MOSI 23, MISO 19, SCK 18, CS 5 | barramento próprio, **não** compartilhado com a TFT |
+| Ponta 1 / Ponta 2 | 35 / 34 | entrada apenas |
+| ZMPT101B (AC) | 36 | compartilhado com a IRQ do touch (não usada) |
+| **Excitação das pontas** | **27 (10 kΩ) e 22 (470 Ω)** | **novo na v4.0 — obrigatório** |
+| Descarga de capacitor | 17 | compartilhado com o LED azul |
+| I²C (INA219) | SDA 27, SCL 22 | compartilhado com a excitação |
+| OneWire (DS18B20) | 4 | compartilhado com o LED vermelho |
+| Buzzer | 26 | |
+| LED RGB | R 4, G 16, B 17 | **ânodo comum: nível baixo acende** |
 
 > [!IMPORTANT]
-> **SISTEMA DE PROTEÇÃO ATIVA (Obrigatório para 220V)**:
-> Para medir tensões AC de forma segura, o Sondvolt v3.2 **exige** a instalação de:
-> - Fusível Rápido de 5A
-> - Varistor 14D431 + TVS Diode P6KE400A
-> - Filtros RC de amostragem
->
-> **O software bloqueia automaticamente o equipamento se detectar tensões perigosas fora do modo multímetro.**
+> **O circuito de excitação das pontas é novo e obrigatório.** Sem ele, medir resistência e capacitância é fisicamente impossível — as pontas estão em GPIOs de entrada apenas. O firmware detecta a ausência no boot e desabilita essas funções em vez de mostrar números inventados. O esquema está em [docs/WIRING.md](docs/WIRING.md).
 
-> [!WARNING]
-> - **NUNCA** meça componentes em circuito energizado. Descarregue capacitadores antes de testar.
-> - Tensão máxima nas pontas Probe 1/2 é **3.3V**. Para tensões maiores, use a entrada específica do Multímetro.
-
-> [!NOTE]
-> Sempre verifique a seção de [Calibração](docs/CONFIG.md) antes de realizar medições críticas para garantir a máxima precisão.
+Os três pinos compartilhados são arbitrados em software pela HAL (`hal_bus_acquire` / `hal_bus_release`): o LED é apagado, o pino emprestado, e o LED restaurado ao estado anterior. Quem for montar do zero deve seguir a **Rev B**, sem compartilhamento — veja [docs/PINOUT.md](docs/PINOUT.md).
 
 ---
 
-## 🔧 Instalação
+## Instalação
 
-1. Abra este projeto no **VS Code com PlatformIO**.
-2. Conecte seu board CYD via USB.
-3. Clique em **Upload and Monitor**.
-4. Formate seu cartão MicroSD para FAT32 e certifique-se de que está inserido antes de bootar.
+```bash
+git clone https://github.com/lelebrr/SondVolt.git
+cd SondVolt
+pio run -t upload -e cyd          # fiação Rev A (padrão)
+pio run -t upload -e cyd-revb     # fiação Rev B, sem pinos compartilhados
+```
+
+Formate o MicroSD em FAT32 e copie `sd_files/sdcard/COMPBD.CSV` para a raiz do cartão.
 
 ### Pré-requisitos
-- PlatformIO IDE para VS Code
-- ESP32-2432S028R (Cheap Yellow Display)
-- Cartão MicroSD FAT32
-- Cabos de conexão
+
+- PlatformIO no VS Code
+- Placa ESP32-2432S028R (CYD)
+- Cartão MicroSD FAT32 (opcional: sem ele o catálogo interno de 50 componentes continua funcionando)
 
 ---
 
-## 📚 Documentação Completa
+## Primeiro uso
 
-Para documentação detalhada, consulte nossa [Central de Documentação](docs/README.md):
-
-### 🚀 Para Começar
-- [Manual do Usuário](docs/MANUAL.md) - Primeiros passos para operação
-- [Guias Passo a Passo](docs/GUIDES.md) - Tutoriais detalhados
-- [FAQ](docs/FAQ.md) - Respostas rápidas para dúvidas comuns
-
-### 🔌 Hardware & Montagem
-- [Especificações de Hardware](docs/HARDWARE.md) - Lista de componentes e detalhes técnicos
-- [Diagrama de Pinagem](docs/PINOUT.md) - Referência detalhada de conexões
-- [Solução de Problemas](docs/TROUBLESHOOTING.md) - Guia para resolver erros
-
-### 🧪 Referência Técnica
-- [Testando Componentes](docs/COMPONENTS.md) - Como interpretar dados
-- [Arquitetura de Menus](docs/MENUS.md) - Mapa visual de telas
-- [Guia de Configuração](docs/CONFIG.md) - Calibração e personalização
-
-### 💻 Para Desenvolvedores
-- [Guia do Desenvolvedor](docs/DEVELOP.md) - Estrutura do código e contribuição
+1. **Ligue.** O autoteste roda sozinho e a barra de boot mostra o que está sendo verificado.
+2. **Confira o Diagnóstico.** `Mais > Diagnóstico` lista os 10 subsistemas. Se "Pontas de prova" estiver como FALHA, o circuito de excitação não está montado.
+3. **Calibre.** `Mais > Calibrar` mede a resistência dos cabos (pontas encostadas) e a capacitância parasita (pontas afastadas). Leva uns 15 segundos e fica gravado na NVS.
+4. **Meça.** `Teste Auto` identifica sozinho. As telas específicas dão mais detalhe.
 
 ---
 
-## 🤝 Contribuição
+## Segurança
 
-Contribuições são bem-vindas! Por favor:
+> [!WARNING]
+> **Nunca meça componentes em circuito energizado.** Descarregue capacitores antes de testar — o aparelho tem função de descarga própria na tela do capacímetro.
+>
+> A tensão máxima nas pontas 1 e 2 é **3,3 V**. Para tensões maiores use a entrada específica do multímetro.
 
-1. Faça um fork do projeto
-2. Crie sua feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+> [!IMPORTANT]
+> Para medir a rede elétrica (127 V ou 220 V) é **obrigatório** instalar:
+> - Fusível rápido de 5 A
+> - Varistor 14D431
+> - Diodo TVS P6KE400A
+> - Filtros RC de amostragem
+>
+> O firmware exige confirmação dessas peças antes de liberar o modo multímetro e bloqueia o aparelho por 10 segundos se detectar tensão perigosa fora dele. Detalhes em [docs/SAFETY.md](docs/SAFETY.md).
+
+---
+
+## Documentação
+
+**Para começar**
+[Manual do Usuário](docs/MANUAL.md) · [Guias](docs/GUIDES.md) · [FAQ](docs/FAQ.md)
+
+**Hardware**
+[Pinagem e conflitos](docs/PINOUT.md) · [Esquema de ligação](docs/WIRING.md) · [Especificações](docs/HARDWARE.md) · [Montagem](docs/ASSEMBLY.md) · [Lista de materiais](BOM-Sondvolt.md)
+
+**Referência técnica**
+[Componentes](docs/COMPONENTS.md) · [Menus](docs/MENUS.md) · [Configuração](docs/CONFIG.md) · [Segurança](docs/SAFETY.md)
+
+**Desenvolvimento**
+[Arquitetura do código](docs/DEVELOP.md) · [Histórico de versões](docs/CHANGELOG.md) · [Solução de problemas](docs/TROUBLESHOOTING.md) · [Contribuindo](docs/CONTRIBUTING.md)
 
 ---
 
-## 📄 Licença
+## Arquitetura em uma tela
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE](docs/LICENSE.md) para detalhes.
+```
+                      setup()
+                         |
+                    hal_init()          <- ADC, LEDC, arbitragem de pinos
+                         |
+              display / touch / SPI
+                         |
+        settings_load()  ->  buzzer  ->  leds
+                         |
+              logger_init()  ->  db_init()
+                         |
+      measurements / calibration / thermal / multimeter / safety
+                         |
+                 diag_run_selftest()
+                         |
+        +----------------+----------------+
+        |                                 |
+   TaskUI (prio 2)                 TaskMeasurement (prio 1)
+   20 ms, 6 KB pilha               100 ms, 4 KB pilha
+        |                                 |
+   toque, desenho,                  vigilância elétrica,
+   som, LEDs                        medição, saúde do sistema
+```
 
-> Copyright © 2026 — Sondvolt Team
-> 
-> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-> 
-> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-> 
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Os dois acessos ao display são serializados por um mutex recursivo (`LOCK_TFT`). Todo o hardware específico do ESP32 está isolado em `hal.cpp`.
 
 ---
+
+## Licença
+
+MIT — veja [docs/LICENSE.md](docs/LICENSE.md).
 
 <p align="center">
-  <strong>Built with ❤️ by Eletrônica DIY (2026)</strong><br>
-  <em>Transformando projetos DIY em ferramentas profissionais</em>
+  <strong>Feito para bancada de conserto, não para vitrine.</strong>
 </p>

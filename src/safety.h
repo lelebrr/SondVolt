@@ -276,6 +276,12 @@ bool safety_confirm_electrical_measurement();
 // Atualiza o sistema de segurança (chamar no loop principal)
 void safety_update();
 
+// Tensao perigosa detectada na ultima verificacao, em volts.
+float safety_get_last_voltage();
+
+// Texto curto do estado atual, para a barra de status.
+const char* safety_state_text();
+
 // ============================================================================
 // PROTÓTIPOS — DETECÇÃO AUTOMÁTICA
 // ============================================================================
