@@ -24,6 +24,9 @@ compile_commands.json
 Thumbs.db
 desktop.ini
 
+# ---- Saida de geradores (regeravel, nao versionar) ----
+src/assets/catalog_generated.h
+
 # ---- Python das ferramentas ----
 __pycache__/
 *.pyc

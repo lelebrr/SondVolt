@@ -7,6 +7,7 @@
 #include "globals.h"
 #include "config.h"
 #include "database.h"
+#include "theme.h"
 
 // ============================================================================
 // ESTADO DA APLICACAO
@@ -97,10 +98,16 @@ DeviceSettings deviceSettings = {
 LogEntry recentTests[6] = {0};
 void update_recent_tests(const char* name, float value, const char* status) {
     for (int i = 5; i > 0; i--) recentTests[i] = recentTests[i-1];
+
     recentTests[0].timestamp = millis();
-    strncpy(recentTests[0].componentName, name, 19);
-    recentTests[0].value = value;
-    strncpy(recentTests[0].status, status, 9);
+    recentTests[0].value     = value;
+
+    // snprintf sempre termina a string; strncpy nao, quando a origem enche o
+    // destino. Depois disso qualquer strlen() lia fora do buffer.
+    snprintf(recentTests[0].componentName, sizeof(recentTests[0].componentName),
+             "%s", name ? name : "?");
+    snprintf(recentTests[0].status, sizeof(recentTests[0].status),
+             "%s", status ? status : "");
 }
 
 // ============================================================================
@@ -113,18 +120,22 @@ uint16_t clr_dim     = 0xAD55;
 uint16_t clr_primary = 0x07FF;
 
 void colors_update() {
-    if (deviceSettings.darkMode) {
-        // MODO NOTURNO (Dark)
-        clr_back    = 0x0863;
-        clr_surf    = 0x10C4;
-        clr_text    = 0xFFFF;
-        clr_dim     = 0xAD55;
-    } else {
-        // MODO DIA (Light)
-        clr_back    = 0xFFFF; 
-        clr_surf    = 0xE73C; 
-        clr_text    = 0x0863; 
-        clr_dim     = 0x4208; 
-    }
-    clr_primary = deviceSettings.themeColor;
+    // A paleta agora vive em theme.cpp. Esta funcao continua existindo porque
+    // varias telas a chamam, mas o que ela faz e delegar - nao ha mais duas
+    // definicoes de cor concorrendo.
+    ThemeAccent accent = (deviceSettings.themeIdx < TH_ACCENT_COUNT)
+                       ? (ThemeAccent)deviceSettings.themeIdx
+                       : TH_ACCENT_TEAL;
+
+    theme_apply(deviceSettings.darkMode, accent);
+
+    // As variaveis clr_* sobrevivem para o codigo que ainda as usa via
+    // config.h. Elas espelham a paleta ativa.
+    clr_back    = th_bg0;
+    clr_surf    = th_bg1;
+    clr_text    = th_txHi;
+    clr_dim     = th_txLo;
+    clr_primary = th_accent;
+
+    deviceSettings.themeColor = th_accent;
 }

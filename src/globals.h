@@ -92,7 +92,7 @@ extern bool sdCardError;
 extern bool tftInitialized;
 
 // ============================================================================
-// BOTOES — Definidos em buttons.h
+// BOTOES — a CYD nao tem botoes fisicos; a entrada e so por toque
 // ============================================================================
 
 // ============================================================================

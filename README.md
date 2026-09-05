@@ -2,11 +2,11 @@
 
 <img src="assets/logo.png" alt="Sondvolt" width="140">
 
-# Sondvolt v5.0
+# Sondvolt v5.1
 
 **Testador de componentes, multímetro e instrumento de bancada para ESP32**
 
-[![Versão](https://img.shields.io/badge/vers%C3%A3o-5.0.0-2dd4bf?style=flat-square)](docs/CHANGELOG.md)
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-5.1.0-2dd4bf?style=flat-square)](docs/CHANGELOG.md)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e?style=flat-square)](docs/LICENSE.md)
 [![Plataforma](https://img.shields.io/badge/plataforma-ESP32--2432S028R-f97316?style=flat-square)](docs/PINOUT.md)
 [![Build](https://img.shields.io/badge/build-limpo%20com%20--Wall%20--Wextra-22c55e?style=flat-square)](tools/hostcheck/check.sh)
@@ -265,18 +265,19 @@ Os compartilhamentos da Rev A são arbitrados em software: o LED é apagado, o p
 
 ```mermaid
 flowchart TB
-    subgraph AP["APRESENTAÇÃO"]
-        ui[ui.cpp] --- menu[menu.cpp] --- screens[screens.cpp] --- widgets[uiwidgets.cpp]
+    subgraph AP["src/ui — APRESENTAÇÃO"]
+        ui[ui.cpp] --- menu[menu.cpp] --- screens[screens.cpp]
+        widgets[uiwidgets.cpp] --- theme[theme.cpp]
     end
-    subgraph DO["DOMÍNIO"]
+    subgraph DO["src/domain — DOMÍNIO"]
         analysis[analysis.cpp] --- multi[multimeter.cpp] --- scope[scope.cpp]
         safety[safety.cpp] --- db[database.cpp] --- jobs[jobs.cpp] --- sorting[sorting.cpp]
     end
-    subgraph SE["SERVIÇOS"]
+    subgraph SE["src/services — SERVIÇOS"]
         logger[logger.cpp] --- diag[diagnostics.cpp] --- net[netsvc.cpp]
         thermal[thermal.cpp] --- tcam[thermalcam.cpp] --- buzzer[buzzer.cpp]
     end
-    subgraph HW["HAL"]
+    subgraph HW["src/hal — HARDWARE"]
         hal[hal.cpp] --- pins[pins.h] --- exp[expander.cpp]
     end
 

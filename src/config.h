@@ -1,5 +1,5 @@
 // ============================================================================
-// Sondvolt v5.0 - Configuracoes Gerais
+// Sondvolt v5.1 - Configuracoes Gerais
 // Hardware: ESP32-2432S028R (Cheap Yellow Display)
 // ============================================================================
 // Arquivo : config.h
@@ -20,7 +20,7 @@
 // 1. IDENTIFICACAO DO FIRMWARE
 // ============================================================================
 #define FW_NAME               "Sondvolt"
-#define FW_VERSION            "5.0.0"
+#define FW_VERSION            "5.1.0"
 #define FW_AUTHOR             "Eletronica DIY"
 #define FW_YEAR               "2026"
 #define FW_CODENAME           "Bancada"

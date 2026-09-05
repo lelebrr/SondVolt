@@ -1,6 +1,6 @@
 # Guia do desenvolvedor
 
-Arquitetura do firmware Sondvolt v5.0, para quem vai mexer no código.
+Arquitetura do firmware Sondvolt v5.1, para quem vai mexer no código.
 
 ---
 
@@ -17,9 +17,30 @@ Não existe terceira opção nesta placa.
 
 ---
 
+## Estrutura de pastas
+
+Desde a v5.1 as camadas são pastas de verdade, não só uma convenção mental:
+
+```
+src/
+├── config.h  globals.h/.cpp  types.h  main.cpp
+├── hal/        pins · hal · expander · display_globals · display_mutex
+├── domain/     analysis · multimeter · scope · safety · database
+│               calibration · measurements · jobs · sorting
+├── services/   logger · diagnostics · netsvc · thermal · thermalcam
+│               buzzer · leds
+├── ui/         ui · menu · screens · uiwidgets · graphics · help
+│               theme · visual · fonts
+└── assets/     icons_bitmap · logo_bitmap
+```
+
+O PlatformIO compila `src/` recursivamente, mas **não** adiciona os
+subdiretórios ao caminho de include. Por isso o `platformio.ini` tem um `-I`
+para cada camada — sem eles, `#include "hal.h"` não seria encontrado.
+
 ## Estrutura de camadas
 
-O projeto tem quatro camadas. A regra é que cada uma só conheça a de baixo.
+A regra é que cada camada só conheça a de baixo.
 
 ```mermaid
 flowchart TB
@@ -241,6 +262,41 @@ Não é preciso ter a placa para validar sintaxe, tipos e símbolos. Um harness 
 
 ---
 
+## Sistema de design
+
+`ui/theme.h` é o dono único da aparência. Nenhuma tela deve escolher a própria
+cor ou margem.
+
+```c
+// Superfícies, do fundo para a frente
+th_bg0   fundo da tela
+th_bg1   cartão
+th_bg2   cartão elevado
+th_bg3   borda e divisória
+
+// Texto, do mais para o menos contrastado
+th_txHi  th_txMd  th_txLo  th_txDim
+
+// Acento escolhido pelo usuário
+th_accent  th_accentDim
+
+// Semântica fixa, igual em toda a interface
+TH_SUCCESS  TH_WARNING  TH_DANGER  TH_INFO  TH_SPECIAL
+```
+
+Espaçamento sai da escala `TH_SP_1` a `TH_SP_6` (múltiplos de 4). Raio de canto
+tem três valores, não cinco: em 320×240 a diferença entre 5 e 6 não existe.
+
+Para desenhar, use os componentes prontos em `uiwidgets.h` — `ui_card`,
+`ui_button`, `ui_chip`, `ui_section`, `ui_header`, `ui_big_value`. Desenhar
+retângulo à mão é o que fazia a interface parecer montada por pessoas
+diferentes.
+
+`th_on(fundo)` calcula a cor de texto legível sobre qualquer fundo pela
+luminância percebida. Use em vez de chutar preto ou branco.
+
+---
+
 ## Convenções
 
 **Nomes.** `modulo_acao()` para funções públicas (`analysis_measure_esr`), `snake_case` estático para internas, `gNome` para estado global de arquivo, `kNome` para constantes.
@@ -259,7 +315,8 @@ Não é preciso ter a placa para validar sintaxe, tipos e símbolos. Um harness 
 
 | Preciso mexer em... | Arquivo |
 | :--- | :--- |
-| linhas de controle da placa Bancada | `expander.cpp` |
+| aparência: cor, espaçamento, fonte | `ui/theme.h` |
+| linhas de controle da placa Bancada | `hal/expander.cpp` |
 | osciloscópio, curva, ripple, gerador, Zener | `scope.cpp` |
 | trabalhos por cliente | `jobs.cpp` |
 | pareamento de peças | `sorting.cpp` |

@@ -27,6 +27,11 @@ FLAGS=(
   -std=gnu++17
   -I "$STUBS"
   -I "$SRC"
+  -I "$SRC/hal"
+  -I "$SRC/domain"
+  -I "$SRC/services"
+  -I "$SRC/ui"
+  -I "$SRC/assets"
   -Wall -Wextra
   -Wno-unused-parameter
   -Wno-missing-field-initializers
@@ -51,7 +56,7 @@ for REV in "${REVS[@]}"; do
   FAILED=0
   WARNED=0
 
-  for f in "$SRC"/*.cpp; do
+  for f in $(find "$SRC" -name "*.cpp" | sort); do
     name="$(basename "$f" .cpp)"
     out="$(g++ "${FLAGS[@]}" -DSONDVOLT_HW_REV="$REV" -c "$f" -o "$OBJ/$name.o" 2>&1)"
     rc=$?

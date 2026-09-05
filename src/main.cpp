@@ -245,6 +245,11 @@ void setup() {
     LOG_SERIAL_FMT("=== %s v%s (%s) ===\n", FW_NAME, FW_VERSION, FW_CODENAME);
 
     // ------------------------------------------------------------------
+    // 0. Mutex do display - antes de qualquer coisa que possa desenhar
+    // ------------------------------------------------------------------
+    display_mutex_init();
+
+    // ------------------------------------------------------------------
     // 1. Hardware de baixo nivel (ADC, LEDC, pinos, arbitragem)
     // ------------------------------------------------------------------
     hal_init();
@@ -326,12 +331,25 @@ void setup() {
     // ------------------------------------------------------------------
     // 10. Tarefas
     // ------------------------------------------------------------------
-    xTaskCreatePinnedToCore(TaskUserInterface, "TaskUI", UI_TASK_STACK,
-                            nullptr, UI_TASK_PRIORITY, &gTaskUI,
-                            UI_TASK_CORE);
-    xTaskCreatePinnedToCore(TaskMeasurement, "TaskMeasure", MEASURE_TASK_STACK,
-                            nullptr, MEASURE_TASK_PRIORITY, &gTaskMeasure,
-                            MEASURE_TASK_CORE);
+    // O retorno importa: se uma tarefa nao for criada por falta de memoria, o
+    // aparelho fica pela metade em silencio - sem interface ou sem medicao.
+    BaseType_t okUI = xTaskCreatePinnedToCore(
+        TaskUserInterface, "TaskUI", UI_TASK_STACK,
+        nullptr, UI_TASK_PRIORITY, &gTaskUI, UI_TASK_CORE);
+
+    BaseType_t okMeas = xTaskCreatePinnedToCore(
+        TaskMeasurement, "TaskMeasure", MEASURE_TASK_STACK,
+        nullptr, MEASURE_TASK_PRIORITY, &gTaskMeasure, MEASURE_TASK_CORE);
+
+    if (okUI != pdPASS || okMeas != pdPASS) {
+        LOG_SERIAL_FMT("[SYS] FALHA ao criar tarefas (UI=%d, MED=%d). "
+                       "Heap livre: %lu\n",
+                       (int)okUI, (int)okMeas,
+                       (unsigned long)ESP.getFreeHeap());
+        // Reiniciar e mais honesto que operar pela metade.
+        delay(2000);
+        ESP.restart();
+    }
 
     diag_register_task_ui(gTaskUI);
     diag_register_task_measure(gTaskMeasure);

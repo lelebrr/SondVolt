@@ -1,0 +1,45 @@
+# ============================================================================
+# Tabela de particoes do Sondvolt
+# ============================================================================
+# POR QUE ESTE ARQUIVO EXISTE
+# ---------------------------
+# O projeto usava `huge_app.csv`, que da 3 MB para UMA unica particao de
+# aplicacao e nenhum slot de reserva. Com ela, a atualizacao pela rede (OTA)
+# compila e liga sem reclamar, mas FALHA no momento da gravacao: o
+# esp_ota_begin() nao encontra particao de destino e devolve erro.
+#
+# Ou seja: a v5.0 anunciava OTA e a OTA nunca poderia funcionar.
+#
+# COMO O OTA FUNCIONA
+# -------------------
+# O firmware roda em app0. A atualizacao e gravada em app1. Se ela iniciar
+# com sucesso, o gerenciador troca o ponteiro de boot. Se travar, o ESP32
+# volta sozinho para app0. Por isso sao necessarias DUAS particoes do mesmo
+# tamanho - e por isso a maior aplicacao possivel passa de 3 MB para 1,9 MB.
+#
+# ORCAMENTO DA FLASH DE 4 MB
+# --------------------------
+#   nvs        20 KB   configuracoes, calibracao, credenciais de rede
+#   otadata     8 KB   qual slot esta ativo
+#   app0     1920 KB   firmware em execucao
+#   app1     1920 KB   destino da atualizacao
+#   spiffs    128 KB   pagina web e arquivos auxiliares
+#   coredump   64 KB   despejo de memoria apos travamento
+#
+# O firmware da Rev C ocupa cerca de 700 KB. Sobra folga de mais de 1 MB em
+# cada slot, o que da espaco para crescer bastante antes de apertar.
+#
+# ATENCAO AO ATUALIZAR PELA PRIMEIRA VEZ
+# --------------------------------------
+# Mudar a tabela de particoes invalida o layout anterior. A primeira gravacao
+# depois desta mudanca PRECISA ser por cabo USB, com `pio run -t erase`
+# antes. Depois disso, a OTA passa a funcionar normalmente.
+# ============================================================================
+
+# Nome      Tipo   SubTipo   Offset     Tamanho    Flags
+nvs,        data,  nvs,      0x9000,    0x5000,
+otadata,    data,  ota,      0xE000,    0x2000,
+app0,       app,   ota_0,    0x10000,   0x1E0000,
+app1,       app,   ota_1,    0x1F0000,  0x1E0000,
+spiffs,     data,  spiffs,   0x3D0000,  0x20000,
+coredump,   data,  coredump, 0x3F0000,  0x10000,

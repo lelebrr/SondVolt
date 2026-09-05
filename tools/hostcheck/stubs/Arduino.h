@@ -86,6 +86,8 @@ typedef int BaseType_t;
 typedef unsigned int UBaseType_t;
 #define pdMS_TO_TICKS(x) ((TickType_t)(x))
 #define pdTRUE 1
+#define pdPASS 1
+#define pdFAIL 0
 #define pdFALSE 0
 #define portMAX_DELAY 0xFFFFFFFFUL
 #define tskNO_AFFINITY 0x7FFFFFFF

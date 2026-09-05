@@ -2,6 +2,90 @@
 
 ---
 
+## [5.1.0] — Setembro de 2026
+
+Versão de correção e refinamento. Uma auditoria estática externa apontou 42 problemas; **41 se confirmaram** e foram corrigidos, 1 era falso positivo. No caminho, encontrei mais um bug grave que a auditoria não pegou.
+
+### O bug que a auditoria não pegou
+
+**A partição não tinha slot de OTA.** O projeto usava `huge_app.csv`, que reserva 3 MB para **uma única** partição de aplicação. Com ela, a atualização pela rede compila, liga e anuncia estar pronta — e falha na hora de gravar, porque `esp_ota_begin()` não encontra destino.
+
+Ou seja: a v5.0 prometia OTA e a OTA nunca poderia funcionar.
+
+Agora há uma tabela própria (`partitions_sondvolt.csv`) com dois slots de 1.920 KB, mais SPIFFS e área de coredump. O firmware da Rev C ocupa cerca de 700 KB, então sobra mais de 1 MB de folga em cada slot.
+
+> **Ao atualizar:** mudar a tabela de partições invalida o layout anterior. A primeira gravação depois desta versão precisa ser por cabo, com `pio run -t erase` antes.
+
+### Corrigido — críticos
+
+| # | Problema | Efeito |
+| :-- | :--- | :--- |
+| 1 | `str_trim()` comparava o ponteiro com `NULL` em vez do início da string | String vazia ou só com espaços escrevia **antes** do buffer |
+| 2 | `UNLOCK_TFT()` duplo em `draw_cpu_info_screen()` | Corrompia a contagem do mutex recursivo e liberava o lock de outra tarefa |
+| 3 | 16 funções de desenho em `graphics.cpp` e o `fillScreen` do menu sem mutex | Escreviam no SPI sem sincronização, disputando o barramento com a outra tarefa |
+| 4 | `strncpy` sem terminador em `valBuf` | `strlen()` seguinte lia fora do buffer |
+| 5 | `HAL_BUS_I2C` e `HAL_BUS_PROBE_DRIVE` com mutexes **separados** | Os dois ocupam os MESMOS pinos (27 e 22). A exclusão não excluía nada: o INA219 podia iniciar transação no instante em que a excitação puxava o pino |
+| 6 | Rotação do histórico usava temporário fixo de 16 e `% n` errado | Com `maxEntries > 16`, embaralhava o histórico em vez de ordená-lo |
+| 7 | Câmera térmica semeava min/max com `pixels[0]` | Se aquele pixel viesse NaN, a imagem inteira ficava sem escala. A média também dividia a soma dos válidos pelos 768 totais |
+| 8 | `analysis_measure_leakage()` usava o offset parasita dos cabos como capacitância | Resistência de fuga saía ordens de grandeza errada |
+| 9 | `analysis_resistor_color_bands()` deixava NaN passar | `ohms < 1 \|\| ohms > 99e6` dá falso nas duas comparações para NaN; depois `(int)NaN` é UB e o índice do vetor de cores saía da faixa |
+| 10 | `generate_db.py` emitia `ComponentDB`, tipo que não existe | O arquivo gerado nunca compilou. Também não escapava aspas — injeção de código, não só erro de sintaxe |
+
+### Corrigido — robustez
+
+- **`LOCK_TFT`/`UNLOCK_TFT` eram `if` nu** — dangling-else. Agora `do{...}while(0)`.
+- **Mutex do display criado em inicializador estático.** Se falhasse, as macros viravam no-op silencioso e o barramento ficava sem proteção nenhuma. Agora é criado em `display_mutex_init()` e a falha reinicia o aparelho.
+- **`xTaskCreatePinnedToCore` com retorno ignorado** — o aparelho podia ficar sem interface ou sem medição, em silêncio.
+- **`safety_is_ac_danger()` barrava só acima de 180 V** enquanto `safety_check_voltage()` considera perigoso a partir de 50 V. Rede de 127 V passava como segura.
+- **`millis() + timeout` no osciloscópio** quebra a cada 49 dias. Agora `millis() - início`.
+- **Ripple media em duas passadas separadas**, com a média de uma aplicada nas amostras da outra, e o intervalo entre amostras *assumido* em 78 µs. Agora é uma passada só, guardando as amostras, com o tempo real medido por `micros()`.
+- **`multimeter_read_dc_current()` devolvia `gLastReading.value` sob contenção** — o valor do modo anterior (uma tensão, por exemplo) apresentado como corrente.
+- **`ina219_write_reg()` sem checar retorno** — o chip ficava nos padrões de fábrica e todas as leituras saíam com escala errada, sem aviso.
+- **Calibração do ZMPT medindo através do filtro exponencial**, que carrega o estado anterior. Agora o filtro é zerado antes.
+- **`i2c_device_present()` sondava sem arbitragem**, podendo colidir com medição em andamento.
+- **`stream_sd_file()` segurava o mutex do display durante o download inteiro** e ignorava o retorno de `client.write()`, truncando o arquivo em silêncio quando o buffer TCP enchia.
+- **`typeCount[24]` descartava `COMP_UNKNOWN` (99)** — um lote inteiro de peças não identificadas era reportado como "Resistor".
+- **Polinômio do ADC em `float`** com coeficientes de 1e-14: o termo de quarta ordem perdia toda a precisão. Agora acumula em `double`.
+- **Ícones sem bitmap não desenhavam nada** (MOSFET, WARNING, VOLTAGE, CRYSTAL) — o cartão ficava com um buraco que parecia defeito da tela. Agora há fallback vetorial.
+- Mais: `getBytes` truncando o nome do trabalho, `hal_bus_*` sem teste de índice negativo, contagem regressiva do lockout dando a volta, hitbox do diálogo de segurança desalinhada dos botões desenhados, `colors[idx]` sem limite, corrente de Zener negativa, `draw_text_5x7` sem verificação de ponteiro nulo, toque no cabeçalho ativando o primeiro item da lista de ajustes.
+
+### Falso positivo
+
+A auditoria apontou divisão por zero em `screens.cpp` no cálculo de `count - start`. **Não procede:** a condição de parada do laço (`i + start < count`) já garante que o corpo só executa quando `start < count`, logo o divisor é sempre pelo menos 1. Adicionei a guarda explícita mesmo assim — custa uma linha e protege de uma refatoração futura.
+
+### Removido — código morto
+
+`splash.cpp` (nunca chamado — `graphics_draw_splash()` já existia), `utils.h`, `compat_tft.h`, `drawings.h`, `buttons.cpp`/`buttons.h` e `menu_handle()`. Esta última lia botões físicos que a CYD não tem: `HAS_PHYSICAL_BUTTONS` valia 0 e nada a chamava.
+
+Também saíram `scratch/`, `tools/__pycache__/` e `.mimocode/`.
+
+### Reorganizado
+
+O `src/` passou de 60 arquivos soltos para cinco camadas que espelham a arquitetura:
+
+```
+src/
+├── hal/        pins, hal, expander, display  (hardware)
+├── domain/     analysis, multimeter, scope, safety, database, jobs, sorting
+├── services/   logger, diagnostics, netsvc, thermal, buzzer, leds
+├── ui/         ui, menu, screens, widgets, theme, graphics
+└── assets/     bitmaps
+```
+
+### Sistema de design
+
+Nova camada `theme.h` / `theme.cpp` como **dono único da aparência**. Antes, `theme.h` e `visual.h` definiam as mesmas macros com cores diferentes, e qual valia dependia da ordem dos includes — a mesma cor aparecia diferente em telas diferentes.
+
+- **Rampa de quatro superfícies** em cinza-azulado. O azul leve afasta do preto morto e faz as cores de acento parecerem mais vivas por contraste
+- **Escala de espaçamento** em múltiplos de 4. Não existe mais "um pouquinho mais de margem"
+- **Cinco acentos** selecionáveis, cada um com versão cheia e recuada escolhida para continuar legível, não escurecida mecanicamente
+- **`th_on()`** calcula a cor de texto pela luminância percebida do fundo (BT.601), em vez de chutar preto ou branco
+- **Tema claro** com a mesma estrutura de quatro níveis, invertida, e acento escurecido para manter contraste sobre branco
+- Componentes novos: `ui_card`, `ui_button` com estado pressionado, `ui_chip`, `ui_section` com linha que desvanece, `ui_header` com degradê e chevron desenhado, `ui_statusbar`, `ui_big_value`
+- Cartões de menu redesenhados: barra de acento lateral em vez do "brilho neon" que sujava a tela
+
+---
+
 ## [5.0.0] — Setembro de 2026
 
 Versão de expansão. A v4.0 fez o aparelho funcionar; a v5.0 o transforma em instrumento de bancada e estação de trabalho.
