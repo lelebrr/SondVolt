@@ -32,7 +32,28 @@ enum AppState {
     STATE_HISTORY            = 42,
     STATE_STATS              = 43,
     STATE_COMPARATOR         = 45,
-    STATE_HELP               = 50
+    STATE_HELP               = 50,
+
+    // ------------------------------------------------------------------
+    // Recursos da v5.0
+    // ------------------------------------------------------------------
+    STATE_SCOPE              = 60,   // osciloscopio
+    STATE_CURVE_TRACER       = 61,   // tracador de curva I-V
+    STATE_RIPPLE             = 62,   // medidor de ondulacao
+    STATE_SIGGEN             = 63,   // gerador de sinal
+    STATE_ZENER              = 64,   // teste de Zener com fonte de 12 V
+
+    STATE_JOBS_LIST          = 70,   // lista de trabalhos
+    STATE_JOBS_NEW           = 71,   // criar trabalho
+    STATE_JOBS_DETAIL        = 72,   // detalhe do trabalho ativo
+
+    STATE_SORTING            = 80,   // pareamento de componentes
+
+    STATE_NETWORK            = 90,   // estado e ajustes de rede
+    STATE_OTA                = 91,   // atualizacao em andamento
+
+    STATE_SUBMENU_INSTR      = 37,   // submenu de instrumentos
+    STATE_SUBMENU_BANCADA    = 38    // submenu de bancada
 };
 
 // ============================================================================

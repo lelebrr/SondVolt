@@ -49,6 +49,12 @@
 #include "thermal.h"
 #include "safety.h"
 #include "uiwidgets.h"
+#include "expander.h"
+#include "jobs.h"
+#include "scope.h"
+#include "thermalcam.h"
+#include "sorting.h"
+#include "netsvc.h"
 
 // ============================================================================
 // PARAMETROS DAS TAREFAS
@@ -67,6 +73,14 @@ constexpr uint32_t MEASURE_TASK_STACK = 4096;
 
 constexpr UBaseType_t UI_TASK_PRIORITY      = 2;
 constexpr UBaseType_t MEASURE_TASK_PRIORITY = 1;
+
+// Fixar cada tarefa num nucleo evita que o escalonador as migre no meio de
+// uma operacao sensivel a tempo. A interface fica no nucleo 1 (o mesmo do
+// laco Arduino) e a medicao no nucleo 0, que e onde o stack de WiFi tambem
+// roda - ambos sao trabalhos que toleram interrupcao, ao contrario do
+// desenho da tela.
+constexpr BaseType_t UI_TASK_CORE      = 1;
+constexpr BaseType_t MEASURE_TASK_CORE = 0;
 
 TaskHandle_t gTaskUI      = nullptr;
 TaskHandle_t gTaskMeasure = nullptr;
@@ -151,6 +165,20 @@ void TaskMeasurement(void* pvParameters) {
                 }
                 break;
 
+            case STATE_SORTING:
+                // O pareamento mede sob demanda, ao toque do usuario.
+                break;
+
+            case STATE_SCOPE:
+            case STATE_CURVE_TRACER:
+            case STATE_RIPPLE:
+            case STATE_SIGGEN:
+            case STATE_ZENER:
+                // Estes instrumentos assumem o controle do ADC ou do
+                // circuito de excitacao. Medir em paralelo corromperia a
+                // captura, entao a tarefa de medicao fica de fora.
+                break;
+
             case STATE_MEASURE_DIODE:
             case STATE_MEASURE_LED:
             case STATE_MEASURE_TRANSISTOR:
@@ -172,6 +200,13 @@ void TaskMeasurement(void* pvParameters) {
             case STATE_STATS:
             case STATE_HELP:
             case STATE_CALIBRATION:
+            case STATE_JOBS_LIST:
+            case STATE_JOBS_NEW:
+            case STATE_JOBS_DETAIL:
+            case STATE_NETWORK:
+            case STATE_OTA:
+            case STATE_SUBMENU_INSTR:
+            case STATE_SUBMENU_BANCADA:
                 break;
 
             default:
@@ -185,6 +220,10 @@ void TaskMeasurement(void* pvParameters) {
         }
         settings_flush_if_needed();
         diag_feed_watchdog();
+
+        // Servidor web e OTA. Barato quando nao ha nada pendente, e fica na
+        // tarefa de medicao para nao concorrer com o desenho da tela.
+        net_update();
 
         vTaskDelay(MEASURE_TASK_PERIOD);
     }
@@ -243,10 +282,11 @@ void setup() {
     leds_init();
 
     // ------------------------------------------------------------------
-    // 6. Armazenamento e banco de dados
+    // 6. Armazenamento, banco de dados e trabalhos
     // ------------------------------------------------------------------
     sdCardError = !logger_init();
     db_init();
+    jobs_init();
 
     // ------------------------------------------------------------------
     // 7. Instrumentacao
@@ -256,6 +296,20 @@ void setup() {
     thermal_init();
     multimeter_init(false);
     safety_init();
+
+    // ------------------------------------------------------------------
+    // 7b. Placa de expansao "Bancada" (Rev C)
+    // ------------------------------------------------------------------
+    // Cada item e opcional. O que nao estiver presente tem a funcao
+    // desativada na interface, nunca simulada.
+    expander_init();
+    scope_init();
+    tcam_init();
+    net_init();
+
+    // O sprite anti-flicker so e alocado se sobrar heap; caso contrario o
+    // desenho cai para o modo direto sem quebrar nada.
+    widget_sprite_begin();
 
     // ------------------------------------------------------------------
     // 8. Diagnostico e autoteste
@@ -272,10 +326,12 @@ void setup() {
     // ------------------------------------------------------------------
     // 10. Tarefas
     // ------------------------------------------------------------------
-    xTaskCreate(TaskUserInterface, "TaskUI", UI_TASK_STACK, nullptr,
-                UI_TASK_PRIORITY, &gTaskUI);
-    xTaskCreate(TaskMeasurement, "TaskMeasure", MEASURE_TASK_STACK, nullptr,
-                MEASURE_TASK_PRIORITY, &gTaskMeasure);
+    xTaskCreatePinnedToCore(TaskUserInterface, "TaskUI", UI_TASK_STACK,
+                            nullptr, UI_TASK_PRIORITY, &gTaskUI,
+                            UI_TASK_CORE);
+    xTaskCreatePinnedToCore(TaskMeasurement, "TaskMeasure", MEASURE_TASK_STACK,
+                            nullptr, MEASURE_TASK_PRIORITY, &gTaskMeasure,
+                            MEASURE_TASK_CORE);
 
     diag_register_task_ui(gTaskUI);
     diag_register_task_measure(gTaskMeasure);
@@ -283,6 +339,15 @@ void setup() {
     // O watchdog so entra depois que tudo esta rodando, senao um autoteste
     // demorado seria interpretado como travamento.
     diag_watchdog_enable(20);
+
+    // A rede so sobe se o usuario tiver habilitado. Ligar o WiFi sem
+    // necessidade custa corrente, calor e tempo de boot.
+    if (deviceSettings.wifiEnabled) {
+        if (net_start() && net_is_connected()) {
+            NetStatus ns = net_get_status();
+            LOG_SERIAL_FMT("[SYS] Rede pronta em http://%s/\n", ns.ip);
+        }
+    }
 
     // Se algo essencial falhou, o usuario precisa saber agora, nao depois
     // de uma medicao errada.

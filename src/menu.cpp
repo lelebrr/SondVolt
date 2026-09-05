@@ -15,8 +15,18 @@
 MenuCard HOME_MENU[] = {
     { "Teste Auto", STATE_MEASURE_GENERIC,   ICON_AUTO,          V_NEON_GREEN    },
     { "Multimetro", STATE_MULTIMETER,        ICON_MULTIMETER,    V_CYAN_ELECTRIC },
-    { "Comparar",   STATE_COMPARATOR,        ICON_TRANSISTOR_NPN,V_VIBRANT_PURPLE},
+    { "Trabalhos",  STATE_JOBS_LIST,         ICON_HISTORY,       V_WARNING       },
     { "Mais",       STATE_SUBMENU_MAIS,      ICON_SETTINGS,      V_PURE_WHITE    }
+};
+
+// Instrumentos que dependem da placa de expansao "Bancada".
+MenuCard BANCADA_MENU[] = {
+    { "Osciloscopio", STATE_SCOPE,        ICON_MULTIMETER,     V_CYAN_ELECTRIC },
+    { "Curva I-V",    STATE_CURVE_TRACER, ICON_DIODE,          V_VIBRANT_PURPLE},
+    { "Ripple",       STATE_RIPPLE,       ICON_CAPACITOR,      V_WARNING       },
+    { "Gerador",      STATE_SIGGEN,       ICON_CONTINUITY,     V_NEON_GREEN    },
+    { "Zener 12V",    STATE_ZENER,        ICON_DIODE,          V_ALERT         },
+    { "Pareamento",   STATE_SORTING,      ICON_TRANSISTOR_NPN, V_CYAN_ELECTRIC }
 };
 
 MenuCard TEMP_MENU[] = {
@@ -25,6 +35,8 @@ MenuCard TEMP_MENU[] = {
 };
 
 MenuCard MAIS_MENU[] = {
+    { "Bancada",    STATE_SUBMENU_BANCADA,   ICON_MULTIMETER,    V_CYAN_ELECTRIC },
+    { "Rede WiFi",  STATE_NETWORK,           ICON_AUTO,          V_NEON_GREEN    },
     { "Resistor",   STATE_MEASURE_RESISTOR,  ICON_RESISTOR,      V_WARNING       },
     { "Capacitor",  STATE_MEASURE_CAPACITOR, ICON_CAPACITOR,     V_CYAN_ELECTRIC },
     { "Diodo",      STATE_MEASURE_DIODE,     ICON_DIODE,         V_ALERT         },
@@ -45,8 +57,11 @@ static MenuCard* get_current_menu(uint8_t* count) {
     if (currentAppState == STATE_SUBMENU_TEMP) {
         if (count) *count = 2;
         return TEMP_MENU;
+    } else if (currentAppState == STATE_SUBMENU_BANCADA) {
+        if (count) *count = 6;
+        return BANCADA_MENU;
     } else if (currentAppState == STATE_SUBMENU_MAIS) {
-        if (count) *count = 14;
+        if (count) *count = 16;
         return MAIS_MENU;
     } else {
         if (count) *count = 4;
@@ -179,6 +194,8 @@ void menu_draw() {
         startY = 60;
     } else if (currentAppState == STATE_SUBMENU_MAIS) {
         header = "MAIS FUNCOES";
+    } else if (currentAppState == STATE_SUBMENU_BANCADA) {
+        header = "INSTRUMENTOS DE BANCADA";
     }
 
     graphics_draw_header(header);

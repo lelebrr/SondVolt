@@ -1,4 +1,21 @@
-# 🔧 Guia de Hardware — Component Tester PRO v3.2
+# Guia de Hardware — Sondvolt v4.0
+
+> [!IMPORTANT]
+> **Correções aplicadas na v4.0.** Este documento foi escrito para a v3.2 e continha
+> quatro afirmações incorretas que causaram problemas reais de montagem:
+>
+> 1. **LEDs vermelho e azul estavam trocados.** Na CYD, GPIO4 é o **vermelho** e
+>    GPIO17 é o **azul**. As tabelas abaixo já foram corrigidas.
+> 2. **O LED RGB é de ânodo comum:** nível **baixo** acende. Não use `digitalWrite(pino, HIGH)`
+>    para acender — use `hal_led_write()`, que trata a polaridade.
+> 3. **O cartão MicroSD NÃO compartilha barramento com a TFT.** Ele tem pinos próprios
+>    (23/19/18/5). Não é preciso desativar o CS do display antes de acessá-lo.
+> 4. **Faltava o circuito de excitação das pontas**, sem o qual resistência e capacitância
+>    são fisicamente impossíveis de medir. Veja [WIRING.md](WIRING.md) e a seção 1.3 da
+>    [BOM](../BOM-Sondvolt.md).
+>
+> A referência de pinagem atualizada e completa está em **[PINOUT.md](PINOUT.md)**, e a
+> fonte de verdade no código é `src/pins.h`.
 
 <p align="center">
   <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
@@ -8,7 +25,7 @@
   <img src="../assets/hardware_layout.png" alt="Layout do Hardware" width="300">
 </p>
 
-Este guia detalha todos os componentes de hardware, esquemas de ligação e especificações técnicas do **Component Tester PRO v3.2**, construído sobre a placa ESP32-2432S028R (Cheap Yellow Display).
+Este guia detalha todos os componentes de hardware, esquemas de ligação e especificações técnicas do **Sondvolt v4.0**, construído sobre a placa ESP32-2432S028R (Cheap Yellow Display).
 
 ---
 
@@ -256,9 +273,9 @@ GND (Preto)    →   GND
 | SD_MISO | 19 | Interno | SPI | MISO do SD | ✅ |
 | Touch_CS | 33 | Interno | SPI | Chip Select Touch | ✅ |
 | Touch_IRQ | 36 | Interno | Input | IRQ do Touch | ✅ |
-| LED_Green | 16 | Interno | Output | LED Verde | ✅ |
-| LED_Red | 17 | Interno | Output | LED Vermelho | ✅ |
-| LED_Blue | 4 | Interno | Output | LED Azul / OneWire | ✅ |
+| LED_Green | 16 | Interno | Output | LED Verde (ânodo comum: LOW acende) | ✅ |
+| LED_Blue | 17 | Interno | Output | LED Azul (ânodo comum: LOW acende) / descarga de capacitor | ✅ |
+| LED_Red | 4 | Interno | Output | LED Vermelho (ânodo comum: LOW acende) / OneWire | ✅ |
 | Buzzer | 26 | Interno | DAC | Speaker / Buzzer | ✅ |
 | **ZMPT_IN** | **34** | CN1 | **ADC** | Entrada AC (ZMPT101B) | ✅ |
 | **Probe_IN** | **35** | CN1 | **ADC** | Probe de componentes | ✅ |
@@ -519,8 +536,8 @@ GND (Preto)    →   GND
 | Touch_CS | 33 | Interno | SPI | Chip Select Touch |
 | Touch_IRQ | 36 | Interno | Input | IRQ do Touch |
 | LED_Green | 16 | Interno | Output | LED Verde |
-| LED_Red | 17 | Interno | Output | LED Vermelho |
-| LED_Blue | 4 | Interno | Output | LED Azul / OneWire |
+| LED_Blue | 17 | Interno | Output | LED Azul (ânodo comum) / descarga |
+| LED_Red | 4 | Interno | Output | LED Vermelho (ânodo comum) / OneWire |
 | Buzzer | 26 | Interno | DAC | Speaker / Buzzer |
 | **ZMPT_IN** | **34** | CN1 | **ADC** | Entrada AC (ZMPT101B) |
 | **Probe_IN** | **35** | CN1 | **ADC** | Probe de componentes |

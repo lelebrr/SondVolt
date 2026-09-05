@@ -1,5 +1,16 @@
 # 📖 Manual do Usuário — Component Tester PRO v3.2
 
+> [!NOTE]
+> **Manual escrito para a v3.2.** O fluxo de operação continua válido, mas vários
+> recursos descritos aqui só passaram a funcionar de fato na v4.0 — som, LEDs,
+> histórico no cartão SD, calibração persistente e o bloqueio automático de
+> segurança estavam implementados mas nunca eram inicializados.
+>
+> Além disso, a v4.0 exige o **circuito de excitação das pontas** ([WIRING.md](WIRING.md)),
+> sem o qual resistência e capacitância não têm como ser medidas.
+> Veja o [CHANGELOG](CHANGELOG.md) para a lista completa.
+
+
 <p align="center">
   <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
 </p>

@@ -157,6 +157,14 @@ typedef struct {
     bool expertMode;
     uint8_t languageIdx;         // 0=PT, 1=EN, 2=ES
     bool strongBeep;
+
+    // --- Novos na v5.0 ---
+    bool wifiEnabled;        // sobe a rede no boot
+    bool webServerEnabled;   // serve a pagina web
+    bool otaEnabled;         // aceita atualizacao pela rede
+    uint8_t scopeRateIdx;    // taxa de amostragem preferida do osciloscopio
+    uint8_t thermalPalette;  // paleta da camera termica
+    float   pairTolerance;   // tolerancia do pareamento, em porcentagem
 } DeviceSettings;
 
 extern DeviceSettings deviceSettings;

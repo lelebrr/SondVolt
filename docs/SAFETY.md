@@ -1,5 +1,21 @@
 # ⚡ Guia de Segurança Elétrica
 
+> [!WARNING]
+> **Leia isto antes do resto do documento.**
+>
+> Na v3.2 o sistema de proteção descrito aqui **não operava**. `safety_detect_danger()`
+> calculava um número normalizado entre 0 e 1 e o comparava com limiares em volts
+> (50 V, 180 V, 250 V). Como 1,0 nunca chega a 50, a verificação sempre devolvia
+> "seguro" e o bloqueio automático jamais disparava. A tela de alerta de alta tensão
+> existia no código e nunca era exibida.
+>
+> **Isso foi corrigido na v4.0.** Se você está rodando a v3.2, não confie na proteção
+> por software — atualize. A versão instalada aparece em `Mais > Sobre`.
+>
+> As proteções de hardware (fusível, varistor, TVS) continuam sendo a defesa principal
+> e **nunca** foram opcionais.
+
+
 <p align="center">
   <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
 </p>

@@ -174,7 +174,35 @@ void widget_resistor_bands(int16_t x, int16_t y, int16_t w, int16_t h,
                            float ohms);
 
 // ============================================================================
-// 10. CABECALHOS E CARTOES
+// 10. RENDERIZACAO SEM FLICKER (sprite)
+// ============================================================================
+// O painel do valor principal e redesenhado duas vezes por segundo. Desenhar
+// direto na tela significa apagar e repintar, e o olho enxerga isso como um
+// piscar constante - cansativo em uso prolongado.
+//
+// A solucao e montar o quadro num sprite em RAM e envia-lo de uma vez. Um
+// sprite de 225x105 pixels em 16 bits ocupa cerca de 47 KB, o que caberia,
+// mas deixaria pouca folga com o WiFi ligado. Usamos apenas a faixa do
+// numero: 225x48, ou 21 KB. O ganho visual e quase o mesmo pelo terco do
+// custo de memoria.
+
+// Reserva o sprite. Devolve false se nao houver RAM suficiente - nesse caso
+// o desenho cai automaticamente para o modo direto, sem quebrar nada.
+bool widget_sprite_begin();
+
+// Libera a memoria do sprite.
+void widget_sprite_end();
+
+// Verdadeiro se o sprite esta disponivel.
+bool widget_sprite_ready();
+
+// Desenha o valor principal com fonte adaptativa, sem flicker.
+void widget_value_sprite(int16_t x, int16_t y, int16_t w, int16_t h,
+                         const char* value, const char* unit,
+                         uint16_t color, uint16_t background);
+
+// ============================================================================
+// 11. CABECALHOS E CARTOES
 // ============================================================================
 
 // Cartao com titulo pequeno em cima e valor grande embaixo.

@@ -1,149 +1,83 @@
-# 📚 Central de Documentação
+# Documentação do Sondvolt
 
-Bem-vindo à central de conhecimento do **Component Tester PRO v3.2**. Aqui você encontrará tudo o que precisa para montar, configurar e operar seu dispositivo com maestria.
-
----
-
-## 🗺️ Mapa da Documentação
-
-Para facilitar sua navegação, dividimos o conteúdo em trilhas de conhecimento:
-
-### 🚀 Para Começar (Iniciantes)
-- 📖 **[Manual do Usuário](MANUAL.md):** O primeiro passo para entender como operar o dispositivo.
-- 🎓 **[Guias Passo a Passo](GUIDES.md):** Tutoriais detalhados para cada funcionalidade de medição.
-- ❓ **[FAQ](FAQ.md):** Respostas rápidas para as dúvidas mais comuns.
-
-### 🔌 Hardware & Montagem (Eletrônica)
-- 🛠️ **[Especificações de Hardware](HARDWARE.md):** Lista de componentes e detalhes técnicos.
-- 📍 **[Diagrama de Pinagem](PINOUT.md):** Referência detalhada de todas as conexões do ESP32.
-- 🚧 **[Solução de Problemas](TROUBLESHOOTING.md):** Guia para resolver erros de montagem ou operação.
-
-### 🧪 Referência Técnica
-- 🧩 **[Testando Componentes](COMPONENTS.md):** Como interpretar os dados de capacitores, resistores, etc.
-- 🗺️ **[Arquitetura de Menus](MENUS.md):** Mapa visual de todas as telas e submenus.
-- ⚙️ **[Guia de Configuração](CONFIG.md):** Como calibrar probes e personalizar o sistema.
-
-### 💻 Para Desenvolvedores
-- 🖥️ **[Guia do Desenvolvedor](DEVELOP.md):** Explicação da estrutura do código e como contribuir.
+Índice da documentação. Se você chegou agora, comece pelo [README principal](../README.md).
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## Comece por aqui
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                 COMPONENT TESTER PRO v3.2 - ARQUITETURA         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
-│  │   Interface     │    │   Sistema de    │    │   Banco de  │ │
-│  │   Touchscreen   │◄──►│   Medição       │◄──►│   Dados     │ │
-│  │   (TFT 2.8")    │    │   Principal     │    │   (SD Card) │ │
-│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
-│         │                       │                       │     │
-│         ▼                       ▼                       ▼     │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
-│  │   Controle de   │    │   Sensoriamento │    │   Armazen.  │ │
-│  │   Navegação     │    │   (ADC, I2C)    │    │   Histórico │ │
-│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
-│                                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────┐ │
-│  │   Sistema de    │    │   Interface     │    │   Sistema   │ │
-│  │   Segurança     │    │   Gráfica       │    │   de Alertas │ │
-│  │   (True RMS)    │    │   (UI/UX)       │    │   (LED/Buzz)│ │
-│  └─────────────────┘    └─────────────────┘    └─────────────┘ │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Documento | Para quê |
+| :--- | :--- |
+| [MANUAL.md](MANUAL.md) | operação completa do aparelho |
+| [GUIDES.md](GUIDES.md) | tutoriais passo a passo |
+| [FAQ.md](FAQ.md) | dúvidas frequentes |
+| [MENUS.md](MENUS.md) | mapa das telas |
 
-## 🛠️ Resumo de Hardware
+## Vou montar o hardware
 
-### 📊 Especificações Técnicas
+| Documento | Para quê |
+| :--- | :--- |
+| [../BOM-Sondvolt.md](../BOM-Sondvolt.md) | lista de materiais |
+| **[WIRING.md](WIRING.md)** | **esquema de ligação — leia antes de soldar** |
+| [PINOUT.md](PINOUT.md) | pinagem, conflitos e as duas revisões de fiação |
+| [ASSEMBLY.md](ASSEMBLY.md) | montagem mecânica |
+| [HARDWARE.md](HARDWARE.md) | especificações técnicas |
+| [SAFETY.md](SAFETY.md) | proteção elétrica |
 
-| Componente | Especificação | Função |
-|:---|:---|:---|
-| **Microcontrolador** | ESP32-2432S028R | Processamento principal |
-| **Display** | TFT 2.8" SPI 320x240 | Interface gráfica touchscreen |
-| **Armazenamento** | SD Card | Dados de medição e configurações |
-| **Interface** | Touchscreen + Botões + Buzzer | Controle e feedback sonoro |
-| **Sensores** | ZMPT101B + INA219 + DS18B20 | medição AC/DC/Temperatura |
-| **Proteção** | Fusível 5A + Varistor + TVS | Segurança em redes 220V |
+> [!IMPORTANT]
+> O circuito de excitação das pontas descrito em [WIRING.md](WIRING.md) é **novo na v4.0 e obrigatório**. Sem ele, resistência e capacitância não têm como ser medidas — as pontas ficam em GPIOs de entrada apenas do ESP32. Foi a causa raiz de as medições nunca terem funcionado até a v3.2.
 
-### 🔄 Fluxo de Operação
+## Estou usando o aparelho
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Início    │───►│ Auto-Detec. │───►│  Medição    │───►│  Armazen.   │
-│   Sistema   │    │  Componente │    │   Dados     │    │   Resultados│
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-       │                   │                   │                   │
-       ▼                   ▼                   ▼                   ▼
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│ Configuração │    │  Teste       │    │  Análise    │    │  Visualização│
-│ Inicial     │    │  Específico  │    │  Estatística│    │  Gráfica     │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-```
+| Documento | Para quê |
+| :--- | :--- |
+| [COMPONENTS.md](COMPONENTS.md) | como interpretar cada tipo de componente |
+| [CONFIG.md](CONFIG.md) | ajustes e calibração |
+| **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | **quando algo não funciona** |
+| [TESTING.md](TESTING.md) | procedimentos de verificação |
 
-> [!TIP]
-> Sempre verifique a seção de [Calibração](CONFIG.md) antes de realizar medições críticas para garantir a máxima precisão.
+## Vou mexer no código
 
-> [!WARNING]
-> Nunca exponha o dispositivo a tensões acima de 30V DC ou 250V AC sem proteção adequada. Versão 3.2 requer Fusível 5A, Varistor 14D431 e TVS P6KE400A para operação em redes 220V.
+| Documento | Para quê |
+| :--- | :--- |
+| **[DEVELOP.md](DEVELOP.md)** | **arquitetura, camadas e convenções** |
+| [CHANGELOG.md](CHANGELOG.md) | o que mudou e por quê |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | como enviar contribuições |
+| [ROADMAP.md](ROADMAP.md) | o que vem pela frente |
+| [../futuros.md](../futuros.md) | ideias de expansão |
+
+## Referência
+
+| Documento | Para quê |
+| :--- | :--- |
+| [ABOUT.md](ABOUT.md) | sobre o projeto |
+| [BRANDING.md](BRANDING.md) | identidade visual |
+| [BOM_AUDIT.md](BOM_AUDIT.md) | auditoria de materiais |
+| [LICENSE.md](LICENSE.md) | licença MIT |
 
 ---
 
-## 📈 Desempenho e Precisão
+## Verificação sem hardware
 
-### 🎯 Precisão das Medições
+Dá para validar o firmware inteiro sem ter a placa:
 
-```
-Resistores:    ±0.5% (0-1MΩ)
-Capacitores:   ±2% (1pF-100µF)
-Tensão DC:     ±0.3% (0-30V)
-Tensão AC:     ±1.5% (0-250V) - True RMS
-Corrente:      ±1.0% (0-3A)
-Temperatura:   ±0.5°C (-10°C~85°C)
+```bash
+bash tools/hostcheck/check.sh
 ```
 
-### ⚡ Performance
-
-| Operação | Tempo | Sucesso |
-|:---|:---:|:---:|
-| Auto-Detecção | < 2s | 98% |
-| Medição DC | < 1s | 99.5% |
-| Medição AC | < 3s | 97% |
-| Banco de Dados | < 0.5s | 100% |
+Compila e **linka** todas as unidades de tradução num PC, usando stubs das bibliotecas Arduino, nas duas revisões de hardware. Pega erros de sintaxe, de tipo e símbolos faltando antes de você gravar na placa.
 
 ---
 
-## 🔗 Links Rápidos
+## Atalho por sintoma
 
-- [Início Rápido](../README.md)
-- [Diagrama de Conexões](PINOUT.md)
-- [Como Testar Transistores](COMPONENTS.md#transistores)
-
----
-
-## 🎨 Elementos Visuais da Documentação
-
-Este projeto utiliza elementos visuais padronizados para melhorar a experiência do usuário:
-
-### 📋 Tipos de Alertas
-
-> [!NOTE]
-> Informações importantes que devem ser observadas durante o uso.
-
-> [!TIP]
-> Sugestões e melhores práticas para otimizar o uso do dispositivo.
-
-> [!WARNING]
-> Alertas sobre condições que podem causar danos ao dispositivo.
-
-> [!ERROR]
-> Mensagens críticas que indicam problemas sérios.
-
----
-
-<p align="center">
-  <b>📱 Component Tester PRO v3.2</b> - Documentação Oficial
-</p>
+| Situação | Vá para |
+| :--- | :--- |
+| Medição de componente não funciona | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) → "Circuito de pontas ausente" |
+| Tensão AC aparece sem estar conectada | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) → trimpot do ZMPT |
+| Corrente indisponível | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) → INA219 |
+| Temperatura some com LED aceso | [PINOUT.md](PINOUT.md) → conflito do GPIO4 |
+| Toque no lugar errado | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) → calibração do touch |
+| Nada é gravado no cartão | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) → cartão SD |
+| Erro de `static_assert` ao compilar | [PINOUT.md](PINOUT.md) → verificação em tempo de compilação |
+| Quero entender o que mudou na v4.0 | [CHANGELOG.md](CHANGELOG.md) |

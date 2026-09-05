@@ -1,5 +1,17 @@
 # ⚙️ Configurações — Sondvolt v3.2
 
+> [!NOTE]
+> **Atualizado na v4.0.** Mudanças que afetam este documento:
+>
+> - As configurações agora são **realmente gravadas** na NVS (`settings_load()` nunca
+>   era chamado na v3.2, então cada boot começava com os padrões).
+> - A calibração das pontas virou uma **rotina guiada em duas etapas** com validação
+>   e checksum. O botão antigo apenas copiava a última leitura para os offsets.
+> - A calibração do ZMPT e do INA219 é persistida no namespace `mmcal`.
+> - `ZMPT_CALIBRATION` foi substituída por `ZMPT_DEFAULT_GAIN` (volts por conta de ADC).
+> - O arquivo do banco de dados é `/COMPBD.CSV`, não `/database.csv`.
+
+
 <p align="center">
   <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
 </p>

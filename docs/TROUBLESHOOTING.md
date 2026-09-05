@@ -1,243 +1,248 @@
-# 🔧 Resolução de Problemas — Sondvolt v3.2
+# Solução de problemas
 
-<p align="center">
-  <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
-</p>
-
-Este guia ajuda a diagnosticar e resolver problemas comuns do Sondvolt.
+Comece sempre por **`Mais > Diagnóstico`**. Essa tela roda um autoteste de 10 subsistemas e diz qual está com problema, o que economiza a maior parte da investigação.
 
 ---
 
-## Diagnóstico Inicial
+## Leitura do Diagnóstico
 
-Antes de prosseguir, verifique:
-
-| Verificação | Como Fazer |
-|:---|:---|
-| **Alimentação** | Cabo USBfirmware e fuente 5V/2A |
-| **Conexões** | Sensores bem encaixados |
-| **Serial** | Monitor 115200 baud para logs |
-
----
-
-## Problemas de Inicialização
-
-### 🔴 Dispositivo não liga (Tela Preta)
-
-| Causa Possível | Solução |
-|:---|:---|
-| Cabo USB ruim | Use cabo de boa qualidade |
-| Fonte insuficiente | Use fonte 5V/2A |
-| Porta USB fraca | Tente outra porta USB |
-| Firmware corrompido | Recarregue via PlatformIO |
-
-### 🔴 Tela Branca ou Listras
-
-| Causa Possível | Solução |
-|:---|:---|
-| Driver TFT não configurado | Verifique `platformio.ini` |
-| Pinagem incorreta | Confirme definições em `config.h` |
-| Curto nos pinos | Inspecione visualmente |
-
-### 🔴 LED Vermelho Piscando
-
-| Causa Possível | Solução |
-|:---|:---|
-| SD Card ausente | Insira cartão SD |
-| Arquivo faltando | Copie COMPBD.CSV para raiz |
-| Formatação errada | Reformatar em FAT32 |
+| Resultado | Significa |
+| :--- | :--- |
+| **OK** | subsistema presente e respondendo dentro do esperado |
+| **AVISO** | presente, mas com algo fora do normal (precisa ajuste) |
+| **FALHA** | ausente ou com defeito — a função depende dele |
+| **AUSENTE** | opcional e não instalado, o firmware segue sem ele |
 
 ---
 
-## Problemas de Toque (Touchscreen)
+## Medição de componentes
 
-### 🟡 Toque não responde
+### "Circuito de pontas ausente" / Pontas de prova em FALHA
 
-| Causa Possível | Solução |
-|:---|:---|
-| Força insuficiente | Use unha ou stylus (resistivo) |
-| Cabo solto | Verifique conexão flat traseiro |
-| Calibração errada | Recalibre em Ajustes |
+**Causa.** O circuito de excitação não está montado, ou o resistor de referência está aberto.
 
-### 🟡 Toque invertido ou deslocado
+Este é o problema mais comum ao migrar da v3.2, porque **esse circuito não existia**. As pontas estão em GPIO34 e GPIO35, que são entrada apenas no ESP32 e não conseguem aplicar tensão em nada. Sem um pino de saída alimentando o divisor, não há como medir componente passivo.
 
-1. Acesse **Ajustes → Calibrar Touch**
-2. Toque nos pontos indicados séquencialmente
-3. Reinicie o dispositivo
+**Solução.** Monte o circuito descrito em [WIRING.md](WIRING.md): GPIO27 através de 10 kΩ 1% e GPIO22 através de 470 Ω 1%, ambos chegando na ponta 1.
 
----
+**Como o firmware detecta.** Ele alterna `PIN_PROBE_DRIVE` entre alto e baixo e verifica se a leitura da ponta 1 acompanha. Diferença menor que 500 contas de ADC significa divisor ausente.
 
-## Problemas de Medição
+### Resistência sempre mostra "OL"
 
-### 🟡 Probe não detecta componentes (sempre OPEN)
+- Pontas realmente abertas — é o comportamento correto
+- Cabo de prova rompido: teste encostando as pontas, deve mostrar quase 0 Ω
+- Resistor de referência de 10 kΩ aberto
 
-| Causa Possível | Solução |
-|:---|:---|
-| Pino errado | Use GPIO 35 (CN1-1) |
-| Resistor 10kΩ faltando | Instale no divisor |
-| Componente danificado | Teste com resistor conhecido |
+### Resistência com valor errado por um fator constante
 
-### 🟡 Leituras imprecisas
+O resistor de referência não é o valor nominal. Meça-o com um multímetro confiável e ajuste `PROBE_REF_RESISTOR` em `pins.h`. A precisão do aparelho não pode ser melhor que a do resistor de referência — por isso a recomendação de 1%.
 
-| Causa Possível | Solução |
-|:---|:---|
-| Offset ADC | Calibre em Ajustes → Calibração |
-| Ruído eletromagnético | Afaste fios de sinal |
-| Referência ruim | GND compartilhado |
+### Resistência com alguns ohms a mais
 
-### 🟡 Multímetro AC (ZMPT101B) instável ou impreciso
+Falta calibrar. `Mais > Calibrar` mede a resistência dos próprios cabos e desconta de todas as leituras seguintes. Fica gravado na NVS.
 
-| Causa Possível | Solução |
-|:---|:---|
-| Potenciômetro desalinhado | Ajuste o trim-pot azul no módulo ZMPT |
-| Escala digital | Ajuste ZMPT Scale em Ajustes |
-| Falta de carga | Verifique se o resistor 10kΩ de carga está instalado |
-| Ruído de alimentação | Verifique capacitor 10µF no VCC do ZMPT |
-| Ruído de saída | Verifique capacitor 100nF no OUT do ZMPT |
+### Capacitância sempre zero
 
-### 🔴 Mensagem de Bloqueio: "ALTA TENSÃO DETECTADA"
+1. Descarregue o capacitor primeiro (botão DESCARREGAR na tela do capacímetro)
+2. Abaixo de 1 nF está fora da faixa mensurável
+3. Capacitor em curto lê como resistor, não como capacitor
+4. MOSFET de descarga em curto mantém a ponta aterrada — meça o GPIO17 com o aparelho desligado
 
-O sistema de **Segurança Ativa** bloqueia o uso fora do modo Multímetro se detectar >50V AC.
+### ESR sempre zero
 
-| Causa Possível | Solução |
-|:---|:---|
-| Rede AC conectada nos probes | Desconecte os probes da tomada antes de testar componentes |
-| Sensor ZMPT descalibrado | Ajuste o offset e escala |
-| Ruído excessivo | Verifique blindagem e filtragem (Capacitores) |
+Normal em capacitores cerâmicos e de filme, onde a ESR é baixa demais para o método. A medição de ESR faz sentido em eletrolíticos, que é onde ela denuncia defeito.
 
-### 🟡 Alerta "[SURGE!]" piscando na tela
+### hFE não aparece / transistor não é identificado
 
-Indica transientes ou picos de tensão acima do fator de crista normal (~1.41).
-
-| Causa Possível | Solução |
-|:---|:---|
-| Ruído na rede elétrica | Normal em ambientes industriais |
-| Transiente de chaveamento | Verifique se há motores ou reatores próximos |
-| Proteção atuando | Verifique se o Varistor/TVS estão aquecendo |
-
-### 🟡 INA219 não detectado
-
-| Causa Possível | Solução |
-|:---|:---|
-| Endereço I2C | Verifique endereço 0x40 |
-| Conexão I2C | SDA→GPIO 27, SCL→GPIO 22 |
-| Pull-ups | Adicione 4.7kΩ se necessário |
-| Alimentação | Use 3.3V (não 5V!) |
-
-### 🟡 DS18B20 não responde
-
-| Causa Possível | Solução |
-|:---|:---|
-| Pull-up faltando |Instale resistor 4.7kΩ |
-| Pino errado | Use GPIO 4 |
-| Cabo longo | Máximo 100m (reduza) |
+- Confira a pinagem. O firmware assume E-B-C e testa NPN primeiro
+- Darlingtons (TIP120) têm Vbe de ~1,4 V e podem cair fora da janela de detecção
+- Transistor de potência com hFE abaixo de 20 é reportado como SUSPEITO, que muitas vezes é o diagnóstico correto
 
 ---
 
-## Problemas de Cartão SD
+## Multímetro
 
-### 🔴 "SD Card: Erro na inicialização"
+### Tensão DC absurdamente alta (uma pilha lendo centenas de volts)
 
-| Causa Possível | Solução |
-|:---|:---|
-| Formatação errada | Formate em FAT32 |
-| Capacidade | Use até 32GB |
-| Arquivo faltando | COMPBD.CSV na raiz |
-| Slot sujo | Limpe com ar comprimido |
+**Se você está na v3.2, é o bug conhecido:** a faixa `RANGE_AUTO` caía no ramo do fator de 600 V e multiplicava toda leitura por 181. Corrigido na v4.0.
 
-### 🔴 Banco de dados não carrega
+**Na v4.0**, verifique o divisor externo. `multimeter_set_dc_divider()` precisa refletir a razão real: 1,0 para medida direta, 11,0 para um divisor 10:1.
 
-1. Verifique se `COMPBD.CSV` está na raiz
-2. Confirme formato UTF-8
-3. Verifique separadores (vírgula)
+### Tensão AC aparece com as pontas desconectadas
 
----
+O trimpot do ZMPT101B está fora do centro. Com a entrada AC desligada, a saída deve repousar em 1,65 V.
 
-## Problemas de Áudio e Vídeo
+`Mais > Diagnóstico`, linha **Sensor AC**, mostra a leitura de repouso em contas. O ideal fica entre 1500 e 2600; fora disso ela reporta "ajustar trimpot".
 
-### 🟡 Buzzer não funciona
+> A v3.2 assumia o zero fixo em 2048, então qualquer desvio do trimpot virava tensão fantasma. A v4.0 calcula o zero a partir da média das próprias amostras, o que tolera um trimpot razoavelmente desajustado — mas o ajuste ainda melhora a faixa dinâmica.
 
-| Causa Possível | Solução |
-|:---|:---|
-| Modo silencioso | Desative em Ajustes |
-| Conexão speaker | Verifique GPIO 26 |
-| Tomador incorreto | Ajuste frequência |
+### Tensão AC lê consistentemente alto ou baixo
 
-### 🟡 Brilho não altera
+Calibração de ganho. Meça a rede com um multímetro de referência e chame `multimeter_calibrate_zmpt(tensaoReal)`. O valor fica gravado na NVS (namespace `mmcal`).
 
-| Causa Possível | Solução |
-|:---|:---|
-| PWM conflitando | Use apenas brilho em Ajustes |
-| Hardware | Verifique GPIO 21 |
+### Corrente e potência indisponíveis
 
-### 🟡 LEDs RGB não funcionam
+O INA219 não foi detectado no barramento I²C.
 
-- LED Verde: GPIO 16
-- LED Vermelho: GPIO 17
-- LED Azul: GPIO 4 (compartilha com OneWire)
+- Confira o endereço: 0x40 com todos os jumpers A0/A1 abertos
+- Confira SDA no GPIO27 e SCL no GPIO22
+- O I²C compartilha pinos com a excitação das pontas; se a arbitragem estiver travada, o autoteste reporta AUSENTE
+- Verifique a alimentação de 3,3 V do módulo
+
+### Corrente com valor aleatório
+
+Se você está na v3.2: o código lia o INA219 sem escrever o ponteiro de registrador e sem aplicar as escalas do datasheet. Os números eram lixo. Corrigido na v4.0.
 
 ---
 
-## Códigos de Erro do Serial
+## Temperatura
 
-Conecte ao PC e abra o Monitor Serial (115200 baud):
+### Sensor térmico AUSENTE
 
-| Mensagem | Significado | Ação |
-|:---|:---|:---|
-| `SD Card: OK` | Cartão detectado | ✅ Normal |
-| `SD Card: ERRO` | Falha na inicialização | Verifique SD |
-| `DB: OK` | Banco de dados carregado | ✅ Normal |
-| `DB: ERRO` | Arquivo não encontrado | Copie COMPBD.CSV |
-| `INA219: OK` | Sensor DC detectado | ✅ Normal |
-| `INA219: ERRO` | Sensor não responde | Verifique conexões |
-| `ZMPT: OK` | Sensor AC detectado | ✅ Normal |
-| `ZMPT: ERRO` | Sem sinal AC | Verifique sensor |
-| `DS18B20: OK` | Sonda detectada | ✅ Normal |
-| `DS18B20: ERRO` | Sem resposta | Verifique OneWire |
+- Resistor de pull-up de 4,7 kΩ obrigatório no barramento OneWire
+- Verifique a alimentação do DS18B20
+- Na Rev A o OneWire está no GPIO4; na Rev B, no GPIO32. Confira se o firmware foi compilado para a revisão certa
 
----
+### Temperatura some quando um LED acende
 
-## Tabela de Problemas e Soluções
+Sintoma clássico da Rev A: GPIO4 é LED vermelho **e** OneWire. Um LED aceso mantém o pino alto e o sensor não responde.
 
-| Problema | Causa | Solução |
-|:---|:---|:---|
-| Não liga |Fonte/USB | Use fonte 5V/2A |
-| Tela branca | Driver | Verifique config TFT |
-| Sem toque | Resistivo | Use unha/stylus |
-| OPEN constante | Pino | Use GPIO 35 |
-| AC instável | Calibração | Ajuste ZMPT101B |
-| INA219 erro | I2C | SDA→27, SCL→22 |
-| SD erro | Formato | FAT32, COMPBD.CSV |
-| Bipes | Modo | Desative silencioso |
+Na v4.0 a HAL apaga o LED antes de cada leitura e o restaura depois, então isso não deveria mais acontecer. Se acontecer, verifique se `hal_init()` está sendo chamado no início do `setup()`.
+
+A solução definitiva é montar a Rev B (`pio run -e cyd-revb`), onde o OneWire tem pino próprio.
 
 ---
 
-## Reset de Fábrica
+## Cartão SD
 
-### Via Software
+### Cartão SD em AVISO
 
-1. Acesse **Ajustes → Limpar Tudo**
-2. Confirme a ação
-3. O dispositivo reiniciará
+O aparelho funciona sem cartão — o catálogo interno de 50 componentes fica em flash. O que se perde é o histórico de medições e o banco de 5.726 registros.
 
-### Via Hardware
+- Formate em FAT32 (não exFAT, não NTFS)
+- Copie `sd_files/sdcard/COMPBD.CSV` para a **raiz** do cartão
+- Cartões acima de 32 GB costumam dar problema
 
-```bash
-pio run -e cyd --target erase
-pio run -e cyd --target upload
+### Cartão detectado mas nada é gravado
+
+- `Ajustes > Salvar histórico` precisa estar ligado
+- Cartão protegido contra gravação
+- Cartão cheio: o log rotaciona em 256 KB, mas o resto do cartão pode estar ocupado
+
+> Na v3.2 **nada** era gravado, porque `logger_write()` só era chamado por `task_manager.cpp`, que nunca era criado. Corrigido na v4.0.
+
+### Cartão falha intermitentemente
+
+O firmware tenta 10 MHz e cai para 4 MHz automaticamente. Se ainda assim falhar, encurte os fios do cartão ou reduza `SD_SPI_SPEED_MHZ` em `pins.h`.
+
+---
+
+## Display e toque
+
+### Tela preta ao ligar
+
+- Confira o GPIO21 (backlight)
+- Cabo flat do display mal encaixado
+- Se o LED de alimentação acende mas a tela não, verifique no monitor serial (115200 baud) se o boot chega até `[SYS] Autoteste concluido`
+
+### Imagem deslocada ou com cores erradas
+
+O driver correto para a CYD é `ILI9341_2_DRIVER`, já definido no `platformio.ini`. Se você mudou, volte. Cores invertidas indicam que alguém alterou `tft.invertDisplay()` ou `tft.setSwapBytes()`.
+
+### Toque não responde ou responde no lugar errado
+
+Ajuste as constantes de calibração em `pins.h`:
+
+```c
+#define TOUCH_RAW_X_MIN       200
+#define TOUCH_RAW_X_MAX       3700
+#define TOUCH_RAW_Y_MIN       240
+#define TOUCH_RAW_Y_MAX       3800
 ```
 
-> ⚠️ Isso apaga todas as configurações e dados.
+> Na v3.2 existiam **três** conversões de coordenada diferentes — em `main.cpp`, `buttons.cpp` e `safety.cpp` — com constantes e orientações divergentes. Os botões das telas de segurança ficavam espelhados. A v4.0 tem uma única conversão, em `hal_touch_read()`.
+
+### Touchscreen em AVISO: "toque preso ativo"
+
+O XPT2046 está reportando toque contínuo. Quase sempre é cabo flat mal encaixado.
 
 ---
 
-##Avisos de Segurança
+## Som e LEDs
 
-> **🔴 PERIGO:** Não opere com as mãos molhadas ao medir AC.
-> **⚠️ ATENÇÃO:** Sempre desconecte antes de manipular conexões.
+### Nenhum som
+
+Na v3.2, `buzzer_init()` nunca era chamado — o canal LEDC nunca era configurado. Corrigido na v4.0.
+
+Na v4.0, verifique `Ajustes > Sons` e `Ajustes > Modo silencioso`.
+
+### O buzzer trava num tom contínuo
+
+`buzzer_update()` não está sendo chamado. Ele vive no laço da tarefa de interface. Na v3.2 não era chamado em lugar nenhum, então o primeiro bipe tocava para sempre.
+
+### LEDs invertidos (acendem quando deveriam apagar)
+
+O LED RGB da CYD é de **ânodo comum**: nível baixo acende. Use `hal_led_write()`, que já trata a polaridade, em vez de `digitalWrite()` direto.
 
 ---
 
-<p align="center">
-<i>🔧 Sondvolt v3.2 — Resolução de Problemas</i>
-</p>
+## Compilação
+
+### Erro em `static_assert` dentro de `pins.h`
+
+Você alterou a pinagem para uma configuração impossível. As mensagens são explícitas:
+
+```
+"PIN_PROBE_DRIVE precisa ter driver de saida"
+```
+
+Significa que o pino escolhido está entre GPIO34 e GPIO39, que são entrada apenas. O compilador está impedindo a repetição do bug que travou a v3.2.
+
+### `ledcSetup` ou `ledcAttach` não declarado
+
+Incompatibilidade entre o core 2.x e o 3.x do Arduino-ESP32. Não chame o LEDC direto — use `hal_pwm_attach()`, `hal_pwm_write()` e `hal_pwm_tone()`, que tratam as duas APIs.
+
+O `platformio.ini` fixa `espressif32 @ 6.5.0` justamente para o build ser reproduzível.
+
+### Avisos de macro redefinida
+
+Alguma constante foi definida em dois lugares com valores diferentes. Cada uma tem um único dono: pinagem em `pins.h`, medição e cores em `config.h`, paleta visual em `visual.h`.
+
+### Quero verificar se compila sem ter a placa
+
+```bash
+bash tools/hostcheck/check.sh
+```
+
+Compila e **linka** todo o firmware no PC com stubs das bibliotecas, nas duas revisões de hardware. Pega erros de sintaxe, tipo e símbolos faltando.
+
+---
+
+## Segurança
+
+### O aparelho travou em "EQUIPAMENTO BLOQUEADO"
+
+Foram detectadas três leituras de tensão perigosa seguidas. O bloqueio dura 10 segundos e libera sozinho.
+
+Se está bloqueando sem motivo, o ZMPT está mal ajustado e reportando tensão fantasma. Veja a seção do trimpot.
+
+### Nunca bloqueia, mesmo com a rede conectada
+
+Na v3.2 o bloqueio **nunca** disparava: `safety_detect_danger()` calculava um número normalizado entre 0 e 1 e comparava com limiares de 50 V, 180 V e 250 V. Corrigido na v4.0.
+
+Confirme que está rodando a v4.0 — a versão aparece em `Mais > Sobre`.
+
+---
+
+## Reiniciando do zero
+
+**Restaurar padrões de fábrica.** `Ajustes > Restaurar padrões` limpa a NVS e recarrega as configurações originais. Não apaga a calibração das pontas.
+
+**Apagar tudo, inclusive calibração.** Apague a flash completa:
+
+```bash
+pio run -t erase
+pio run -t upload
+```
+
+**Reindexar o banco de dados** após trocar o cartão: `Mais > Diagnóstico` mostra a contagem de registros; a reindexação acontece no boot.

@@ -40,8 +40,14 @@ const uint8_t font5x7[] PROGMEM = {
     0x00, 0x41, 0x36, 0x08, 0x00, 0x02, 0x01, 0x02, 0x04, 0x02, 0x3C, 0x42, 0x42, 0x3C, 0x00
 };
 
-// Função de desenho de texto manual (Super Robusta)
-inline void draw_text_5x7(TFT_eSPI& tft, int16_t x, int16_t y, const char* str, uint16_t color, uint8_t size) {
+// Desenho de texto pixel a pixel.
+//
+// O parametro e um template para aceitar tanto TFT_eSPI quanto TFT_eSprite:
+// as duas classes tem drawPixel() e fillRect() com a mesma assinatura, mas
+// nao compartilham uma base comum utilizavel. Sem o template seria preciso
+// duplicar a funcao inteira para desenhar no sprite.
+template <typename Target>
+inline void draw_text_5x7(Target& tft, int16_t x, int16_t y, const char* str, uint16_t color, uint8_t size) {
     while (*str) {
         uint8_t c = (uint8_t)*str++;
         if (c < 32 || c > 127) c = 32; // Fallback para espaço

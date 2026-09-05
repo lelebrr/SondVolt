@@ -1,2 +1,12 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normaliza fim de linha para evitar diffs falsos entre Windows e Linux
+* text=auto eol=lf
+
+*.png  binary
+*.jpg  binary
+*.bin  binary
+*.elf  binary
+
+# Não contar como código nas estatísticas do GitHub
+tools/hostcheck/stubs/* linguist-vendored
+sd_files/*              linguist-generated
+docs/*                  linguist-documentation

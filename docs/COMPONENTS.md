@@ -1,5 +1,13 @@
 # 🧪 Guia Completo de Componentes — Component Tester PRO v3.2
 
+> [!NOTE]
+> **Atualizado na v4.0.** A identificação de componentes foi reescrita: ESR, hFE, tensão
+> direta, indutância e detecção de MOSFET agora são medidos de verdade. Nas versões
+> anteriores, valores como `ESR: 0.12 Ohms` e `hFE: 245` eram texto fixo na tela, não
+> medição. O catálogo interno passou a ter 50 componentes reais com parâmetros de
+> datasheet. Veja o [CHANGELOG](CHANGELOG.md).
+
+
 <p align="center">
   <img src="../assets/logo.png" alt="Sondvolt Logo" width="150">
 </p>

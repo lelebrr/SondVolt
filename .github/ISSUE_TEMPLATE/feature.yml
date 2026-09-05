@@ -1,0 +1,39 @@
+name: Sugerir um recurso
+description: Uma ideia para o projeto
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Lembre da restrição principal: **a CYD não tem GPIO livre.**
+        Recursos novos precisam entrar pelo I²C (expansor) ou compartilhar
+        um pino existente com arbitragem.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Que problema isso resolve
+      description: O caso de uso real, não a solução
+    validations: { required: true }
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Como você imagina
+
+  - type: dropdown
+    id: hardware
+    attributes:
+      label: Precisa de hardware novo?
+      options:
+        - Não, só software
+        - Sim, mas cabe no expansor I²C
+        - Sim, precisa de GPIO (explique como)
+        - Não sei
+    validations: { required: true }
+
+  - type: input
+    id: cost
+    attributes:
+      label: Custo estimado das peças
+      placeholder: "~R$ 20"

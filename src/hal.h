@@ -97,6 +97,12 @@ float hal_adc_read_volts(uint8_t pin, uint8_t samples = 16);
 float hal_adc_vref();
 void  hal_adc_set_vref(float vref);
 
+// Verdadeiro se o chip tem a curva de fabrica do ADC gravada nos eFuses.
+// Quando falso, a conversao cai numa aproximacao polinomial generica, com
+// erro maior. E informativo: nao ha nada a fazer, depende do lote do chip.
+bool        hal_adc_is_calibrated();
+const char* hal_adc_cal_source();
+
 // ----------------------------------------------------------------------------
 // LEDs (respeitando o anodo comum da CYD)
 // ----------------------------------------------------------------------------

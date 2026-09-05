@@ -1,0 +1,73 @@
+name: Relatar um problema
+description: Algo não funciona como deveria
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de abrir, confira **`Mais > Diagnóstico`** no aparelho: ele testa
+        10 subsistemas e costuma apontar a causa direto.
+
+  - type: dropdown
+    id: revision
+    attributes:
+      label: Revisão de hardware
+      options:
+        - Rev A (fiação original)
+        - Rev B (sem pinos compartilhados)
+        - Rev C (com a placa Bancada)
+        - Não sei
+    validations: { required: true }
+
+  - type: input
+    id: version
+    attributes:
+      label: Versão do firmware
+      description: Aparece em `Mais > Sobre`
+      placeholder: "5.0.0"
+    validations: { required: true }
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Tela de Diagnóstico
+      description: Quais linhas aparecem como AVISO ou FALHA?
+      placeholder: |
+        Pontas de prova: FALHA
+        Sensor AC: AVISO (ajustar trimpot)
+
+  - type: textarea
+    id: what-happens
+    attributes:
+      label: O que acontece
+    validations: { required: true }
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que você esperava
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. Entrar em ...
+        2. Conectar ...
+        3. A tela mostra ...
+
+  - type: textarea
+    id: serial
+    attributes:
+      label: Log serial
+      description: Monitor a 115200 baud, desde o boot
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Verificações
+      options:
+        - label: "Li o [TROUBLESHOOTING](../../blob/main/docs/TROUBLESHOOTING.md)"
+        - label: "O circuito de excitação das pontas está montado"
+        - label: "`bash tools/hostcheck/check.sh` passa limpo"

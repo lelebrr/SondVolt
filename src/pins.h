@@ -35,6 +35,13 @@
 // Selecione a revisao de hardware montada.
 //   0 = Rev A: fiacao original, pinos compartilhados (padrao, compativel)
 //   1 = Rev B: fiacao recomendada, sem compartilhamento (veja docs/PINOUT.md)
+//   2 = Rev C: Rev B + placa de expansao "Bancada" (expansor, boost, scope)
+//
+// A Rev C existe por um motivo simples: a CYD NAO TEM NENHUM GPIO LIVRE.
+// Somados TFT, touch, cartao, ADCs, LEDs, buzzer e I2C, os 24 pinos
+// utilizaveis do ESP32-WROOM estao todos ocupados. Qualquer recurso novo
+// precisa ou compartilhar um pino existente, ou entrar por um expansor no
+// barramento I2C. A Rev C adota a segunda opcao, com um PCF8574.
 #ifndef SONDVOLT_HW_REV
 #define SONDVOLT_HW_REV       0
 #endif
@@ -211,7 +218,87 @@
 #define PIN_DS18B20           PIN_ONEWIRE
 
 // ============================================================================
-// 9. VERIFICACOES DE INTEGRIDADE
+// 9. PLACA DE EXPANSAO "BANCADA" (Rev C)
+// ============================================================================
+// Todos os recursos abaixo entram pelo barramento I2C ja existente. Nenhum
+// deles consome um GPIO do ESP32, porque nao ha nenhum sobrando.
+//
+//   PCF8574   0x20   8 linhas de controle digitais
+//   MLX90640  0x33   matriz termica 32x24
+//   DS3231    0x68   relogio de tempo real com bateria (opcional)
+//
+// O firmware detecta cada um no boot. O que nao estiver presente tem a
+// funcao correspondente desativada, nunca simulada.
+
+#define PCF8574_ADDR          0x20    // A0=A1=A2 em GND
+#define MLX90640_ADDR         0x33
+#define DS3231_ADDR           0x68
+
+// ----------------------------------------------------------------------------
+// Mapa das 8 linhas do expansor
+// ----------------------------------------------------------------------------
+// Todas ativas em nivel ALTO, exceto onde indicado. O PCF8574 tem saida
+// dreno-aberto com pull-up fraco interno: use-o para acionar transistores e
+// entradas logicas, nunca para alimentar carga diretamente.
+#define EXP_BOOST_ENABLE      0   // liga o MT3608 (fonte de 12 V para Zener)
+#define EXP_RIPPLE_COUPLE     1   // insere o capacitor de acoplamento AC
+#define EXP_SIGGEN_OUTPUT     2   // conecta o gerador de sinal na ponta 1
+#define EXP_SCOPE_ATTEN       3   // atenuador do osciloscopio: 0=1x, 1=10x
+#define EXP_CURVE_SENSE       4   // insere o resistor de 100R do tracador
+#define EXP_PROBE_ISOLATE     5   // isola as pontas durante testes de rede
+#define EXP_AUX_1             6   // reserva
+#define EXP_AUX_2             7   // reserva
+
+// ----------------------------------------------------------------------------
+// Gerador de sinal
+// ----------------------------------------------------------------------------
+// Sai pelo GPIO22, o mesmo da excitacao de baixa impedancia, arbitrado pela
+// HAL. Onda quadrada apenas: os dois DACs do ESP32 (GPIO25 e GPIO26) estao
+// ocupados pelo clock do touch e pelo buzzer.
+#define PIN_SIGGEN_OUT        PIN_PROBE_DRIVE_LOW
+#define LEDC_CH_SIGGEN        4
+#define SIGGEN_MIN_HZ         1
+#define SIGGEN_MAX_HZ         100000
+#define SIGGEN_PWM_BITS       8
+
+// ----------------------------------------------------------------------------
+// Osciloscopio
+// ----------------------------------------------------------------------------
+// Amostra a ponta 1 por DMA do I2S, que garante espacamento exato entre
+// amostras - coisa que analogRead() num laco nao consegue.
+#define PIN_SCOPE_INPUT       PIN_ADC_PROBE1
+#define SCOPE_ADC_UNIT        1
+#define SCOPE_ADC_CHANNEL     ADC_CH_PROBE1
+#define SCOPE_BUFFER_SIZE     512      // amostras por captura
+#define SCOPE_MAX_RATE_HZ     200000   // limite pratico util do ADC1
+#define SCOPE_MIN_RATE_HZ     1000
+#define SCOPE_ATTEN_RATIO     10.0f    // divisor da ponta 10x
+
+// ----------------------------------------------------------------------------
+// Entrada acoplada em AC (medidor de ripple)
+// ----------------------------------------------------------------------------
+// Le a ondulacao que anda em cima de um trilho DC - o teste que denuncia
+// capacitor de filtro ressecado. Usa a ponta 2, que sobrava.
+#define PIN_RIPPLE_INPUT      PIN_ADC_PROBE2
+#define RIPPLE_COUPLING_NF    100.0f   // capacitor de acoplamento
+#define RIPPLE_BIAS_VOLTS     1.65f    // meia escala, o repouso da entrada
+
+// ----------------------------------------------------------------------------
+// Fonte auxiliar de 12 V (teste de Zener)
+// ----------------------------------------------------------------------------
+#define BOOST_OUTPUT_VOLTS    12.0f
+#define ZENER_SERIES_RESISTOR 4700.0f  // limita a corrente de teste a ~2 mA
+#define ZENER_MAX_VOLTS       11.0f    // acima disso o boost satura
+
+// ----------------------------------------------------------------------------
+// Tracador de curva I-V
+// ----------------------------------------------------------------------------
+#define CURVE_SENSE_RESISTOR  100.0f   // shunt do tracador
+#define CURVE_STEPS           64       // pontos por varredura
+#define LEDC_CH_CURVE         6
+
+// ============================================================================
+// 10. VERIFICACOES DE INTEGRIDADE
 // ============================================================================
 
 // Verdadeiro apenas para GPIOs que possuem driver de saida no ESP32.
@@ -240,8 +327,19 @@ static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_BUZZER),
 static_assert(IS_ADC1_PIN(PIN_ADC_ZMPT),
               "O ZMPT101B precisa estar em um canal do ADC1");
 
+static_assert(IS_ADC1_PIN(PIN_SCOPE_INPUT),
+              "A entrada do osciloscopio precisa estar no ADC1");
+static_assert(IS_ADC1_PIN(PIN_RIPPLE_INPUT),
+              "A entrada de ripple precisa estar no ADC1");
+static_assert(IS_OUTPUT_CAPABLE_PIN(PIN_SIGGEN_OUT),
+              "A saida do gerador de sinal precisa ter driver de saida");
+static_assert(LEDC_CH_BACKLIGHT != LEDC_CH_BUZZER &&
+              LEDC_CH_BUZZER    != LEDC_CH_SIGGEN &&
+              LEDC_CH_SIGGEN    != LEDC_CH_CURVE,
+              "Cada periferico PWM precisa de um canal LEDC proprio");
+
 // ============================================================================
-// 10. ALIASES DE COMPATIBILIDADE
+// 11. ALIASES DE COMPATIBILIDADE
 // ============================================================================
 #define PIN_PROBE_1           PIN_ADC_PROBE1
 #define PIN_PROBE_2           PIN_ADC_PROBE2

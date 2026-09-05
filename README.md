@@ -1,209 +1,365 @@
-# Sondvolt v4.0
+<div align="center">
 
-![Logo](assets/logo.png)
+<img src="assets/logo.png" alt="Sondvolt" width="140">
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Vers%C3%A3o-v4.0.0-blue.svg" alt="Versão">
-  <img src="https://img.shields.io/badge/Licen%C3%A7a-MIT-green.svg" alt="Licença">
-  <img src="https://img.shields.io/badge/Plataforma-ESP32-orange.svg" alt="Plataforma">
-  <img src="https://img.shields.io/badge/Build-limpo%20com%20--Wall%20--Wextra-brightgreen.svg" alt="Build">
-</p>
+# Sondvolt v5.0
 
-<p align="center">
-  <strong>Testador de componentes e multímetro de bancada para ESP32-2432S028R (Cheap Yellow Display)</strong>
-</p>
+**Testador de componentes, multímetro e instrumento de bancada para ESP32**
+
+[![Versão](https://img.shields.io/badge/vers%C3%A3o-5.0.0-2dd4bf?style=flat-square)](docs/CHANGELOG.md)
+[![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-22c55e?style=flat-square)](docs/LICENSE.md)
+[![Plataforma](https://img.shields.io/badge/plataforma-ESP32--2432S028R-f97316?style=flat-square)](docs/PINOUT.md)
+[![Build](https://img.shields.io/badge/build-limpo%20com%20--Wall%20--Wextra-22c55e?style=flat-square)](tools/hostcheck/check.sh)
+[![Revisões](https://img.shields.io/badge/hardware-Rev%20A%20%7C%20B%20%7C%20C-8b5cf6?style=flat-square)](docs/PINOUT.md#as-tr%C3%AAs-revis%C3%B5es)
+
+[Começar](#começar) · [Recursos](#recursos) · [Hardware](#hardware) · [Documentação](docs/README.md) · [Changelog](docs/CHANGELOG.md)
+
+</div>
 
 ---
 
-## O que mudou na v4.0
+## O que é
 
-A v4.0 não é uma versão de features — é a versão em que o aparelho passou a **funcionar de verdade**. A v3.2 tinha o código de som, LEDs, banco de dados, calibração e histórico todo escrito e correto, mas **nenhum deles era inicializado**. Além disso, várias medições eram fisicamente impossíveis com a pinagem publicada, e alguns valores exibidos na tela eram texto fixo, não medição.
+Um instrumento de bancada que cabe na palma da mão. Encoste um componente nas pontas e ele diz o que é e se está bom. Ligue na rede e ele vira multímetro True RMS. Ligue num sinal e ele vira osciloscópio.
 
-O [CHANGELOG](docs/CHANGELOG.md) tem a lista completa. Os quatro mais graves:
+Roda na **ESP32-2432S028R**, a placa conhecida como *Cheap Yellow Display* — ESP32, tela 2,8" e touch por cerca de R$ 90.
 
-| # | Problema na v3.2 | Efeito para quem usava |
-| :-- | :--- | :--- |
-| 1 | `pinMode(GPIO35, OUTPUT)` para excitar as pontas | GPIO34–39 são **entrada apenas** no ESP32. Resistência e capacitância nunca foram medidas de verdade |
-| 2 | Proteção elétrica comparava um número de 0 a 1 com limiares em volts | O bloqueio automático **jamais disparava**. A proteção existia no papel |
-| 3 | Faixa DC padrão multiplicava a leitura por 181 | Uma pilha de 1,5 V aparecia como 272 V |
-| 4 | `buzzer_init()`, `leds_init()`, `db_init()`, `calibration_init()` nunca chamados | Sem som, sem LEDs, banco vazio, calibração perdida a cada boot |
+```mermaid
+mindmap
+  root((Sondvolt))
+    Componentes
+      Identificação automática
+      Resistência · Capacitância
+      ESR · hFE · Vf
+      Indutância · MOSFET
+      Código de cores · Série E24
+    Multímetro
+      Tensão AC True RMS
+      Tensão e corrente DC
+      Continuidade · Potência
+      Detecção de surto
+    Bancada
+      Osciloscópio 200 kSPS
+      Traçador de curva I-V
+      Medidor de ripple
+      Gerador de sinal
+      Teste de Zener
+    Oficina
+      Trabalhos por cliente
+      Relatório para entregar
+      Pareamento de peças
+      Câmera térmica
+    Rede
+      Página web
+      Atualização OTA
+      Relógio por NTP
+```
 
-Também foram removidos os **valores falsos** que a interface exibia como se fossem medidos: `ESR: 0.12 Ohms`, `hFE: 245`, `Vbe: 642mV`, `Q: 4.2 @ 1kHz`. Eram strings constantes. Hoje, o que não pode ser medido aparece como `---` com o motivo.
+---
+
+## Começar
+
+```bash
+git clone https://github.com/lelebrr/SondVolt.git
+cd SondVolt
+
+pio run -t upload -e cyd        # fiação original da CYD
+pio run -t upload -e cyd-revb   # sem pinos compartilhados
+pio run -t upload -e cyd-revc   # com a placa de expansão "Bancada"
+```
+
+Formate o MicroSD em FAT32 e copie `sd_files/sdcard/COMPBD.CSV` para a raiz.
+
+**Sem a placa em mãos?** Dá para verificar o firmware inteiro no PC:
+
+```bash
+bash tools/hostcheck/check.sh
+```
+
+Compila e **linka** todas as unidades de tradução com stubs das bibliotecas Arduino, nas três revisões de hardware.
+
+> [!IMPORTANT]
+> **O circuito de excitação das pontas é obrigatório.** As pontas ficam em GPIO34 e GPIO35, que são *entrada apenas* no ESP32 — sem um pino de saída alimentando o divisor, medir resistência e capacitância é fisicamente impossível. Esquema em **[docs/WIRING.md](docs/WIRING.md)**, peças na seção 2 da [BOM](BOM-Sondvolt.md).
 
 ---
 
 ## Recursos
 
-### Identificação automática de componentes
+<details open>
+<summary><b>Identificação automática de componentes</b></summary>
 
-Encoste o componente nas pontas e o aparelho decide o que ele é: resistor, capacitor cerâmico ou eletrolítico, diodo de silício ou Schottky, LED (com estimativa de cor pela tensão direta), transistor NPN, MOSFET canal N, indutor ou fio em curto.
+Encoste o componente e o aparelho decide o que ele é:
 
-### Medições
+| Detecta | Como |
+|:--|:--|
+| Resistor | divisor com referência de 1%, auto-range em duas faixas |
+| Capacitor cerâmico ou eletrolítico | constante de tempo RC a 63,2% |
+| Diodo de silício ou Schottky | tensão direta a 5 mA |
+| LED (com cor estimada) | Vf entre 1,6 V e 3,4 V |
+| Transistor NPN | ganho medido com base ativa e cortada |
+| MOSFET canal N | retenção de carga no gate |
+| Indutor | constante de tempo L/R |
+| Curto, aberto, fusível | limiares de resistência |
 
-- **Resistência** — 0,5 Ω a 2 MΩ, auto-range entre dois resistores de referência
-- **Capacitância** — 1 nF a 4700 µF pelo método da constante de tempo RC
-- **ESR** — resistência série do capacitor, o sintoma que denuncia eletrolítico ressecado
-- **Tensão direta (Vf)** — de diodos e LEDs, a 5 mA
-- **hFE** — ganho de corrente de transistores bipolares
-- **Indutância** — 100 µH a 100 mH pela constante de tempo L/R
-- **Frequência e ciclo de trabalho** — de sinais lógicos e PWM
-- **Resistência interna de bateria**
+</details>
 
-### Multímetro
+<details>
+<summary><b>Medições</b></summary>
 
-- **Tensão AC True RMS** — 256 amostras, com remoção automática do offset do ZMPT101B e detecção de surto
-- **Tensão e corrente DC** — via INA219, com o protocolo I²C correto e as escalas do datasheet
-- **Continuidade** com apito, resistência e potência
+| Grandeza | Faixa | Método |
+|:--|:--|:--|
+| Resistência | 0,5 Ω a 2 MΩ | divisor com auto-range |
+| Capacitância | 1 nF a 4700 µF | constante de tempo RC |
+| ESR | 0 a 200 Ω | pulso curto de 25 µs |
+| Tensão direta | 0,15 a 3,2 V | corrente de teste de 5 mA |
+| hFE | 8 a 2000 | Ic/Ib com dois estados de base |
+| Indutância | 100 µH a 100 mH | decaimento L/R |
+| Frequência | 1 Hz a 20 kHz | cruzamentos com histerese |
+| Zener | 2 a 11 V | fonte auxiliar de 12 V *(Rev C)* |
 
-### Engenharia aplicada
+</details>
 
-- Código de cores de resistor desenhado na tela a partir do valor medido
-- Valor comercial mais próximo nas séries E6, E12 e E24, com o desvio percentual
-- Tolerância sugerida (1%, 2%, 5%, 10% ou 20%)
-- Notação de engenharia com prefixo SI em todas as telas
+<details>
+<summary><b>Multímetro True RMS</b></summary>
 
-### Banco de dados
+- **AC**: 256 amostras, offset do ZMPT calculado das próprias amostras, detecção de surto quando o pico passa de 1,75× o RMS
+- **DC**: via INA219 com o protocolo I²C correto e as escalas do datasheet
+- **Continuidade** com apito, **resistência** e **potência**
+- Um filtro independente por modo — trocar de modo não contamina a leitura
 
-- **50 componentes reais** em flash, sempre disponíveis, com parâmetros de datasheet: BC547, 2N2222, TIP120, IRFZ44N, 1N4148, 1N4007, LM7805, NE555 e outros
-- Consulta ao `COMPBD.CSV` do cartão SD por varredura sob demanda — **5.726 registros sem gastar RAM**
-- Busca por valor e sugestão de equivalentes
+</details>
 
-### Segurança elétrica
+<details>
+<summary><b>Instrumentos de bancada <i>(Rev C)</i></b></summary>
+
+| Instrumento | O que resolve |
+|:--|:--|
+| **Osciloscópio** | 200 kSPS por DMA do I²S, gatilho, base de tempo, atenuador 10x. Vê PWM de fonte chaveada, ripple e sinal de áudio |
+| **Traçador de curva I-V** | Mostra o joelho do diodo, a saturação do transistor e a região de condução do LED |
+| **Medidor de ripple** | O teste que denuncia capacitor de filtro ressecado antes de a tensão média sair da faixa |
+| **Gerador de sinal** | Onda quadrada de 1 Hz a 100 kHz para injetar em estágio de áudio |
+| **Câmera térmica** | Matriz 32×24 que acha o componente quente na placa |
+
+</details>
+
+<details>
+<summary><b>Oficina</b></summary>
+
+**Trabalhos** — uma pasta por cliente no cartão. Toda medição feita com o trabalho ativo vai para o log dele. No fim, gera o relatório para entregar junto com o aparelho.
+
+```
+/TRABALHOS/LIQUID_J/
+    JOB.INF        cliente, aparelho, datas
+    MEDICOES.CSV   uma linha por medição
+    NOTAS.TXT      observações do técnico
+    RELATOR.TXT    relatório final
+```
+
+**Pareamento** — mede um lote e acha os pares casados dentro da tolerância. Para transistor de amplificador, o que importa não é o valor absoluto e sim quanto duas peças se parecem.
+
+</details>
+
+<details>
+<summary><b>Rede</b></summary>
+
+O WiFi do ESP32 nunca tinha sido ligado até a v5.0. Agora dá:
+
+- **Página web** com leitura ao vivo e download do CSV, sem tirar o cartão
+- **OTA**: atualiza o firmware sem cabo
+- **NTP**: relógio de verdade, para o relatório ter data
+
+Sem credenciais, sobe um ponto de acesso próprio (`Sondvolt`) para configurar pelo celular.
+
+</details>
+
+<details>
+<summary><b>Segurança elétrica</b></summary>
 
 - Vigilância contínua da tensão nas pontas fora do modo multímetro
-- Bloqueio automático de 10 s após três detecções perigosas seguidas
-- Tela de confirmação obrigatória de fusível, varistor e TVS antes do modo multímetro
-- Tela de alerta em tela cheia (que na v3.2 existia mas nunca era exibida)
+- Bloqueio automático de 10 s após três detecções perigosas
+- Confirmação obrigatória de fusível, varistor e TVS antes do modo multímetro
+- Tela de alerta em tela cheia
 
-### Diagnóstico
+> Na v3.2 essa proteção **nunca disparava** — comparava um número entre 0 e 1 com limiares em volts. Veja a seção 2 do [CHANGELOG](docs/CHANGELOG.md).
 
-- Autoteste de 10 subsistemas no boot, alimentando a barra de progresso real
-- Monitoramento contínuo de heap, pilha das tarefas e temperatura do chip
-- Estatísticas de uso persistidas na NVS
+</details>
 
 ---
 
 ## Hardware
 
-### Pinagem (CYD Rev A)
+### As três revisões
 
-| Periférico | Pinos | Observação |
-| :--- | :--- | :--- |
-| TFT ILI9341 | MOSI 13, MISO 12, SCK 14, CS 15, DC 2, RST 0, BL 21 | fixo na placa |
-| Touch XPT2046 | MOSI 32, MISO 39, SCK 25, CS 33 | barramento HSPI dedicado |
-| MicroSD | MOSI 23, MISO 19, SCK 18, CS 5 | barramento próprio, **não** compartilhado com a TFT |
-| Ponta 1 / Ponta 2 | 35 / 34 | entrada apenas |
-| ZMPT101B (AC) | 36 | compartilhado com a IRQ do touch (não usada) |
-| **Excitação das pontas** | **27 (10 kΩ) e 22 (470 Ω)** | **novo na v4.0 — obrigatório** |
-| Descarga de capacitor | 17 | compartilhado com o LED azul |
-| I²C (INA219) | SDA 27, SCL 22 | compartilhado com a excitação |
-| OneWire (DS18B20) | 4 | compartilhado com o LED vermelho |
-| Buzzer | 26 | |
-| LED RGB | R 4, G 16, B 17 | **ânodo comum: nível baixo acende** |
+```mermaid
+flowchart LR
+    A["<b>Rev A</b><br/>fiação original<br/>~R$ 115"] --> B["<b>Rev B</b><br/>sem pinos<br/>compartilhados<br/>~R$ 120"]
+    B --> C["<b>Rev C</b><br/>placa Bancada<br/>~R$ 240"]
 
-> [!IMPORTANT]
-> **O circuito de excitação das pontas é novo e obrigatório.** Sem ele, medir resistência e capacitância é fisicamente impossível — as pontas estão em GPIOs de entrada apenas. O firmware detecta a ausência no boot e desabilita essas funções em vez de mostrar números inventados. O esquema está em [docs/WIRING.md](docs/WIRING.md).
+    A -.- A1["Identificação<br/>Multímetro<br/>Trabalhos"]
+    B -.- B1["+ OneWire e descarga<br/>em pinos próprios"]
+    C -.- C1["+ Osciloscópio<br/>+ Curva I-V<br/>+ Ripple<br/>+ Gerador<br/>+ Zener 12V<br/>+ Câmera térmica"]
 
-Os três pinos compartilhados são arbitrados em software pela HAL (`hal_bus_acquire` / `hal_bus_release`): o LED é apagado, o pino emprestado, e o LED restaurado ao estado anterior. Quem for montar do zero deve seguir a **Rev B**, sem compartilhamento — veja [docs/PINOUT.md](docs/PINOUT.md).
-
----
-
-## Instalação
-
-```bash
-git clone https://github.com/lelebrr/SondVolt.git
-cd SondVolt
-pio run -t upload -e cyd          # fiação Rev A (padrão)
-pio run -t upload -e cyd-revb     # fiação Rev B, sem pinos compartilhados
+    style A fill:#1f2937,stroke:#6b7280,color:#e5e7eb
+    style B fill:#164e63,stroke:#22d3ee,color:#e5e7eb
+    style C fill:#14532d,stroke:#4ade80,color:#e5e7eb
 ```
 
-Formate o MicroSD em FAT32 e copie `sd_files/sdcard/COMPBD.CSV` para a raiz do cartão.
+Um firmware compilado para a Rev C **roda na Rev A**: o que não encontra hardware se desativa sozinho, mostrando o que falta em vez de inventar número.
 
-### Pré-requisitos
+### A restrição que define o projeto
 
-- PlatformIO no VS Code
-- Placa ESP32-2432S028R (CYD)
-- Cartão MicroSD FAT32 (opcional: sem ele o catálogo interno de 50 componentes continua funcionando)
+> [!NOTE]
+> **A CYD não tem nenhum GPIO livre.** Somados display, touch, cartão, ADCs, LEDs, buzzer e I²C, os 24 pinos utilizáveis do ESP32-WROOM estão todos ocupados.
+
+Por isso a Rev C usa um **expansor PCF8574** (~R$ 6): ele dá 8 linhas de controle sem gastar um único pino, porque mora no barramento I²C que já existe.
+
+### Mapa de pinos
+
+```mermaid
+flowchart TB
+    subgraph ESP["ESP32-WROOM"]
+        direction TB
+        T["<b>Display</b> 13·12·14·15·2·0·21"]
+        TC["<b>Touch</b> 32·39·25·33"]
+        SD["<b>Cartão</b> 23·19·18·5"]
+        AD["<b>Entradas</b> 35·34·36"]
+        EX["<b>Excitação + I²C</b> 27·22"]
+        IO["<b>LEDs + buzzer</b> 4·16·17·26"]
+    end
+
+    EX --> I2C{{"Barramento I²C"}}
+    I2C --> INA["INA219<br/>0x40"]
+    I2C --> PCF["PCF8574<br/>0x20"]
+    I2C --> MLX["MLX90640<br/>0x33"]
+
+    PCF --> L0["Fonte 12 V"]
+    PCF --> L1["Acopl. ripple"]
+    PCF --> L2["Saída gerador"]
+    PCF --> L3["Atenuador 10x"]
+    PCF --> L4["Shunt da curva"]
+
+    style ESP fill:#111827,stroke:#374151,color:#e5e7eb
+    style I2C fill:#164e63,stroke:#22d3ee,color:#e5e7eb
+    style PCF fill:#14532d,stroke:#4ade80,color:#e5e7eb
+```
+
+| Periférico | Pinos | Observação |
+|:--|:--|:--|
+| TFT ILI9341 | 13, 12, 14, 15, 2, 0, 21 | fixo na placa |
+| Touch XPT2046 | 32, 39, 25, 33 | HSPI dedicado |
+| MicroSD | 23, 19, 18, 5 | barramento próprio |
+| Ponta 1 / Ponta 2 | 35 / 34 | **entrada apenas** |
+| ZMPT101B | 36 | compartilhado com a IRQ do touch (não usada) |
+| **Excitação das pontas** | **27 (10 kΩ), 22 (470 Ω)** | **obrigatório** |
+| Descarga de capacitor | 17 (Rev A) · 16 (Rev B/C) | compartilhado com LED azul na Rev A |
+| I²C | SDA 27, SCL 22 | compartilhado com a excitação |
+| OneWire | 4 (Rev A) · 32 (Rev B/C) | compartilhado com LED vermelho na Rev A |
+| Buzzer | 26 | |
+| LED RGB | 4, 16, 17 | **ânodo comum: nível baixo acende** |
+
+Os compartilhamentos da Rev A são arbitrados em software: o LED é apagado, o pino emprestado, e o LED restaurado ao estado anterior. Detalhes em **[docs/PINOUT.md](docs/PINOUT.md)**.
 
 ---
 
-## Primeiro uso
+## Arquitetura
 
-1. **Ligue.** O autoteste roda sozinho e a barra de boot mostra o que está sendo verificado.
-2. **Confira o Diagnóstico.** `Mais > Diagnóstico` lista os 10 subsistemas. Se "Pontas de prova" estiver como FALHA, o circuito de excitação não está montado.
-3. **Calibre.** `Mais > Calibrar` mede a resistência dos cabos (pontas encostadas) e a capacitância parasita (pontas afastadas). Leva uns 15 segundos e fica gravado na NVS.
-4. **Meça.** `Teste Auto` identifica sozinho. As telas específicas dão mais detalhe.
+```mermaid
+flowchart TB
+    subgraph AP["APRESENTAÇÃO"]
+        ui[ui.cpp] --- menu[menu.cpp] --- screens[screens.cpp] --- widgets[uiwidgets.cpp]
+    end
+    subgraph DO["DOMÍNIO"]
+        analysis[analysis.cpp] --- multi[multimeter.cpp] --- scope[scope.cpp]
+        safety[safety.cpp] --- db[database.cpp] --- jobs[jobs.cpp] --- sorting[sorting.cpp]
+    end
+    subgraph SE["SERVIÇOS"]
+        logger[logger.cpp] --- diag[diagnostics.cpp] --- net[netsvc.cpp]
+        thermal[thermal.cpp] --- tcam[thermalcam.cpp] --- buzzer[buzzer.cpp]
+    end
+    subgraph HW["HAL"]
+        hal[hal.cpp] --- pins[pins.h] --- exp[expander.cpp]
+    end
+
+    AP --> DO --> SE --> HW
+
+    style AP fill:#1e1b4b,stroke:#818cf8,color:#e5e7eb
+    style DO fill:#164e63,stroke:#22d3ee,color:#e5e7eb
+    style SE fill:#14532d,stroke:#4ade80,color:#e5e7eb
+    style HW fill:#422006,stroke:#fbbf24,color:#e5e7eb
+```
+
+Duas tarefas FreeRTOS, cada uma fixada num núcleo:
+
+```mermaid
+sequenceDiagram
+    participant U as TaskUI<br/>núcleo 1 · 20 ms
+    participant M as TaskMeasurement<br/>núcleo 0 · 100 ms
+    participant H as Mutex do display
+
+    U->>H: LOCK
+    U->>U: toque · desenho
+    U->>H: UNLOCK
+    U->>U: buzzer · LEDs
+    M->>M: vigilância elétrica
+    M->>M: medição conforme a tela
+    M->>H: LOCK (só se precisar do cartão)
+    M->>H: UNLOCK
+    M->>M: saúde · NVS · rede
+```
+
+A regra: **a interface nunca faz medição lenta, e a medição nunca desenha uma tela inteira.**
+
+---
+
+## Documentação
+
+| | Documento | Para quê |
+|:--|:--|:--|
+| 📖 | [Manual](docs/MANUAL.md) | operação completa |
+| 🔌 | **[Esquema de ligação](docs/WIRING.md)** | **leia antes de soldar** |
+| 📍 | [Pinagem](docs/PINOUT.md) | pinos, conflitos e as três revisões |
+| 🧾 | [Lista de materiais](BOM-Sondvolt.md) | peças, com 2 alternativas mais baratas e 2 melhores cada |
+| 🛠 | [Solução de problemas](docs/TROUBLESHOOTING.md) | quando algo não funciona |
+| 💻 | [Guia do desenvolvedor](docs/DEVELOP.md) | arquitetura e convenções |
+| 📋 | [Changelog](docs/CHANGELOG.md) | o que mudou e por quê |
+| ⚠️ | [Segurança](docs/SAFETY.md) | proteção elétrica |
+
+Índice completo em **[docs/README.md](docs/README.md)**.
 
 ---
 
 ## Segurança
 
 > [!WARNING]
-> **Nunca meça componentes em circuito energizado.** Descarregue capacitores antes de testar — o aparelho tem função de descarga própria na tela do capacímetro.
+> **Nunca meça componentes em circuito energizado.** Descarregue capacitores antes — o aparelho tem função de descarga própria.
 >
-> A tensão máxima nas pontas 1 e 2 é **3,3 V**. Para tensões maiores use a entrada específica do multímetro.
+> Tensão máxima nas pontas 1 e 2: **3,3 V**. Para mais, use a entrada do multímetro.
 
 > [!IMPORTANT]
-> Para medir a rede elétrica (127 V ou 220 V) é **obrigatório** instalar:
-> - Fusível rápido de 5 A
-> - Varistor 14D431
-> - Diodo TVS P6KE400A
-> - Filtros RC de amostragem
+> Para medir a rede (127 V ou 220 V) é **obrigatório**: fusível rápido de 5 A, varistor 14D431, diodo TVS P6KE400A e filtros RC.
 >
-> O firmware exige confirmação dessas peças antes de liberar o modo multímetro e bloqueia o aparelho por 10 segundos se detectar tensão perigosa fora dele. Detalhes em [docs/SAFETY.md](docs/SAFETY.md).
+> O firmware exige confirmação dessas peças antes de liberar o modo multímetro e bloqueia o aparelho por 10 segundos ao detectar tensão perigosa fora dele.
 
 ---
 
-## Documentação
+## Contribuindo
 
-**Para começar**
-[Manual do Usuário](docs/MANUAL.md) · [Guias](docs/GUIDES.md) · [FAQ](docs/FAQ.md)
+Contribuições são bem-vindas. Antes de abrir um PR:
 
-**Hardware**
-[Pinagem e conflitos](docs/PINOUT.md) · [Esquema de ligação](docs/WIRING.md) · [Especificações](docs/HARDWARE.md) · [Montagem](docs/ASSEMBLY.md) · [Lista de materiais](BOM-Sondvolt.md)
-
-**Referência técnica**
-[Componentes](docs/COMPONENTS.md) · [Menus](docs/MENUS.md) · [Configuração](docs/CONFIG.md) · [Segurança](docs/SAFETY.md)
-
-**Desenvolvimento**
-[Arquitetura do código](docs/DEVELOP.md) · [Histórico de versões](docs/CHANGELOG.md) · [Solução de problemas](docs/TROUBLESHOOTING.md) · [Contribuindo](docs/CONTRIBUTING.md)
-
----
-
-## Arquitetura em uma tela
-
-```
-                      setup()
-                         |
-                    hal_init()          <- ADC, LEDC, arbitragem de pinos
-                         |
-              display / touch / SPI
-                         |
-        settings_load()  ->  buzzer  ->  leds
-                         |
-              logger_init()  ->  db_init()
-                         |
-      measurements / calibration / thermal / multimeter / safety
-                         |
-                 diag_run_selftest()
-                         |
-        +----------------+----------------+
-        |                                 |
-   TaskUI (prio 2)                 TaskMeasurement (prio 1)
-   20 ms, 6 KB pilha               100 ms, 4 KB pilha
-        |                                 |
-   toque, desenho,                  vigilância elétrica,
-   som, LEDs                        medição, saúde do sistema
+```bash
+bash tools/hostcheck/check.sh    # precisa passar limpo nas três revisões
 ```
 
-Os dois acessos ao display são serializados por um mutex recursivo (`LOCK_TFT`). Todo o hardware específico do ESP32 está isolado em `hal.cpp`.
+O projeto compila **sem nenhum aviso** com `-Wall -Wextra`. Se a sua alteração gerar um aviso, ele é real — a flag `-w` da v3.2 escondia macros redefinidas com valores conflitantes.
+
+Veja [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ---
 
-## Licença
+<div align="center">
 
-MIT — veja [docs/LICENSE.md](docs/LICENSE.md).
+**MIT** · [Licença completa](docs/LICENSE.md)
 
-<p align="center">
-  <strong>Feito para bancada de conserto, não para vitrine.</strong>
-</p>
+*Feito para bancada de conserto, não para vitrine.*
+
+</div>

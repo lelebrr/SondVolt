@@ -4,6 +4,8 @@
 
 #include "hal.h"
 #include "display_globals.h"
+#include <driver/adc.h>
+#include <esp_adc_cal.h>
 
 // ----------------------------------------------------------------------------
 // Estado interno
@@ -22,6 +24,11 @@ static bool  gLedState[40] = { false };
 static float gAdcVref = 3.30f;
 static bool  gProbeAvailable = false;
 static bool  gHalReady = false;
+
+// Caracterizacao de fabrica do ADC, lida dos eFuses do proprio chip.
+static esp_adc_cal_characteristics_t gAdcChars;
+static bool gAdcCalibrated = false;
+static const char* gAdcCalSource = "curva generica";
 
 // ----------------------------------------------------------------------------
 // Compatibilidade LEDC (Arduino-ESP32 2.x usa canais, 3.x usa pinos)
@@ -167,15 +174,24 @@ uint16_t hal_adc_read_avg(uint8_t pin, uint8_t samples) {
 }
 
 float hal_adc_to_volts(uint16_t raw) {
-    // O ADC do ESP32 satura por baixo (~0.1 V) e por cima (~3.1 V) e tem um
-    // erro sistematico de ate 6% no meio da escala. A correcao polinomial
-    // abaixo e a aproximacao empirica amplamente usada na comunidade e reduz
-    // o erro para menos de 1% na faixa util de 0.15 V a 3.10 V.
     if (raw == 0) return 0.0f;
     if (raw >= ADC_MAX_COUNT) return gAdcVref;
 
+    // CAMINHO PREFERIDO: cada ESP32 sai da fabrica com a curva do proprio
+    // ADC gravada nos eFuses. Usar essa curva e bem mais preciso que
+    // qualquer polinomio generico, porque corrige a peca que esta na SUA
+    // placa, nao um chip medio.
+    if (gAdcCalibrated) {
+        uint32_t mv = esp_adc_cal_raw_to_voltage(raw, &gAdcChars);
+        float volts = (float)mv / 1000.0f;
+        if (volts > gAdcVref) volts = gAdcVref;
+        return volts;
+    }
+
+    // CAMINHO ALTERNATIVO: alguns chips mais antigos nao tem os eFuses de
+    // calibracao queimados. Nesses, cai-se na aproximacao polinomial, que
+    // reduz o erro de ate 6 % para menos de 1 % na faixa util.
     const float x = (float)raw;
-    // Curva de correcao (Espressif AN + medicoes de bancada)
     float corrected = -0.000000000000016f * x * x * x * x
                     +  0.000000000118171f * x * x * x
                     -  0.000000301211691f * x * x
@@ -183,11 +199,14 @@ float hal_adc_to_volts(uint16_t raw) {
                     +  0.034143524634089f;
 
     if (corrected < 0.0f) corrected = 0.0f;
-    // Reescala para a Vref real medida na placa.
     corrected *= (gAdcVref / 3.30f);
     if (corrected > gAdcVref) corrected = gAdcVref;
     return corrected;
 }
+
+// Texto da origem da calibracao, para a tela de diagnostico.
+const char* hal_adc_cal_source() { return gAdcCalSource; }
+bool hal_adc_is_calibrated()     { return gAdcCalibrated; }
 
 float hal_adc_read_volts(uint8_t pin, uint8_t samples) {
     return hal_adc_to_volts(hal_adc_read_avg(pin, samples));
@@ -321,6 +340,30 @@ void hal_init() {
     pinMode(PIN_ADC_PROBE1, INPUT);
     pinMode(PIN_ADC_PROBE2, INPUT);
     pinMode(PIN_ADC_ZMPT,   INPUT);
+
+    // Le a caracterizacao de fabrica do ADC. O valor devolvido diz de onde
+    // veio a referencia: ponto de tensao gravado, Vref medido, ou nada.
+    esp_adc_cal_value_t calType = esp_adc_cal_characterize(
+        ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100, &gAdcChars);
+
+    switch (calType) {
+        case ESP_ADC_CAL_VAL_EFUSE_TP:
+            gAdcCalibrated = true;
+            gAdcCalSource  = "eFuse (ponto de tensao)";
+            break;
+        case ESP_ADC_CAL_VAL_EFUSE_VREF:
+            gAdcCalibrated = true;
+            gAdcCalSource  = "eFuse (Vref)";
+            // A Vref real do chip costuma ficar entre 1000 e 1200 mV; usar o
+            // valor medido melhora a escala de todas as leituras.
+            hal_adc_set_vref((float)gAdcChars.vref / 1100.0f * 3.30f);
+            break;
+        default:
+            gAdcCalibrated = false;
+            gAdcCalSource  = "curva generica";
+            break;
+    }
+    LOG_SERIAL_FMT("[HAL] Calibracao do ADC: %s\n", gAdcCalSource);
 
     // --- LEDs (anodo comum: HIGH apaga) ------------------------------------
     pinMode(PIN_LED_RED,   OUTPUT);

@@ -85,7 +85,13 @@ DeviceSettings deviceSettings = {
     .confirmActions = true,
     .expertMode = false,
     .languageIdx = 0,
-    .strongBeep = false
+    .strongBeep = false,
+    .wifiEnabled = false,       // desligado por padrao: economiza energia
+    .webServerEnabled = true,
+    .otaEnabled = true,
+    .scopeRateIdx = 3,          // 100 kSPS
+    .thermalPalette = 0,        // ferro
+    .pairTolerance = 5.0f
 };
 
 LogEntry recentTests[6] = {0};

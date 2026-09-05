@@ -2,166 +2,213 @@
 
 ---
 
+## [5.0.0] — Setembro de 2026
+
+Versão de expansão. A v4.0 fez o aparelho funcionar; a v5.0 o transforma em instrumento de bancada e estação de trabalho.
+
+### A restrição que definiu esta versão
+
+> **A CYD não tem nenhum GPIO livre.** Somados display, touch, cartão, entradas analógicas, LEDs, buzzer e I²C, os 24 pinos utilizáveis do ESP32-WROOM estão todos ocupados.
+
+Todo recurso novo teve que entrar por um dos dois caminhos: compartilhar um pino existente com arbitragem, ou passar pelo barramento I²C. A **Rev C** adota um expansor **PCF8574** (~R$ 6) que dá 8 linhas de controle sem gastar um único pino.
+
+```mermaid
+pie showData
+    title Uso dos 24 GPIOs utilizáveis
+    "Display" : 7
+    "Touch" : 4
+    "Cartão SD" : 4
+    "Entradas analógicas" : 3
+    "Excitação + I²C" : 2
+    "LEDs" : 3
+    "Buzzer" : 1
+```
+
+### Adicionado — instrumentos
+
+| Instrumento | Módulo | Como funciona |
+|:--|:--|:--|
+| **Osciloscópio** | `scope.cpp` | Amostragem por DMA do I²S a até 200 kSPS, com gatilho de subida/descida, base de tempo ajustável e atenuador 10x. Mede Vpp, frequência, duty e média automaticamente |
+| **Traçador de curva I-V** | `scope.cpp` | Varre o duty do PWM em 64 passos e mede a corrente pelo shunt. Distingue curva resistiva de junção e reporta o joelho |
+| **Medidor de ripple** | `scope.cpp` | Entrada acoplada em AC sobre trilho DC. Reporta Vpp, RMS, porcentagem e frequência, com veredito automático |
+| **Gerador de sinal** | `scope.cpp` | Onda quadrada de 1 Hz a 100 kHz com duty ajustável. Mostra a frequência real, que difere da pedida porque o LEDC divide um clock fixo |
+| **Teste de Zener** | `scope.cpp` | Fonte auxiliar de 12 V pelo boost MT3608, com resistor de 4,7 kΩ limitando a 2 mA |
+| **Câmera térmica** | `thermalcam.cpp` | MLX90640 32×24 com interpolação bilinear, três paletas, mira central, marcador do ponto quente e snapshot em CSV |
+
+> **Por que onda quadrada e não senoidal:** os dois DACs do ESP32 (GPIO25 e GPIO26) estão ocupados pelo clock do touch e pelo buzzer, e não há pino para remanejá-los.
+
+### Adicionado — oficina
+
+**Sistema de Trabalhos** (`jobs.cpp`) — uma pasta por cliente no cartão. Toda medição feita com o trabalho ativo vai para o log dele, e no fim gera o relatório para entregar junto com o aparelho.
+
+```
+/TRABALHOS/LIQUID_J/
+    JOB.INF        cliente, aparelho, datas, contadores
+    MEDICOES.CSV   uma linha por medição
+    NOTAS.TXT      observações do técnico
+    RELATOR.TXT    relatório final
+```
+
+O trabalho ativo é lembrado na NVS e reaberto no próximo boot. Nomes com acento são normalizados para o FAT 8.3 sem perder letras — "João" vira `JOAO`, não `JO`.
+
+**Pareamento** (`sorting.cpp`) — mede um lote de até 40 peças e forma os pares casados dentro da tolerância. Para transistor de amplificador ou ponte de medição, o que importa não é o valor absoluto e sim quanto duas peças se parecem: um par de 180 e 182 funciona melhor que um de 200 e 260.
+
+### Adicionado — rede
+
+O WiFi do ESP32 nunca tinha sido ligado. Agora, em `netsvc.cpp`:
+
+- **Página web** servida da flash, sem CDN, para abrir mesmo em modo ponto de acesso sem internet. Leitura ao vivo por JSON e download do CSV em blocos, sem carregar o arquivo na RAM
+- **OTA** com senha, fechando o cartão antes de gravar para não corromper o sistema de arquivos numa interrupção
+- **NTP** para o relatório ter data real. Até aqui o log gravava `millis()` desde o boot, inútil num histórico de conserto
+- **Ajuste manual de hora**, para quem nunca vai ligar o WiFi mas quer data no laudo
+- **Fallback para ponto de acesso** (`Sondvolt`) quando as credenciais falham — sem isso, quem errasse a senha ficaria sem caminho para corrigi-la
+
+O rádio só liga se o usuário habilitar. Ligar WiFi sem necessidade custa corrente, calor e tempo de boot.
+
+> **Bluetooth ficou de fora de propósito.** O stack BT clássico consome ~300 KB de flash e disputa o mesmo rádio do WiFi. Entre os dois, o WiFi entrega página web, OTA e NTP; o BT entregaria um canal serial.
+
+### Adicionado — hardware
+
+**Expansor PCF8574** (`expander.cpp`) — 8 linhas de controle por I²C, com cache local de estado e degradação graciosa quando ausente. Os atalhos de alto nível encapsulam os tempos de acomodação, que são fáceis de esquecer e difíceis de depurar.
+
+| Linha | Função |
+|:--|:--|
+| P0 | Habilita a fonte de 12 V |
+| P1 | Insere o capacitor de acoplamento AC |
+| P2 | Conecta a saída do gerador na ponta 1 |
+| P3 | Seleciona o atenuador 1x / 10x |
+| P4 | Insere o shunt do traçador |
+| P5 | Isola as pontas durante medição de rede |
+
+### Otimizado
+
+**Calibração de fábrica do ADC.** Cada ESP32 sai com a curva do próprio conversor gravada nos eFuses. `hal_adc_to_volts()` agora usa `esp_adc_cal_raw_to_voltage()` quando disponível, corrigindo *a peça que está na sua placa* em vez de um chip médio. A aproximação polinomial da v4.0 virou o caminho alternativo para chips sem eFuse queimado.
+
+**Tarefas fixadas nos núcleos.** `xTaskCreatePinnedToCore` em vez de `xTaskCreate`: interface no núcleo 1, medição no núcleo 0. O escalonador não migra mais as tarefas no meio de operação sensível a tempo.
+
+**Sprite anti-flicker.** O painel do valor principal é montado em RAM e enviado de uma vez, em vez de apagar e repintar na tela. São 21 KB para a faixa do número; o sprite só é alocado se sobrar heap, e o desenho cai para o modo direto sem quebrar nada quando não sobra.
+
+**Laços de espera ocupada corrigidos.** Quatro laços em `analysis.cpp` giravam sem ceder o processador — o de capacitância chegava a 3 segundos, o suficiente para matar de fome a tarefa ociosa. Agora cedem depois de um limiar em que o erro do yield é desprezível.
+
+### Alterado
+
+- **Três ambientes de build** (`cyd`, `cyd-revb`, `cyd-revc`) mais um de depuração. A biblioteca do MLX90640 só entra na Rev C: são 30 KB de flash e 1,7 KB de RAM que não fazem sentido em quem não tem a câmera
+- **Telas novas em módulo próprio** (`screens.cpp`), com contrato explícito de entrada/desenho/toque/saída. A saída não é opcional: o osciloscópio monopoliza o ADC e o gerador segura o pino de excitação
+- **Menu reorganizado** com o submenu "Bancada" e o atalho de Trabalhos na tela inicial
+- **CI no GitHub Actions**: verificação no host nas três revisões, depois build real com relatório de uso de flash e RAM
+- **Documentação com diagramas Mermaid**, renderizados nativamente pelo GitHub
+
+### Custo em memória
+
+| Recurso | Flash | RAM |
+|:--|--:|--:|
+| WiFi + servidor web + OTA | ~180 KB | ~40 KB (só com o rádio ligado) |
+| Osciloscópio (I²S + buffers) | ~12 KB | ~4 KB |
+| Câmera térmica (MLX90640) | ~30 KB | ~5 KB |
+| Trabalhos + pareamento | ~14 KB | ~1 KB |
+| Sprite anti-flicker | — | 21 KB (opcional) |
+| **Total da v5.0** | **~240 KB** | **~70 KB** |
+
+Sobram cerca de 2,3 MB de flash. A partição `huge_app.csv` dá 3 MB.
+
+---
+
 ## [4.0.0] — Setembro de 2026
 
-Revisão de correção. O foco não foi adicionar recursos, e sim fazer o aparelho medir de verdade: a v3.2 tinha módulos inteiros escritos, corretos e **nunca executados**, medições fisicamente impossíveis com a pinagem publicada, e valores de tela que eram texto fixo em vez de medição.
+Versão de correção. A v3.2 tinha módulos inteiros escritos, corretos e **nunca executados**, medições fisicamente impossíveis com a pinagem publicada, e valores de tela que eram texto fixo em vez de medição.
 
 ### Corrigido — defeitos críticos
 
 #### 1. Excitação das pontas era impossível no ESP32
 
-`measurements.cpp` e `multimeter.cpp` chamavam `pinMode(GPIO35, OUTPUT)` e `pinMode(GPIO34, OUTPUT)` para carregar o capacitor e polarizar o divisor de resistência. **GPIO34 a 39 do ESP32 são entrada apenas** — não têm driver de saída nem resistor de pull interno. As chamadas não tinham efeito algum.
+`measurements.cpp` e `multimeter.cpp` chamavam `pinMode(GPIO35, OUTPUT)` para carregar o capacitor e polarizar o divisor. **GPIO34 a 39 do ESP32 são entrada apenas** — não têm driver de saída nem resistor de pull interno. As chamadas não tinham efeito algum.
 
-Consequência: a "capacitância" medida era o tempo que o ADC levava para ler, e a resistência dependia de o pino estar flutuando.
+A "capacitância" medida era o tempo que o ADC levava para ler, e a resistência dependia de o pino estar flutuando.
 
-Correção: novo pino de excitação (`PIN_PROBE_DRIVE`, GPIO27) alimentando as pontas através de um resistor de referência de 10 kΩ, mais um segundo caminho de 470 Ω (GPIO22) para a faixa de baixa impedância. `pins.h` agora tem `static_assert` que falha o build se alguém reintroduzir uma pinagem impossível.
+**Correção:** pino de excitação (GPIO27) alimentando as pontas por um resistor de referência de 10 kΩ, mais um caminho de 470 Ω (GPIO22) para a faixa baixa. `pins.h` ganhou `static_assert` que falha o build se alguém reintroduzir pinagem impossível.
 
 #### 2. A proteção elétrica nunca disparava
 
-`safety_detect_danger()` calculava:
-
 ```c
-voltage = (adc - 2048) * ZMPT_SCALE_FACTOR / 2048;   // ZMPT_SCALE_FACTOR = 1.0
+voltage = (adc - 2048) * ZMPT_SCALE_FACTOR / 2048;   // = 1.0
 ```
 
-O resultado é um número entre 0 e 1. Esse valor era comparado com limiares de 50 V, 180 V e 250 V. Como 1,0 nunca chega a 50, `safety_check_voltage()` **sempre** devolvia "seguro" e o bloqueio automático jamais era acionado.
+O resultado é um número entre 0 e 1, comparado com limiares de 50 V, 180 V e 250 V. Como 1,0 nunca chega a 50, `safety_check_voltage()` **sempre** devolvia "seguro" e o bloqueio automático jamais era acionado.
 
-Havia um segundo defeito no mesmo caminho: em `safety_check_voltage()` o primeiro ramo capturava tudo acima de 50 V como CRÍTICO, tornando os ramos de 220 V e 127 V inalcançáveis.
-
-Correção: a detecção usa o motor True RMS calibrado do multímetro, que devolve volts reais, e os limiares são testados do maior para o menor.
+Havia um segundo defeito no mesmo caminho: o primeiro ramo capturava tudo acima de 50 V como CRÍTICO, tornando os ramos de 220 V e 127 V inalcançáveis.
 
 #### 3. Faixa DC padrão multiplicava por 181
 
-`multimeter_read_dc_voltage()` escolhia o fator de escala com `if/else if/else`, sem tratar `RANGE_AUTO` — que é justamente o valor inicial. A execução caía no `else`, aplicando o fator de 600 V (`600/3.3 = 181`). Uma pilha AA de 1,5 V era exibida como 272 V.
+`multimeter_read_dc_voltage()` escolhia o fator com `if/else if/else` sem tratar `RANGE_AUTO` — que é o valor inicial. Caía no `else`, aplicando o fator de 600 V. Uma pilha AA de 1,5 V era exibida como 272 V.
 
 #### 4. Metade dos subsistemas nunca era inicializada
 
-`setup()` chamava cinco funções de init. Nunca chamava:
-
 | Função | Consequência |
-| :--- | :--- |
-| `buzzer_init()` | canal LEDC nunca configurado — nenhum som saía da placa |
-| `buzzer_update()` | um tom iniciado nunca era desligado |
-| `leds_init()` | pinos dos LEDs nunca viravam saída |
-| `leds_update()` | padrões de pisca-pisca nunca avançavam |
+|:--|:--|
+| `buzzer_init()` | canal LEDC nunca configurado — nenhum som saía |
+| `buzzer_update()` | tom iniciado nunca era desligado |
+| `leds_init()` / `leds_update()` | pinos nunca viravam saída; padrões nunca avançavam |
 | `db_init()` | banco de componentes nunca carregado |
-| `calibration_init()` | offsets gravados na NVS nunca lidos — cada boot começava sem calibração |
-| `settings_load()` | preferências do usuário nunca restauradas |
-| `logger_write()` | **nada era gravado no cartão SD**, apesar de o manual prometer histórico automático |
+| `calibration_init()` | offsets nunca lidos — cada boot sem calibração |
+| `settings_load()` | preferências nunca restauradas |
+| `logger_write()` | **nada era gravado no cartão**, apesar do manual prometer histórico |
 
 #### 5. Valores falsos exibidos como medição
 
-A tela de instrumentos mostrava strings constantes onde o usuário lê números: `ESR: 0.12 Ohms`, `hFE: 245`, `Vbe: 642mV`, `Q: 4.2 @ 1kHz`, `Rdc: 0.8 Ohms`, `Ir: < 10nA`, `Vloss: 0.8%`. Nenhum desses valores era medido.
-
-Correção: todo valor vem do motor de análise. O que não pode ser medido aparece como `---` com o motivo ao lado.
+A tela mostrava strings constantes onde o usuário lê números: `ESR: 0.12 Ohms`, `hFE: 245`, `Vbe: 642mV`, `Q: 4.2 @ 1kHz`, `Rdc: 0.8 Ohms`, `Ir: < 10nA`, `Vloss: 0.8%`. Nenhum era medido.
 
 #### 6. `src/ui.cpp` estava corrompido no repositório
 
-O arquivo tinha 50.856 bytes **todos zerados** e nesse estado foi commitado (`3dc56b7`). Como `main.cpp` chama `ui_init()`, `ui_update()` e `ui_handle_touch()`, o projeto não linkava. Restaurado a partir de `36ad4f8`.
+50.856 bytes **todos zerados**, commitados assim (`3dc56b7`). O projeto não linkava. Restaurado de `36ad4f8`.
 
 #### 7. INA219 sem protocolo I²C
 
-`multimeter_read_dc_current()` chamava `Wire.requestFrom()` sem antes escrever o ponteiro de registrador, não aplicava as escalas do datasheet (4 mV/bit no barramento, 10 µV/bit no shunt) e reinicializava o I²C a cada leitura. Os números eram aleatórios.
-
-Correção: escrita do ponteiro seguida de *repeated start*, escalas corretas, registrador de calibração configurado uma vez no init, e leitura do shunt tratada como inteiro com sinal.
+Chamava `Wire.requestFrom()` sem escrever o ponteiro de registrador, não aplicava as escalas do datasheet (4 mV/bit no barramento, 10 µV/bit no shunt) e reinicializava o I²C a cada leitura. Os números eram aleatórios.
 
 #### 8. LEDs invertidos
 
-O LED RGB da CYD é de **ânodo comum**: nível baixo acende. O código escrevia `HIGH` para acender. Todos os indicadores operavam ao contrário.
+O LED RGB da CYD é de **ânodo comum**: nível baixo acende. O código escrevia `HIGH` para acender.
 
-### Corrigido — defeitos de robustez
+### Corrigido — robustez
 
-- **True RMS com zero fixo.** O offset do ZMPT era assumido em 2048; qualquer desvio do trimpot virava tensão fantasma. Agora o zero é a média das próprias amostras.
-- **Filtro compartilhado entre modos.** Um único buffer de média móvel atendia tensão, corrente e resistência. Trocar de modo contaminava a leitura nova por vários ciclos. Agora há um filtro independente por modo.
-- **Dois mapeamentos de toque divergentes.** `main.cpp` e `buttons.cpp` convertiam coordenadas com constantes e orientações diferentes; `safety.cpp` tinha um terceiro. Os botões das telas de segurança ficavam espelhados. Agora existe uma única conversão, em `hal_touch_read()`.
-- **`db_init()` não fazia parse.** Contava linhas do CSV e incrementava um contador; o array de componentes ficava vazio. Além disso, `DB_FILE_CSV` apontava para `/database.csv` enquanto o arquivo real é `COMPBD.CSV`.
-- **Log sem rotação.** O CSV crescia sem limite até encher o cartão, e a gravação passava a falhar em silêncio. Agora rotaciona em 256 KB.
-- **`logger_get_recent()` fragmentava o heap** alocando um objeto `String` por linha, e deslocava o array inteiro a cada registro lido.
-- **`measurements_discharge_capacitor()` travava a tarefa** com onze `delay(100)` seguidos, e reportava progresso simulado em vez do real.
-- **`safety_update()` redesenhava a tela de bloqueio** a cada 100 ms a partir da tarefa de medição, disputando o barramento SPI com a interface.
-- **`safety_alert_led_flash()` bloqueava a tarefa** por 200 ms a cada chamada.
-- **`draw_safety_alert_screen()` nunca era chamada.** A tela de alerta de alta tensão existia desde a v3.1 e jamais aparecia.
-- **Botão CALIBRAR não calibrava.** Copiava a última leitura para os offsets, gravando como "erro das pontas" o valor do componente que estivesse conectado.
-- **Sequência de boot fingia.** Mostrava "Montando SD Card..." com um `delay(400)` e seguia adiante sem montar nada.
-- **DS18B20 bloqueava 800 ms** por leitura, dentro da tarefa de medição.
-- **Leitura térmica falhava com LED aceso.** O OneWire divide o GPIO4 com o LED vermelho; um LED aceso mantém o pino alto e o sensor "sumia" justamente durante um alerta.
-- **Macros duplicadas com valores diferentes.** `ZMPT_NUM_SAMPLES` valia 50 em `pins.h` e 128 em `config.h`; toda a paleta `THEME_*` estava definida em `theme.h` e `visual.h` com cores diferentes. Qual valor prevalecia dependia da ordem dos includes — e a flag `-w` escondia o aviso.
-- **`task_manager.cpp`** (686 linhas) implementava um sistema completo de cinco tarefas e filas que `main.cpp` nunca usava. Removido.
-- **Calibração sem validação.** Offsets absurdos eram gravados e passavam a estragar todas as medições seguintes. O campo `checksum` existia mas era sempre zero.
+- **True RMS com zero fixo** em 2048; qualquer desvio do trimpot virava tensão fantasma. Agora o zero é a média das próprias amostras
+- **Filtro compartilhado entre modos**: trocar de modo contaminava a leitura por vários ciclos. Agora há um filtro por modo
+- **Três mapeamentos de toque divergentes** em `main.cpp`, `buttons.cpp` e `safety.cpp`. Os botões das telas de segurança ficavam espelhados
+- **`db_init()` não fazia parse** — contava linhas. E `DB_FILE_CSV` apontava para `/database.csv` enquanto o arquivo é `COMPBD.CSV`
+- **Log sem rotação**: crescia até encher o cartão e falhar em silêncio
+- **`logger_get_recent()` fragmentava o heap** alocando uma `String` por linha
+- **`measurements_discharge_capacitor()` travava a tarefa** com onze `delay(100)` e reportava progresso simulado
+- **`safety_update()` redesenhava a tela de bloqueio** a cada 100 ms da tarefa de medição
+- **`draw_safety_alert_screen()` nunca era chamada** — existia desde a v3.1
+- **Botão CALIBRAR não calibrava**: copiava a última leitura para os offsets
+- **Sequência de boot fingia**: "Montando SD Card..." com `delay(400)` sem montar nada
+- **DS18B20 bloqueava 800 ms** por leitura, e falhava com o LED vermelho aceso (GPIO4 compartilhado)
+- **Macros duplicadas com valores diferentes**: `ZMPT_NUM_SAMPLES` valia 50 em `pins.h` e 128 em `config.h`; a paleta `THEME_*` estava em dois arquivos com cores diferentes. A flag `-w` escondia o aviso
+- **`task_manager.cpp`** — 686 linhas de código morto. Removido
 
 ### Adicionado
 
-#### Módulos novos
+Cinco módulos novos com **112 funções públicas**: `hal` (abstração de hardware e arbitragem de pinos), `analysis` (motor de medição), `diagnostics` (autoteste e NVS), `uiwidgets` (componentes visuais) e o catálogo de **53 componentes reais** em flash.
 
-| Arquivo | Papel |
-| :--- | :--- |
-| `hal.h` / `hal.cpp` | Abstração de hardware: compatibilidade LEDC entre core 2.x e 3.x, arbitragem dos pinos compartilhados, ADC com sobreamostragem e correção de não linearidade, conversão única do toque |
-| `analysis.h` / `analysis.cpp` | Motor de medição e identificação de componentes |
-| `diagnostics.h` / `diagnostics.cpp` | Autoteste, saúde do sistema, estatísticas, persistência na NVS |
-| `uiwidgets.h` / `uiwidgets.cpp` | Notificações, gráficos, medidores, diálogos, teclado, listas |
-
-São **112 funções públicas novas** nos cinco módulos.
-
-#### Medição e análise
-
-ESR de capacitor · hFE de transistor com detecção de tipo · tensão direta de diodo e LED · detecção de MOSFET pela retenção de carga no gate · indutância pela constante de tempo L/R · corrente de fuga · resistência interna de bateria · frequência e ciclo de trabalho · tensão pico a pico · teste de continuidade, curto, aberto e fusível · identificação automática completa.
-
-#### Engenharia aplicada
-
-Código de cores de resistor de quatro faixas desenhado na tela · conversão inversa (cores para valor) · valor comercial mais próximo nas séries E6, E12 e E24 · desvio percentual · tolerância sugerida · notação de engenharia com prefixo SI.
-
-#### Banco de dados
-
-Catálogo de **50 componentes reais** em flash, com parâmetros de datasheet, sempre disponível mesmo sem cartão. Parse real do `COMPBD.CSV` por varredura sob demanda: os 5.726 registros ficam consultáveis **sem custo de RAM**. Busca por código de peça, por valor e sugestão de equivalentes.
-
-#### Interface
-
-Notificações que somem sozinhas · gráfico em tempo real com auto-escala · acumulador hold/min/max/média · barra de progresso · medidor de barras com zonas · medidor de arco · diálogo de confirmação · tela de erro que explica a causa e o que fazer · teclado na tela · listas com rolagem e barra lateral · cartões de valor com fonte adaptativa · spinner.
-
-#### Sistema
-
-Autoteste de 10 subsistemas alimentando a barra de boot real · monitor de heap e de pilha das tarefas · temperatura do chip · watchdog · log rotativo · exportação de relatório em texto para o cartão · estatísticas de uso · persistência de configurações com número mágico e versão de formato.
+ESR · hFE · Vf · detecção de MOSFET · indutância · fuga · resistência interna de bateria · frequência · duty · código de cores · séries E6/E12/E24 · notação de engenharia · autoteste de 10 subsistemas · monitor de heap e pilha · watchdog · log rotativo · estatísticas de uso.
 
 ### Alterado
 
-- **`-w` removido do build.** O projeto compila limpo com `-Wall -Wextra`, nas duas revisões de hardware.
-- **Versões fixadas.** `platform = espressif32 @ 6.5.0` e bibliotecas com versão explícita, para o build ser reproduzível.
-- **Ambiente `cyd-revb`** para quem montar a fiação sem pinos compartilhados.
-- **Dependência do Adafruit INA219 removida** — o firmware fala I²C direto.
-- **Fontes da TFT_eSPI reduzidas** ao que o projeto usa, economizando flash.
-- **Pilha da tarefa de interface** aumentada de 4 KB para 6 KB.
-- **`ZMPT_SAMPLE_RATE_US`** de 500 µs para 200 µs e **`ZMPT_NUM_SAMPLES`** para 256: quatro ciclos completos de 60 Hz por leitura.
-- **`.gitignore`** cobrindo artefatos de build. Removidos do repositório 19 arquivos `build_*.txt`, um `compile_commands.json` de 1,4 MB e um `src/platformio.ini` órfão.
-
-### Removido
-
-- `src/task_manager.cpp` e `src/task_manager.h` — 686 linhas de código morto
-- Constantes duplicadas em `multimeter.h`, `pins.h` e `theme.h`
-- `temprature_sens_read()` — função interna sem calibração, convertida com fórmula errada
-- Afirmação de que o cartão SD compartilha barramento com a TFT (não compartilha: tem pinos próprios)
-- Menção a "ESP32-S3" na tela de informações de uma placa com ESP32 clássico
+- **`-w` removido do build.** Compila limpo com `-Wall -Wextra`
+- **Versões fixadas** para build reproduzível
+- **Harness de verificação no host** (`tools/hostcheck/`)
+- Removidos 19 arquivos `build_*.txt` e um `compile_commands.json` de 1,4 MB
 
 ---
 
 ## [3.2.0] — Abril de 2026
 
-### Adicionado
-- Motor True RMS com 128 amostras e detecção de tensão de pico
-- Sistema de segurança multinível com bloqueio por software
-- Detecção de surtos e transientes
-- Tela de confirmação de hardware de proteção
-- Auditoria de materiais (BOM)
-- Exportação CSV
+Motor True RMS, sistema de segurança multinível, detecção de surtos, tela de confirmação de hardware de proteção.
 
-### Alterado
-- Buffer de 128 amostras (potência de 2)
-- Layout do multímetro exibindo RMS, pico e status
-- Requisitos obrigatórios de proteção: fusível 5 A, varistor 14D431, TVS P6KE400A
-
-> **Nota da v4.0:** vários itens acima estavam implementados mas não operavam. O motor True RMS existia; a detecção de segurança que dependia dele comparava um número normalizado com limiares em volts. Veja a seção 2 da v4.0.
+> **Nota da v4.0:** vários itens acima estavam implementados mas não operavam. O motor True RMS existia; a detecção de segurança que dependia dele comparava um número normalizado com limiares em volts.
 
 ---
 
 ## [3.0.0] — Abril de 2026
 
-Porte para a placa ESP32-2432S028R (Cheap Yellow Display), migração do display para TFT_eSPI e do armazenamento para SdFat.
+Porte para a ESP32-2432S028R, migração do display para TFT_eSPI e do armazenamento para SdFat.

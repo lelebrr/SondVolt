@@ -829,7 +829,104 @@ void widget_resistor_bands(int16_t x, int16_t y, int16_t w, int16_t h,
 }
 
 // ============================================================================
-// 10. CABECALHOS E CARTOES
+// 10. RENDERIZACAO SEM FLICKER
+// ============================================================================
+
+static TFT_eSprite* gSprite      = nullptr;
+static bool         gSpriteReady = false;
+
+// Dimensoes da faixa do numero principal.
+static const int16_t kSpriteW = 225;
+static const int16_t kSpriteH = 48;
+
+bool widget_sprite_begin() {
+    if (gSpriteReady) return true;
+
+    // Nao tenta alocar se a folga de heap for pequena: ficar sem memoria em
+    // outro lugar e pior que ter um pouco de flicker.
+    if (ESP.getFreeHeap() < 80000) {
+        LOG_SERIAL_F("[UI] Heap baixo: sprite desativado, desenho direto");
+        return false;
+    }
+
+    gSprite = new TFT_eSprite(&tft);
+    if (!gSprite) return false;
+
+    gSprite->setColorDepth(16);
+    if (gSprite->createSprite(kSpriteW, kSpriteH) == nullptr) {
+        delete gSprite;
+        gSprite = nullptr;
+        LOG_SERIAL_F("[UI] Falha ao criar o sprite, desenho direto");
+        return false;
+    }
+
+    gSpriteReady = true;
+    LOG_SERIAL_FMT("[UI] Sprite de %dx%d ativo (%lu bytes)\n",
+                   (int)kSpriteW, (int)kSpriteH,
+                   (unsigned long)(kSpriteW * kSpriteH * 2));
+    return true;
+}
+
+void widget_sprite_end() {
+    if (gSprite) {
+        gSprite->deleteSprite();
+        delete gSprite;
+        gSprite = nullptr;
+    }
+    gSpriteReady = false;
+}
+
+bool widget_sprite_ready() { return gSpriteReady; }
+
+void widget_value_sprite(int16_t x, int16_t y, int16_t w, int16_t h,
+                         const char* value, const char* unit,
+                         uint16_t color, uint16_t background) {
+    const char* v = value ? value : "---";
+
+    // Maior fonte que ainda cabe na largura disponivel.
+    uint8_t size = 5;
+    while (size > 1 && (int16_t)(strlen(v) * 6 * size) > (w - 16)) size--;
+
+    int16_t textW = (int16_t)(strlen(v) * 6 * size);
+
+    if (!gSpriteReady || w > kSpriteW || h > kSpriteH) {
+        // Caminho direto: sem sprite, mas o resultado e o mesmo desenho.
+        LOCK_TFT();
+        tft.fillRect(x, y, w, h, background);
+        draw_text_5x7(tft, x + (w - textW) / 2, y + (h - 8 * size) / 2,
+                      v, color, size);
+        if (unit && unit[0]) {
+            draw_text_5x7(tft, x + w - (int16_t)strlen(unit) * 6 - 4,
+                          y + h - 10, unit, V_TEXT_SUB, 1);
+        }
+        UNLOCK_TFT();
+        return;
+    }
+
+    // Monta o quadro inteiro em RAM e envia de uma vez: a tela nunca fica
+    // com o estado intermediario visivel.
+    gSprite->fillSprite(background);
+
+    int16_t tx = (w - textW) / 2;
+    int16_t ty = (h - 8 * size) / 2;
+
+    // Sombra de um pixel melhora a legibilidade sob luz de bancada.
+    draw_text_5x7(*gSprite, tx + 1, ty + 1, v,
+                  color_mix(background, color, 210), size);
+    draw_text_5x7(*gSprite, tx, ty, v, color, size);
+
+    if (unit && unit[0]) {
+        draw_text_5x7(*gSprite, w - (int16_t)strlen(unit) * 6 - 4,
+                      h - 10, unit, V_TEXT_SUB, 1);
+    }
+
+    LOCK_TFT();
+    gSprite->pushSprite(x, y);
+    UNLOCK_TFT();
+}
+
+// ============================================================================
+// 11. CABECALHOS E CARTOES
 // ============================================================================
 
 void widget_value_card(int16_t x, int16_t y, int16_t w, int16_t h,

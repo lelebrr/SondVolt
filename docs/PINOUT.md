@@ -136,6 +136,63 @@ Quatro pinos têm dois donos na fiação original. O firmware resolve todos em s
 
 ---
 
+## As três revisões
+
+```mermaid
+flowchart LR
+    A["<b>Rev A</b><br/>fiação original"] --> B["<b>Rev B</b><br/>OneWire e descarga<br/>em pinos próprios"]
+    B --> C["<b>Rev C</b><br/>+ expansor PCF8574<br/>+ boost 12V<br/>+ atenuador<br/>+ acoplamento AC"]
+
+    style A fill:#1f2937,stroke:#6b7280,color:#e5e7eb
+    style B fill:#164e63,stroke:#22d3ee,color:#e5e7eb
+    style C fill:#14532d,stroke:#4ade80,color:#e5e7eb
+```
+
+| | Rev A | Rev B | Rev C |
+|:--|:--|:--|:--|
+| OneWire | GPIO4 *(com LED)* | GPIO32 | GPIO32 |
+| Descarga | GPIO17 *(com LED)* | GPIO16 | GPIO16 |
+| Expansor I²C | — | — | PCF8574 0x20 |
+| Osciloscópio | 1x apenas | 1x apenas | 1x e 10x |
+| Zener | até 3,3 V | até 3,3 V | até 11 V |
+| Ripple | — | — | sim |
+| Câmera térmica | — | — | MLX90640 |
+| Compilar com | `-e cyd` | `-e cyd-revb` | `-e cyd-revc` |
+
+Um firmware da Rev C **roda nas outras duas**: o que não encontra hardware se desativa sozinho.
+
+---
+
+## O expansor de linhas (Rev C)
+
+> [!IMPORTANT]
+> **A CYD não tem nenhum GPIO livre.** Depois de display, touch, cartão, ADCs, LEDs, buzzer e I²C, os 24 pinos utilizáveis do ESP32-WROOM acabaram. Qualquer recurso novo precisa entrar pelo I²C.
+
+O **PCF8574** em 0x20 dá 8 linhas de controle sem gastar pino:
+
+| Linha | Função | Aciona |
+|:--|:--|:--|
+| P0 | Habilita a fonte de 12 V | EN do MT3608 |
+| P1 | Insere o acoplamento AC | JFET ou relé |
+| P2 | Conecta a saída do gerador | 2N7000 |
+| P3 | Atenuador 1x / 10x | relé de sinal |
+| P4 | Insere o shunt do traçador | 2N7000 |
+| P5 | Isola as pontas | relé |
+| P6, P7 | Reserva | — |
+
+> As saídas são **dreno aberto** com pull-up fraco. Acionam transistor, nunca carga direta.
+
+### Endereços I²C ocupados
+
+| Endereço | Dispositivo | Obrigatório? |
+|:--|:--|:--|
+| 0x20 | PCF8574 (expansor) | Rev C |
+| 0x33 | MLX90640 (câmera térmica) | opcional |
+| 0x40 | INA219 (corrente) | opcional |
+| 0x68 | DS3231 (RTC) | opcional, reservado |
+
+---
+
 ## Rev B — fiação recomendada para montagens novas
 
 Se você está montando do zero, não reproduza os conflitos. A Rev B move dois sinais para pinos livres:
@@ -147,10 +204,11 @@ Se você está montando do zero, não reproduza os conflitos. A Rev B move dois 
 
 Os conflitos de GPIO27/22 (I²C vs excitação) e GPIO36 (ZMPT vs IRQ) permanecem, porque são limitação dos conectores de expansão da própria CYD — mas ambos são inofensivos com a arbitragem em software.
 
-Para compilar na Rev B:
+Para compilar:
 
 ```bash
-pio run -t upload -e cyd-revb
+pio run -t upload -e cyd-revb    # Rev B
+pio run -t upload -e cyd-revc    # Rev C, com a placa Bancada
 ```
 
 Ou defina `-DSONDVOLT_HW_REV=1` nas suas próprias `build_flags`. O `pins.h` seleciona os pinos automaticamente:

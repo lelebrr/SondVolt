@@ -1,6 +1,19 @@
 # Guia do desenvolvedor
 
-Arquitetura do firmware Sondvolt v4.0, para quem vai mexer no código.
+Arquitetura do firmware Sondvolt v5.0, para quem vai mexer no código.
+
+---
+
+## A restrição que define o projeto
+
+> **A CYD não tem nenhum GPIO livre.** Os 24 pinos utilizáveis do ESP32-WROOM estão todos ocupados.
+
+Antes de propor um recurso que precise de um pino, confirme que ele cabe num dos dois caminhos:
+
+1. **Barramento I²C** — via expansor PCF8574 (8 linhas) ou um chip próprio
+2. **Compartilhamento com arbitragem** — `hal_bus_acquire()` / `hal_bus_release()`
+
+Não existe terceira opção nesta placa.
 
 ---
 
@@ -8,20 +21,30 @@ Arquitetura do firmware Sondvolt v4.0, para quem vai mexer no código.
 
 O projeto tem quatro camadas. A regra é que cada uma só conheça a de baixo.
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  APRESENTAÇÃO   ui.cpp · menu.cpp · uiwidgets.cpp        │
-│                 graphics.cpp · splash.cpp · help.cpp     │
-├──────────────────────────────────────────────────────────┤
-│  DOMÍNIO        analysis.cpp · multimeter.cpp            │
-│                 measurements.cpp · safety.cpp            │
-│                 database.cpp · calibration.cpp           │
-├──────────────────────────────────────────────────────────┤
-│  SERVIÇOS       logger.cpp · diagnostics.cpp             │
-│                 thermal.cpp · buzzer.cpp · leds.cpp      │
-├──────────────────────────────────────────────────────────┤
-│  HAL            hal.cpp · pins.h · display_globals.cpp   │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph AP["APRESENTAÇÃO"]
+        ui[ui.cpp] --- menu[menu.cpp] --- scr[screens.cpp]
+        wid[uiwidgets.cpp] --- gfx[graphics.cpp] --- help[help.cpp]
+    end
+    subgraph DO["DOMÍNIO"]
+        ana[analysis.cpp] --- mul[multimeter.cpp] --- sco[scope.cpp]
+        saf[safety.cpp] --- db[database.cpp] --- job[jobs.cpp] --- sor[sorting.cpp]
+    end
+    subgraph SE["SERVIÇOS"]
+        log[logger.cpp] --- dia[diagnostics.cpp] --- net[netsvc.cpp]
+        the[thermal.cpp] --- tca[thermalcam.cpp] --- buz[buzzer.cpp] --- led[leds.cpp]
+    end
+    subgraph HW["HAL"]
+        hal[hal.cpp] --- pin[pins.h] --- exp[expander.cpp] --- dg[display_globals.cpp]
+    end
+
+    AP --> DO --> SE --> HW
+
+    style AP fill:#1e1b4b,stroke:#818cf8,color:#e5e7eb
+    style DO fill:#164e63,stroke:#22d3ee,color:#e5e7eb
+    style SE fill:#14532d,stroke:#4ade80,color:#e5e7eb
+    style HW fill:#422006,stroke:#fbbf24,color:#e5e7eb
 ```
 
 Nenhum arquivo acima da HAL deve chamar `analogRead()`, `ledcWrite()` ou `digitalWrite()` diretamente em pino compartilhado. Se você precisar disso, a função pertence à HAL.
@@ -54,13 +77,26 @@ Sempre trate o `false`. Um timeout significa que outro subsistema está usando o
 
 ## As duas tarefas
 
-```
-TaskUI          prio 2 · período 20 ms · pilha 6 KB
-                toque → ui_handle_touch() → ui_update() → toast → buzzer/LEDs
+```mermaid
+sequenceDiagram
+    participant U as TaskUI<br/>núcleo 1 · prio 2 · 20 ms
+    participant H as Mutex do display
+    participant M as TaskMeasurement<br/>núcleo 0 · prio 1 · 100 ms
 
-TaskMeasurement prio 1 · período 100 ms · pilha 4 KB
-                safety_update() → medição conforme o estado → diag → NVS
+    U->>U: hal_touch_read()
+    U->>H: LOCK
+    U->>U: ui_update() · toast
+    U->>H: UNLOCK
+    U->>U: buzzer_update() · leds_update()
+
+    M->>M: safety_update()
+    M->>M: medição conforme o estado
+    M->>H: LOCK (só se tocar no cartão)
+    M->>H: UNLOCK
+    M->>M: diag · NVS · net_update()
 ```
+
+Desde a v5.0 as tarefas são fixadas nos núcleos com `xTaskCreatePinnedToCore`: o escalonador não as migra mais no meio de operação sensível a tempo.
 
 **Regra:** a tarefa de interface nunca faz medição lenta, e a tarefa de medição nunca desenha uma tela inteira.
 
@@ -100,6 +136,23 @@ Para adicionar uma tela:
 
 ---
 
+## Adicionando uma tela de instrumento
+
+Telas novas vão em `screens.cpp` e seguem um contrato de quatro funções:
+
+```c
+void screen_X_enter();                      // aloca o que precisar
+void screen_X_draw();                       // redesenha
+bool screen_X_touch(uint16_t x, uint16_t y); // true se consumiu o toque
+void screen_X_exit();                       // LIBERA O HARDWARE
+```
+
+**A função de saída não é opcional.** O osciloscópio monopoliza o ADC1 inteiro pelo I²S e o gerador segura o pino de excitação. Esquecer de liberar deixa o resto do aparelho sem conseguir medir nada.
+
+Depois, registre nos quatro `switch` do despacho no fim do arquivo e adicione o estado em `types.h` e o cartão em `menu.cpp`.
+
+---
+
 ## Adicionando uma medição
 
 Toda medição nova vai em `analysis.cpp`. O contrato é:
@@ -135,7 +188,7 @@ Depois exponha em `measurements.h` se a interface precisar, e adicione o caso em
 
 Duas fontes, propósitos diferentes:
 
-**Catálogo interno** (`kCatalog` em `database.cpp`) — 50 componentes reais em flash, sempre disponíveis. É o que alimenta `db_judge()`. Para adicionar:
+**Catálogo interno** (`kCatalog` em `database.cpp`) — 53 componentes reais em flash, sempre disponíveis. É o que alimenta `db_judge()`. Para adicionar:
 
 ```c
 { "BC547", COMP_TRANSISTOR_NPN, 300, 110, 800, 0.70f, "hFE", "E-B-C",
@@ -162,6 +215,8 @@ Os códigos de tipo estão no enum `DbCsvType`.
 | `sondvolt` | `DeviceSettings` + `UsageStats` | `diagnostics.cpp` |
 | `calib` | offsets das pontas | `calibration.cpp` |
 | `mmcal` | ganho do ZMPT, escala do INA219, divisor DC | `multimeter.cpp` |
+| `net` | SSID e senha do WiFi | `netsvc.cpp` |
+| `jobs` | trabalho ativo, para reabrir no boot | `jobs.cpp` |
 
 As configurações usam número mágico (`0x53564C54`) e versão de formato (`kSettingsVersion`). **Ao alterar o layout de `DeviceSettings`, incremente a versão** — assim uma gravação antiga é descartada em vez de lida errado.
 
@@ -204,6 +259,13 @@ Não é preciso ter a placa para validar sintaxe, tipos e símbolos. Um harness 
 
 | Preciso mexer em... | Arquivo |
 | :--- | :--- |
+| linhas de controle da placa Bancada | `expander.cpp` |
+| osciloscópio, curva, ripple, gerador, Zener | `scope.cpp` |
+| trabalhos por cliente | `jobs.cpp` |
+| pareamento de peças | `sorting.cpp` |
+| WiFi, página web, OTA, relógio | `netsvc.cpp` |
+| câmera térmica | `thermalcam.cpp` |
+| telas dos instrumentos novos | `screens.cpp` |
 | pinagem | `pins.h` |
 | constante de medição, cor, tempo | `config.h` |
 | algoritmo de medição | `analysis.cpp` |

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Dúvida de montagem
+    url: https://github.com/lelebrr/SondVolt/blob/main/docs/WIRING.md
+    about: O esquema de ligação cobre onde soldar cada peça
+  - name: Escolha de componentes
+    url: https://github.com/lelebrr/SondVolt/blob/main/BOM-Sondvolt.md
+    about: Cada peça tem 2 alternativas mais baratas e 2 melhores

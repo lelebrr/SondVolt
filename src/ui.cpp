@@ -24,6 +24,9 @@
 #include "diagnostics.h"
 #include "uiwidgets.h"
 #include "safety.h"
+#include "screens.h"
+#include "netsvc.h"
+#include "jobs.h"
 #include <Arduino.h>
 
 static AppState lastKnownState = STATE_SPLASH;
@@ -169,10 +172,20 @@ void ui_update() {
 
     // Detecta mudança de estado para redesenho total
     if (currentAppState != lastKnownState) {
+        // Libera o hardware da tela anterior ANTES de montar a proxima.
+        // O osciloscopio segura o ADC e o gerador segura o pino de
+        // excitacao: sair sem devolver deixa o resto do aparelho cego.
+        if (screens_handles((AppState)lastKnownState)) {
+            screens_exit((AppState)lastKnownState);
+        }
+        if (screens_handles((AppState)currentAppState)) {
+            screens_enter((AppState)currentAppState);
+        }
+
         LOCK_TFT();
         tft.fillScreen(V_BG_DARK);
         UNLOCK_TFT();
-        
+
         needsScreenRedraw = true;
         uiScrollY = 0;
         
@@ -202,6 +215,13 @@ void ui_update() {
         }
         
         lastKnownState = currentAppState;
+    }
+
+    // As telas da v5.0 desenham por conta propria, inclusive o cabecalho.
+    if (screens_handles((AppState)currentAppState)) {
+        screens_draw((AppState)currentAppState);
+        lastKnownState = currentAppState;
+        return;
     }
 
     // Atualização contínua da tela ativa
@@ -608,7 +628,23 @@ static void draw_status_bar() {
     draw_text_5x7(tft, 20, 231, sdCardPresent ? "SD" : "No-SD", sdCardPresent ? V_NEON_GREEN : V_ALERT, 1);
     
     // Firmware
-    draw_text_5x7(tft, 100, 231, "FIRMWARE V4.0", V_TEXT_SUB, 1);
+    // Versao e relogio vem do firmware, nao de texto fixo: assim nao ficam
+    // desatualizados numa proxima versao.
+    {
+        char status[40];
+        char clock[16];
+        net_format_time(clock, sizeof(clock));
+        snprintf(status, sizeof(status), "v%s  %s", FW_VERSION,
+                 net_time_valid() ? clock : "");
+        draw_text_5x7(tft, 96, 231, status, V_TEXT_SUB, 1);
+
+        // Trabalho ativo, quando houver: e o contexto de tudo que for medido.
+        if (jobs_has_active()) {
+            char job[24];
+            snprintf(job, sizeof(job), "[%.12s]", jobs_active_name());
+            draw_text_5x7(tft, 200, 231, job, V_NEON_GREEN, 1);
+        }
+    }
     
     // Bateria Ícone (Compacto)
     tft.drawRoundRect(290, 231, 18, 8, 1, V_PURE_WHITE);
@@ -791,6 +827,18 @@ bool ui_handle_touch(uint16_t x, uint16_t y) {
     if (!backlightOn) {
         backlight_on();
         return true; 
+    }
+
+    // Telas da v5.0: elas tratam a propria area util. O canto superior
+    // esquerdo continua sendo o botao de voltar em todas.
+    if (screens_handles((AppState)currentAppState)) {
+        if (x < 40 && y < 40) {
+            buzzer_click();
+            currentAppState = STATE_MENU;
+            return true;
+        }
+        if (screens_touch((AppState)currentAppState, x, y)) return true;
+        return false;
     }
 
     // Botão Voltar (Sempre disponível fora do menu principal)

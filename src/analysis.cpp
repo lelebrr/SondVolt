@@ -149,8 +149,14 @@ float analysis_measure_capacitance() {
         bool reached = false;
         const uint32_t timeoutUs = 3000000UL;   // 3 s
 
+        // O laco fica em espera ocupada para nao perder resolucao temporal nos
+        // capacitores pequenos, onde a carga leva poucas centenas de
+        // microssegundos. Passados 50 ms, porem, ja estamos medindo algo
+        // grande e o erro de um yield e desprezivel - entao cedemos o
+        // processador para nao matar de fome a tarefa ociosa nem o watchdog.
         while ((elapsed = micros() - t0) < timeoutUs) {
             if (hal_adc_read(PIN_ADC_PROBE1) >= rawTarget) { reached = true; break; }
+            if (elapsed > 50000UL) vTaskDelay(1);
         }
         drive_idle();
 
@@ -299,6 +305,7 @@ float analysis_measure_inductance() {
     bool decayed = false;
     while ((elapsed = micros() - t0) < 200000UL) {
         if (hal_adc_read(PIN_ADC_PROBE1) <= threshold) { decayed = true; break; }
+        if (elapsed > 20000UL) taskYIELD();
     }
     drive_idle();
     hal_bus_release(HAL_BUS_PROBE_DRIVE);
@@ -801,10 +808,14 @@ float analysis_measure_frequency(uint32_t timeoutMs) {
     uint32_t crossings = 0;
     bool above = (hal_adc_read(PIN_ADC_PROBE1) > midpoint);
 
+    // Amostragem continua durante a janela. taskYIELD() devolve o
+    // processador sem introduzir atraso mensuravel, ao contrario de
+    // vTaskDelay(1), que custaria um tick inteiro e falsearia a contagem.
     while ((millis() - start) < timeoutMs) {
         uint16_t v = hal_adc_read(PIN_ADC_PROBE1);
         if (above && v < (midpoint - hysteresis))      { above = false; crossings++; }
         else if (!above && v > (midpoint + hysteresis)) { above = true;  crossings++; }
+        taskYIELD();
     }
 
     uint32_t elapsed = millis() - start;
@@ -823,6 +834,7 @@ float analysis_measure_duty_cycle(uint32_t timeoutMs) {
     while ((millis() - start) < timeoutMs) {
         if (hal_adc_read(PIN_ADC_PROBE1) > midpoint) high++;
         total++;
+        taskYIELD();
     }
     if (total == 0) return 0.0f;
     return ((float)high / (float)total) * 100.0f;

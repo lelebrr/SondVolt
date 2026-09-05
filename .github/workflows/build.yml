@@ -1,0 +1,73 @@
+# ============================================================================
+# Verificação automática do Sondvolt
+# ============================================================================
+# Roda em dois níveis:
+#   1. hostcheck  - compila e LINKA tudo com stubs, nas três revisões.
+#                   Rápido (segundos) e pega a maioria dos erros.
+#   2. platformio - compila de verdade com o toolchain xtensa e reporta o
+#                   uso de flash e RAM. Mais lento, mas é a prova final.
+# ============================================================================
+
+name: build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  hostcheck:
+    name: Verificação no host (3 revisões)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar e linkar com stubs
+        run: bash tools/hostcheck/check.sh
+
+  firmware:
+    name: Firmware ${{ matrix.env }}
+    runs-on: ubuntu-latest
+    needs: hostcheck
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [cyd, cyd-revb, cyd-revc]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache do PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Instalar PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Compilar
+        run: pio run -e ${{ matrix.env }}
+
+      - name: Relatar tamanho do binário
+        run: |
+          echo "### Uso de memória — \`${{ matrix.env }}\`" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          pio run -e ${{ matrix.env }} 2>&1 | grep -E "RAM:|Flash:" >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Publicar binário
+        if: matrix.env == 'cyd-revc'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sondvolt-${{ matrix.env }}
+          path: .pio/build/${{ matrix.env }}/firmware.bin
+          retention-days: 14
